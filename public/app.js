@@ -44,12 +44,12 @@ async function adminFetch(url,opt={}){
 
 // ---- rules ----
 // 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
-const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05,side:'both'};
+const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05,side:'both',stopMode:'swing'};
 let rules = {...DEFAULTS, ...(store.get('smc-rules-v2')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=[`斐波 ≥ ${rules.fibMin}`, rules.needEma?`EMA${rules.emaLen} 順勢`:'不看 EMA', `吞沒 ${rules.lookback}H 內`, rules.entry==='close'?'吞沒收盤進場':'OB 邊緣進場',
-    `RR ≥ ${rules.minRR}`, rules.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter], {long:'只做多',short:'只做空'}[rules.side], `止損緩衝 ${rules.stopBuf}%`].filter(Boolean);
+    `RR ≥ ${rules.minRR}`, rules.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter], {long:'只做多',short:'只做空'}[rules.side], `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[rules.stopMode]} + ${rules.stopBuf}%`].filter(Boolean);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
 function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v2',rules); renderSum(); }
@@ -150,7 +150,7 @@ function renderDetail(){
     ob: r.entryOB? `${fp(r.entryOB.lo)} – ${fp(r.entryOB.hi)}` : (r.fib?'便宜區裡沒有未失效的 OB':'—'),
     engulf: r.engulf? `${new Date(r.ltf[r.engulf.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤 ${fp(r.ltf[r.engulf.idx].c)}` : (r.entryOB?'回到 OB 後還沒出現':'—'),
     ema: (()=>{ const i=r.engulf? r.engulf.idx : n-1, e=eAt(i); return e==null?'資料不足':`${r.engulf?'吞沒收盤':'現價'}在 EMA${rules.emaLen} ${r.ltf[i].c>e?'上方':'下方'}（${fp(e)}）`; })(),
-    rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）` : '—'
+    rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）・止損在${r.stopBasis||''}外` : '—'
   };
   const fl=[...(r.blocked?[`⛔ ${r.blocked}`]:[]), ...(r.flags||[]).map(f=>`⚠ ${f.t}`)];
   if(r.funding!=null && !(r.flags||[]).some(f=>f.k==='fund')) fl.push(`<span class="muted" style="font-weight:400">資金費率 ${(r.funding*100).toFixed(3)}%</span>`);
@@ -445,15 +445,15 @@ $('btForm').addEventListener('submit',async e=>{ e.preventDefault(); if(BT.runni
 });
 
 // ---- 自動找最佳參數：跑一批組合，前後兩段都要賺才算穩 ----
-const OPT_GRID={ stopBuf:[0.1,0.3,0.5], fibMin:[0.5,0.618], entry:['close','ob'], side:['both','long'], needEma:[true,false] };
-const optLabel=g=>[`止損緩衝 ${g.stopBuf}%`, `斐波 ${g.fibMin}`, g.entry==='close'?'吞沒收盤進場':'OB 邊緣進場', g.side==='long'?'只做多':g.side==='short'?'只做空':'多空都做', g.needEma?`EMA${g.emaLen}`:'不看 EMA'];
+const OPT_GRID={ stopMode:['swing','leg','ob'], fibMin:[0.5,0.618], entry:['close','ob'], side:['both','long'], needEma:[true,false] };
+const optLabel=g=>[`止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[g.stopMode]}`, `斐波 ${g.fibMin}`, g.entry==='close'?'吞沒收盤進場':'OB 邊緣進場', g.side==='long'?'只做多':g.side==='short'?'只做空':'多空都做', g.needEma?`EMA${g.emaLen}`:'不看 EMA'];
 $('btOpt').onclick=async()=>{ if(BT.running) return; btLock(true,'opt');
   const days=+$('btDays').value, n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
   try{
     const {data, syms, failed}=await btLoad(days,n,0.25);
     const base={...rules}, combos=[];
-    for(const sb of OPT_GRID.stopBuf) for(const fm of OPT_GRID.fibMin) for(const en of OPT_GRID.entry) for(const sd of OPT_GRID.side) for(const em of OPT_GRID.needEma)
-      combos.push({...base, stopBuf:sb, fibMin:fm, entry:en, side:sd, needEma:em});
+    for(const sm of OPT_GRID.stopMode) for(const fm of OPT_GRID.fibMin) for(const en of OPT_GRID.entry) for(const sd of OPT_GRID.side) for(const em of OPT_GRID.needEma)
+      combos.push({...base, stopMode:sm, fibMin:fm, entry:en, side:sd, needEma:em});
     const span=btSpan(data), mid=(span[0]+span[1])/2, out=[];
     for(let k=0;k<combos.length;k++){
       btProgress(0.25+k/combos.length*0.75, `測試第 ${k+1}/${combos.length} 組：${optLabel(combos[k]).join('、')}`); await new Promise(r=>setTimeout(r));
@@ -482,7 +482,7 @@ function renderOpt(){
   $('btOut').innerHTML=`<div><h3>參數排行（${O.out.length} 組・${O.syms.length} 個幣・最近 ${O.days} 天）</h3>
     <p class="hint">「穩」= 前半段和後半段都賺錢、而且至少 30 筆已結算。只在某一段賺的組合，多半是剛好貼合那段行情，實盤容易失效。排序：先看穩不穩，再看累計 R。${nStable?'':'<br><b>這次沒有任何一組是穩的</b>：代表目前的策略在這段期間不夠可靠，建議換更長期間（180 天）再試，或回頭調整進場條件。'}</p>
     <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
-    <p class="hint">其他參數沿用目前設定（逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
+    <p class="hint">其他參數沿用目前設定（逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、止損緩衝 ${rules.stopBuf}%、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
   $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
     rules={...DEFAULTS,...g}; store.set('smc-rules-v2',rules); syncForm(); scan();
     showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
@@ -508,7 +508,7 @@ function renderBT(){
   const tile=(l,v,c='')=>`<div class="tile"><div class="label">${l}</div><div class="n ${c}">${v}</div></div>`;
   const tbl=(t,a,sort)=>{ a.sort(sort||((x,y)=>y.n-x.n)); return `<div><h3>${t}</h3>${a.length?`<table class="mtable"><thead><tr><th></th><th class="num">筆數</th><th class="num">勝率</th><th class="num">累計 R</th></tr></thead><tbody>${a.map(x=>`<tr><td>${esc(x.g)}</td><td class="num">${x.n}</td><td class="num">${pct(x.winRate)}</td><td class="num" style="color:var(${x.R>0?'--long':x.R<0?'--short':'--muted'})">${f2(x.R)}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">沒有已結算的訊號</p>'}</div>`; };
   const month=t=>new Date(t.t).toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,7);
-  const r=L.rules, cmp=[`斐波 ≥ ${r.fibMin}`, r.needEma?`EMA${r.emaLen}`:'不看 EMA', `吞沒 ${r.lookback}H 內`, r.entry==='close'?'吞沒收盤進場':'OB 邊緣進場', `RR ≥ ${r.minRR}`, r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 只標示',block:'逆 BTC 濾掉',off:'不管 BTC'}[r.btcFilter], `手續費 ${L.fee}%×2`];
+  const r=L.rules, cmp=[`止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[r.stopMode||'swing']} + ${r.stopBuf}%`, {long:'只做多',short:'只做空'}[r.side]||'多空都做', `斐波 ≥ ${r.fibMin}`, r.needEma?`EMA${r.emaLen}`:'不看 EMA', `吞沒 ${r.lookback}H 內`, r.entry==='close'?'吞沒收盤進場':'OB 邊緣進場', `RR ≥ ${r.minRR}`, r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 只標示',block:'逆 BTC 濾掉',off:'不管 BTC'}[r.btcFilter], `手續費 ${L.fee}%×2`];
   const ST={win:'✅ 目標',loss:'❌ 止損',missed:'錯過',expired:'過期',open:'持倉中',pending:'等待'};
   const rows=L.trades.slice().sort((a,b)=>b.t-a.t).slice(0,200).map(t=>`<tr><td class="num">${new Date(t.t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(t.sym)}</b>${t.againstBtc?' <span class="pill">逆BTC</span>':''}</td><td><span class="dir ${t.dir>0?'L':'S'}">${t.dir>0?'多':'空'}</span></td>
     <td class="num">${fp(t.entry)}</td><td class="num">${fp(t.stop)}</td><td class="num">${fp(t.target)}</td><td class="num">${t.rr.toFixed(2)}</td><td>${t.R!=null?`<span class="pill ${t.R>0?'win':'loss'}">${f2(t.R)}R</span>`:`<span class="pill">${ST[t.status]}</span>`}</td></tr>`).join('');

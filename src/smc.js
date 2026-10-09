@@ -154,6 +154,16 @@ const SMC = (() => {
       let dead=false; for(let i=eng+1;i<n;i++){ if(dir>0? ltf[i].c<stopRaw : ltf[i].c>stopRaw){dead=true;break;} }
       if(!dead){ st.engulf=true; res.engulf={idx:eng}; res.sigIdx=eng; st.ema=emaOk(eng); }
     }
+    // 止損位置：swing = OB 外面最近的 1H 波段高/低點（已確認的）；leg = 推動起點（斐波 1.0）；ob = OB / 吞沒 K 外側
+    const mode=s.stopMode||'swing';
+    if(mode==='swing'){
+      const pts=(dir>0? L.sw.lo : L.sw.hi).filter(p=>p.conf<n && (dir>0? p.price<=stopRaw : p.price>=stopRaw));
+      const near=pts.sort((x,y)=> dir>0? y.price-x.price : x.price-y.price)[0];
+      stopRaw = near? near.price : (dir>0? Math.min(stopRaw,lo) : Math.max(stopRaw,hi));
+    } else if(mode==='leg'){
+      stopRaw = dir>0? Math.min(stopRaw,lo) : Math.max(stopRaw,hi);
+    }
+    res.stopBasis={swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[mode];
     const entry = st.engulf && s.entry!=='ob' ? ltf[eng].c : (dir>0? ob.hi : ob.lo);
     const stop = dir>0? stopRaw*(1-s.stopBuf/100) : stopRaw*(1+s.stopBuf/100);
     const target = s.target==='htf' ? (dir>0? rHi : rLo) : (dir>0? hi : lo);

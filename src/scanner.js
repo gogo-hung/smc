@@ -7,7 +7,7 @@ const tracker = require('./tracker');
 const journal = require('./journal');
 
 // 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
-const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', fibMin: 0.5, needEma: true, emaLen: 50, lookback: 12, entry: 'close', minRR: 2, stopBuf: 0.1, target: 'swing', btcFilter: 'warn', fundingMax: 0.05, side: 'both' };
+const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', fibMin: 0.5, needEma: true, emaLen: 50, lookback: 12, entry: 'close', minRR: 2, stopBuf: 0.1, target: 'swing', btcFilter: 'warn', fundingMax: 0.05, side: 'both', stopMode: 'swing' };
 
 const state = {
   rules: { ...DEFAULT_RULES },
