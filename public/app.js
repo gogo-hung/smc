@@ -406,11 +406,11 @@ function renderEarn(){
   $('calFilters').hidden=true;
   const e=Cal.earn||{events:[],tickers:[]};
   if(DataSource.mode!=='live'){ $('calNext').textContent='財報日曆需要連上後端'; $('calBody').innerHTML='<div class="cal-empty">在你的 Render 網站上會顯示。</div>'; return; }
-  $('calNext').textContent = e.updatedAt ? `追蹤 ${e.tickers.length} 檔：${e.tickers.slice(0,12).join('、')}${e.tickers.length>12?'…':''}` : (e.error?'財報資料暫時抓不到，稍後會自動重試':'第一次抓取中…');
+  $('calNext').textContent = e.updatedAt ? `BingX 美股 ${e.tickers.length} 檔的財報；標「● 推播」的會提醒（在 Render 的 EARNINGS_TICKERS 設定）` : (e.error?'財報資料暫時抓不到，稍後會自動重試':'第一次抓取中…');
   if(!e.events.length){ $('calBody').innerHTML=`<div class="cal-empty">未來兩週追蹤的股票沒有財報。${e.error&&!e.updatedAt?'':'要加股票，在 Render 的 EARNINGS_TICKERS 加上代號。'}</div>`; return; }
   const tw=s=>s==='盤前'?'約台灣晚上 8–9 點半':s==='盤後'?'約台灣隔天凌晨 4–5 點':'時間未定';
   $('calBody').innerHTML=e.events.map(x=>`<div class="cal-row"><span class="tm">${x.date.slice(5).replace('-','/')}</span><span class="cc">${x.session}</span><span class="imp h"><i></i><i></i><i></i></span>
-    <span class="tt"><b>${esc(x.sym)}</b> ${esc(x.name)}<small>${tw(x.session)}${x.quarter?'｜'+esc(x.quarter):''}</small></span><span class="fv">EPS 預估 <b>${esc(x.eps)||'—'}</b></span><span class="fv"></span></div>`).join('');
+    <span class="tt"><b>${esc(x.sym)}</b> ${esc(x.name)}${x.alert?'<span class="bell" title="會推播到 Telegram">● 推播</span>':''}<small>${tw(x.session)}${x.quarter?'｜'+esc(x.quarter):''}</small></span><span class="fv">EPS 預估 <b>${esc(x.eps)||'—'}</b></span><span class="fv"></span></div>`).join('');
 }
 
 // ================= 貼文圖卡 =================

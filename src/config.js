@@ -43,7 +43,7 @@ module.exports = {
   CAL_COUNTRIES: list(process.env.CAL_COUNTRIES || 'USD'),          // 要提醒的國家，例：USD,CNY
   CAL_MIN_IMPACT: process.env.CAL_MIN_IMPACT || 'High',               // High / Medium / Low
   CAL_ALERT_LEADS: (process.env.CAL_ALERT_LEADS || '30,5').split(',').map(Number).filter(n => n > 0), // 公布前幾分鐘提醒
-  EARNINGS_TICKERS: list(process.env.EARNINGS_TICKERS || 'NVDA,TSLA,AAPL,MSFT,AMZN,META,GOOGL,COIN,MSTR'), // 要追蹤財報的美股
+  EARNINGS_TICKERS: list(process.env.EARNINGS_TICKERS || 'NVDA,TSLA,AAPL,MSFT,AMZN,META,GOOGL,COIN,MSTR'), // 財報會推播的美股（日曆另外顯示 BingX 全部美股）
   EXTRA_MAX: num(process.env.EXTRA_MAX, 20),                         // 搜尋加入的幣最多幾個
 
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',

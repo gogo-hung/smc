@@ -34,7 +34,7 @@ async function refresh() {
       ok++;
       for (const row of (j.data && j.data.rows) || []) {
         if (!want.has(row.symbol)) continue;
-        out.push({ id: `${row.symbol}|${date}`, sym: row.symbol, name: row.name, date, session: SESSION[row.time] || '時間未定', eps: row.epsForecast || '', quarter: row.fiscalQuarterEnding || '' });
+        out.push({ id: `${row.symbol}|${date}`, sym: row.symbol, alert: cfg.EARNINGS_TICKERS.includes(row.symbol), name: row.name, date, session: SESSION[row.time] || '時間未定', eps: row.epsForecast || '', quarter: row.fiscalQuarterEnding || '' });
       }
     } catch (e) { state.error = e.message; }
     await sleep(400);
@@ -50,7 +50,7 @@ async function checkAlerts(emit) {
   const today = nyDate(Date.now());
   let changed = false;
   for (const e of state.events) {
-    if (state.sent.includes(e.id)) continue;
+    if (!e.alert || state.sent.includes(e.id)) continue; // 只推 EARNINGS_TICKERS 裡的股票
     const due = (e.date === tomorrow && twHour >= 20) || e.date === today;
     if (!due) continue;
     state.sent.push(e.id); changed = true;
