@@ -44,15 +44,15 @@ async function adminFetch(url,opt={}){
 
 // ---- rules ----
 // 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
-const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05,side:'both',stopMode:'ob'};
-let rules = {...DEFAULTS, ...(store.get('smc-rules-v2')||{})};
+const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'block',fundingMax:0.05,side:'both',stopMode:'leg'};
+let rules = {...DEFAULTS, ...(store.get('smc-rules-v3')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=[`斐波 ≥ ${rules.fibMin}`, rules.needEma?`EMA${rules.emaLen} 順勢`:'不看 EMA', `吞沒 ${rules.lookback}H 內`, rules.entry==='close'?'吞沒收盤進場':'OB 邊緣進場',
     `RR ≥ ${rules.minRR}`, rules.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter], {long:'只做多',short:'只做空'}[rules.side], `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[rules.stopMode]} + ${rules.stopBuf}%`].filter(Boolean);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v2',rules); renderSum(); }
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v3',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
@@ -251,7 +251,7 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v2',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v3',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
@@ -484,7 +484,7 @@ function renderOpt(){
     <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
     <p class="hint">其他參數沿用目前設定（逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、止損緩衝 ${rules.stopBuf}%、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
   $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
-    rules={...DEFAULTS,...g}; store.set('smc-rules-v2',rules); syncForm(); scan();
+    rules={...DEFAULTS,...g}; store.set('smc-rules-v3',rules); syncForm(); scan();
     showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
     $('btForm').requestSubmit ? $('btForm').requestSubmit() : $('btForm').dispatchEvent(new Event('submit',{cancelable:true})); });
 }
