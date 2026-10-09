@@ -247,6 +247,9 @@ function renderCal(){
   if(!Cal.ok){ $('calNext').textContent= DataSource.mode==='live'?'暫時抓不到日曆，稍後會自動重試':'數據日曆需要連上後端，在你的 Render 網站上會顯示';
     $('calBody').innerHTML='<div class="cal-empty">沒有日曆資料。</div>'; renderCalWarn(); return; }
   const now=Date.now(), list=calView(), next=list.find(e=>e.ts>now);
+  const badge=$('calBadge'); badge.hidden=!next;
+  if(next){ const m=Math.round((next.ts-now)/60000); badge.textContent= m<60? `${m} 分` : m<1440? `${Math.floor(m/60)}h${String(m%60).padStart(2,'0')}` : `${Math.floor(m/1440)} 天`;
+    badge.classList.toggle('soon',m<60); $('calBtn').title=`下一個：${next.countryZh} ${next.titleZh}`; }
   $('calNext').innerHTML = next ? `下一個：<b>${next.countryZh} ${next.titleZh}</b> · ${calFmt(next.ts,{weekday:'short',hour:'2-digit',minute:'2-digit'})} · ${until(next.ts-now)}` : (Cal.error? '日曆更新失敗，顯示的是舊資料' : '這段期間沒有符合條件的數據');
   if(!list.length){ $('calBody').innerHTML='<div class="cal-empty">這週沒有符合篩選的數據。</div>'; renderCalWarn(); return; }
   let day='', html='';
@@ -261,6 +264,13 @@ function renderCal(){
   }
   $('calBody').innerHTML=html; renderCalWarn();
 }
+// ---- 上方按鈕開關面板（一次只開一個） ----
+const drawers={calBtn:'calPane',rulesBtn:'rulesPane'};
+function openDrawer(id){ for(const [bt,pn] of Object.entries(drawers)){ const on=pn===id && $(pn).hidden; $(pn).hidden=!on; $(bt).setAttribute('aria-expanded',on); } }
+for(const [bt,pn] of Object.entries(drawers)) $(bt).onclick=()=>openDrawer(pn);
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{ $(b.dataset.close).hidden=true; for(const [bt,pn] of Object.entries(drawers)) if(pn===b.dataset.close) $(bt).setAttribute('aria-expanded',false); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') for(const [bt,pn] of Object.entries(drawers)){ $(pn).hidden=true; $(bt).setAttribute('aria-expanded',false); } });
+
 // 下單前自檢：一小時內有美國高影響數據就提醒
 function renderCalWarn(){
   const now=Date.now(), e=Cal.events.find(x=>x.country==='USD' && x.rank>=3 && x.ts>now && x.ts-now<3600e3);

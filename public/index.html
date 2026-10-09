@@ -61,14 +61,8 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 .pane > h2{font-family:var(--f-display);font-size:15px;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
 
 /* rules: collapsible bar */
-.rules summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px}
-.rules summary::-webkit-details-marker{display:none}
-.rules summary .t{font-family:var(--f-display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
-.rules summary .t::before{content:"▸";color:var(--muted);font-size:12px;transition:transform .15s}
-.rules[open] summary .t::before{transform:rotate(90deg)}
-.rules summary .sum{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
-.rules summary .sum span{font-size:12px;color:var(--muted);background:var(--raise);border-radius:5px;padding:2px 8px}
-.rules summary .filters{margin-left:auto}
+.rules .sum{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.rules .sum span{font-size:12px;color:var(--muted);background:var(--raise);border-radius:5px;padding:2px 8px}
 .rules form{display:grid;gap:18px 24px;padding:14px 16px 18px;border-top:1px solid var(--line);grid-template-columns:repeat(4,minmax(0,1fr))}
 .rules .col{display:grid;gap:12px;align-content:start;min-width:0}
 @media (max-width:1000px){.rules form{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -107,15 +101,21 @@ td.num,th.num{text-align:right}
 .stages i.opt{opacity:.45}
 .empty{padding:28px 16px;color:var(--muted);text-align:center}
 
+/* drawers opened from header buttons */
+.drawer-hd{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px}
+.drawer-hd .t{font-family:var(--f-display);font-size:15px;font-weight:600}
+.drawer-hd .filters{margin-left:auto}
+.drawer-hd .x{border:0;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;padding:0 4px}
+.drawer-hd .x:hover{color:var(--fg)}
+.btn.tgl{display:inline-flex;align-items:center;gap:8px}
+.btn.tgl[aria-expanded="true"]{background:var(--raise);border-color:var(--fg)}
+.badge{font-family:var(--f-mono);font-size:11px;padding:1px 7px;border-radius:999px;background:var(--raise);color:var(--muted)}
+.badge.soon{background:var(--short);color:var(--bg)}
+@media (prefers-reduced-motion:no-preference){.drawer:not([hidden]){animation:drop .18s ease-out}@keyframes drop{from{transform:translateY(-6px);opacity:.3}}}
+
 /* economic calendar */
-.cal summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px}
-.cal summary::-webkit-details-marker{display:none}
-.cal summary .t{font-family:var(--f-display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
-.cal summary .t::before{content:"▸";color:var(--muted);font-size:12px;transition:transform .15s}
-.cal[open] summary .t::before{transform:rotate(90deg)}
-.cal summary .next{font-size:13px;min-width:0;flex:1}
-.cal summary .next b{color:var(--accent)}
-.cal summary .filters{margin-left:auto}
+.cal .next{font-size:13px;min-width:0;flex:1}
+.cal .next b{color:var(--accent)}
 .cal-body{border-top:1px solid var(--line);max-height:340px;overflow:auto}
 .cal-day{position:sticky;top:0;background:var(--raise);font-size:12px;font-weight:700;color:var(--muted);padding:5px 16px;letter-spacing:.04em}
 .cal-row{display:grid;grid-template-columns:52px 64px 34px minmax(0,1fr) 92px 92px;gap:10px;align-items:center;padding:7px 16px;border-bottom:1px solid var(--line);font-size:13px}
@@ -204,20 +204,15 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </div>
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
+      <button class="btn tgl" id="calBtn" type="button" aria-expanded="false" aria-controls="calPane">數據日曆<span class="badge" id="calBadge" hidden></span></button>
+      <button class="btn tgl" id="rulesBtn" type="button" aria-expanded="false" aria-controls="rulesPane">策略參數</button>
       <button class="btn primary" id="scanBtn" type="button">立即掃描</button>
     </div>
   </header>
 
-  <section class="summary" aria-label="掃描摘要">
-    <div class="stat t"><div class="label">觸發訊號</div><div class="n mono" id="nT">0</div></div>
-    <div class="stat w"><div class="label">觀察中（已到 POI）</div><div class="n mono" id="nW">0</div></div>
-    <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
-    <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
-  </section>
-
   <!-- ECONOMIC CALENDAR -->
-  <details class="pane cal" id="calPane" open>
-    <summary>
+  <section class="pane cal drawer" id="calPane" hidden aria-label="數據日曆">
+    <div class="drawer-hd">
       <span class="t">數據日曆</span>
       <span class="next" id="calNext">載入中…</span>
       <span class="filters" role="group" aria-label="日曆篩選">
@@ -226,17 +221,19 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <button class="seg" type="button" data-imp="3" aria-pressed="true">高影響</button>
         <button class="seg" type="button" data-imp="2" aria-pressed="false">中以上</button>
       </span>
-    </summary>
+      <button class="x" type="button" data-close="calPane" aria-label="關閉">×</button>
+    </div>
     <div class="cal-body" id="calBody"></div>
-  </details>
+  </section>
 
   <!-- STRATEGY RULES -->
-  <details class="pane rules">
-    <summary>
+  <section class="pane rules drawer" id="rulesPane" hidden aria-label="策略參數">
+    <div class="drawer-hd">
       <span class="t">策略參數</span>
       <span class="sum" id="ruleSum"></span>
       <span class="filters"><button class="seg" type="button" id="pushRules" hidden>套用到推播</button><button class="seg" type="button" id="resetRules">重設</button></span>
-    </summary>
+      <button class="x" type="button" data-close="rulesPane" aria-label="關閉">×</button>
+    </div>
     <form id="rules">
       <div class="col">
         <div class="group-t">結構</div>
@@ -270,7 +267,14 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <input type="number" id="stopBuf" min="0" max="2" step="0.05" value="0.1"><span class="hint">放在掃蕩影線或 OB 外側再加緩衝</span></div>
       </div>
     </form>
-  </details>
+  </section>
+
+  <section class="summary" aria-label="掃描摘要">
+    <div class="stat t"><div class="label">觸發訊號</div><div class="n mono" id="nT">0</div></div>
+    <div class="stat w"><div class="label">觀察中（已到 POI）</div><div class="n mono" id="nW">0</div></div>
+    <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
+    <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
+  </section>
 
   <div class="grid">
     <!-- SIGNAL BOARD -->
