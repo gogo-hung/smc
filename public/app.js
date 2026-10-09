@@ -40,8 +40,13 @@ async function adminFetch(url,opt={}){
 // ---- rules ----
 const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',needSweep:true,needChoch:true,needFvg:false,minRR:2,lookback:64,stopBuf:0.1,target:'ltf'};
 let rules = {...DEFAULTS, ...(store.get('smc-rules-v1')||{})};
-function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (parseFloat(el.value)||DEFAULTS[k]) : el.value); } store.set('smc-rules-v1',rules); }
+function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
+function renderSum(){
+  const t=[`swing ${rules.swingLen}/${rules.htfSwing}`, rules.breakBy==='close'?'收盤確認':'影線確認', {close:'OB 收盤失效',wick:'OB 影線失效',half:'OB 50% 失效'}[rules.obInvalid],
+    rules.needSweep&&'需掃蕩', rules.needChoch&&'需 CHoCH', rules.needFvg&&'需 FVG', `RR ≥ ${rules.minRR}`, rules.target==='ltf'?'目標 15M 流動性':'目標 H4 極值'].filter(Boolean);
+  $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
+}
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (parseFloat(el.value)||DEFAULTS[k]) : el.value); } store.set('smc-rules-v1',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='all', dirF=0, tf='ltf', prevTrig=null;
@@ -129,14 +134,20 @@ function draw(){
   let lo=Math.min(...bars.map(b=>b.l)), hi=Math.max(...bars.map(b=>b.h));
   [r.entry,r.stop,r.target].forEach(v=>{ if(v){lo=Math.min(lo,v);hi=Math.max(hi,v);} });
   const pad=(hi-lo)*0.06; lo-=pad; hi+=pad;
-  const R=66, T=10, B=18, cw=(W-R-8)/N;
+  const R=82, T=10, B=18, cw=(W-R-8)/N;
   const y=p=>T+(hi-p)/(hi-lo)*(H-T-B), x=i=>8+(i-off)*cw+cw/2;
   g.font='11px "JetBrains Mono",monospace'; g.textBaseline='middle';
   // grid
   g.strokeStyle=C('--line'); g.fillStyle=C('--muted'); g.lineWidth=1;
-  for(let k=0;k<=4;k++){ const p=lo+(hi-lo)*k/4, yy=Math.round(y(p))+.5; g.globalAlpha=.6; g.beginPath(); g.moveTo(8,yy); g.lineTo(W-R,yy); g.stroke(); g.globalAlpha=1; g.fillText(fp(p),W-R+6,yy); }
+  // level tags (entry/stop/target) placed first so grid labels can avoid them; nudged apart when close
+  const lv=[['進場',r.entry,C('--fg')],['止損',r.stop,C('--short')],['目標',r.target,C('--long')]].filter(v=>v[1]).map(v=>({n:v[0],p:v[1],col:v[2],y:y(v[1]),ty:y(v[1])})).sort((a,b)=>a.y-b.y);
+  for(let i=1;i<lv.length;i++) if(lv[i].ty-lv[i-1].ty<17) lv[i].ty=lv[i-1].ty+17;
+  const over=lv.length? lv[lv.length-1].ty-(H-B-8) : 0; if(over>0) lv.forEach(v=>v.ty-=over);
+  for(let k=0;k<=4;k++){ const p=lo+(hi-lo)*k/4, yy=Math.round(y(p))+.5; g.globalAlpha=.6; g.beginPath(); g.moveTo(8,yy); g.lineTo(W-R,yy); g.stroke(); g.globalAlpha=1;
+    if(!lv.some(v=>Math.abs(v.ty-yy)<14)) { g.fillStyle=C('--muted'); g.fillText(fp(p),W-R+6,yy); } }
   const box=(x1,p1,p2,col,a)=>{ g.globalAlpha=a; g.fillStyle=col; g.fillRect(x1,y(Math.max(p1,p2)),W-R-x1,Math.max(2,Math.abs(y(p1)-y(p2)))); g.globalAlpha=1; };
-  const tag=(t,xx,yy,col)=>{ g.fillStyle=col; g.font='600 11px "Noto Sans TC",sans-serif'; g.fillText(t,xx,yy); g.font='11px "JetBrains Mono",monospace'; };
+  const tag=(t,xx,yy,col)=>{ g.font='600 11px "Noto Sans TC",sans-serif'; const w=g.measureText(t).width; xx=Math.min(Math.max(xx,10),W-R-w-6);
+    g.globalAlpha=.85; g.fillStyle=C('--raise'); g.fillRect(xx-3,yy-8,w+6,16); g.globalAlpha=1; g.fillStyle=col; g.fillText(t,xx,yy); g.font='11px "JetBrains Mono",monospace'; };
   const dirCol = r.dir>0? C('--long') : C('--short');
   // POI
   if(r.poi){ const x1= tf==='htf'? Math.max(8,x(r.poi.idx)-cw/2) : 8; box(x1,r.poi.lo,r.poi.hi,C('--accent'),.16); tag('H4 POI',x1+4,y(r.poi.hi)+9,C('--accent')); }
@@ -154,9 +165,11 @@ function draw(){
   if(tf==='ltf' && r.sweep && r.sweep.idx>=off){ const xx=x(r.sweep.idx), yy=y(r.sweep.ext)+(r.dir>0?10:-10); g.fillStyle=C('--accent'); g.beginPath();
     if(r.dir>0){g.moveTo(xx,yy-5);g.lineTo(xx-5,yy+4);g.lineTo(xx+5,yy+4);} else {g.moveTo(xx,yy+5);g.lineTo(xx-5,yy-4);g.lineTo(xx+5,yy-4);} g.fill(); tag('掃蕩',xx+8,yy,C('--accent')); }
   // levels
-  [['進場',r.entry,C('--fg')],['止損',r.stop,C('--short')],['目標',r.target,C('--long')]].forEach(([n,v,col])=>{ if(!v) return; const yy=Math.round(y(v))+.5;
-    g.strokeStyle=col; g.setLineDash([6,4]); g.beginPath(); g.moveTo(8,yy); g.lineTo(W-R,yy); g.stroke(); g.setLineDash([]);
-    g.fillStyle=col; g.fillRect(W-R+2,yy-8,R-4,16); g.fillStyle=C('--bg'); g.font='600 10px "Noto Sans TC",sans-serif'; g.fillText(n,W-R+6,yy); g.font='11px "JetBrains Mono",monospace'; });
+  lv.forEach(v=>{ const yy=Math.round(v.y)+.5;
+    g.strokeStyle=v.col; g.setLineDash([6,4]); g.beginPath(); g.moveTo(8,yy); g.lineTo(W-R,yy); g.stroke(); g.setLineDash([]);
+    if(Math.abs(v.ty-v.y)>1){ g.beginPath(); g.moveTo(W-R,yy); g.lineTo(W-R+3,v.ty); g.stroke(); }
+    g.fillStyle=v.col; g.fillRect(W-R+3,v.ty-8,R-5,16); g.fillStyle=C('--bg'); g.font='600 10px "Noto Sans TC",sans-serif'; g.fillText(v.n,W-R+6,v.ty);
+    g.font='10px "JetBrains Mono",monospace'; g.fillText(fp(v.p),W-R+30,v.ty); g.font='11px "JetBrains Mono",monospace'; });
 }
 
 // ---- events ----
@@ -167,10 +180,10 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=()=>{ rules={...DEFAULTS}; store.set('smc-rules-v1',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v1',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
-$('pushRules').onclick=async()=>{ const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
+$('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
   showToast(r&&r.ok? 'Telegram 推播已改用這組參數' : '套用失敗，請確認伺服器狀態'); };
 ['equity','riskPct','margin'].forEach(id=>$(id).addEventListener('input',calc));
 const gate=()=>{ const ok=$('g1').checked&&$('g2').checked; const v=$('verdict'); v.className='verdict '+(ok?'ok':'stop'); v.textContent= ok? '可以照計畫下單，止損先掛好' : '兩項都確認前，先不要下單'; };

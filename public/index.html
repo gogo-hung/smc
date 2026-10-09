@@ -6,7 +6,7 @@
 <title>SMC 掃幣台</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
-/* Layout: terminal-style three panes — strategy rules | signal board | selected-coin detail. Dark-first. */
+/* Layout: collapsible strategy bar on top, then two panes — signal board | selected-coin detail. Dark-first. */
 :root{
   --bg:#10141d; --surface:#171c28; --raise:#1e2433; --line:#283044;
   --fg:#e5e8f0; --muted:#8b93a7; --accent:#e5a13a; --accent-ink:#1a1206;
@@ -55,22 +55,30 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 .stat.w .n{color:var(--watch)}
 
 /* panes */
-.grid{display:grid;gap:16px;grid-template-columns:270px minmax(0,1fr) 400px;align-items:start}
-@media (max-width:1280px){.grid{grid-template-columns:minmax(0,1fr) 380px}.rules{grid-column:1/-1;order:3}}
-@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.rules{order:3}}
+.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) 420px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:minmax(0,1fr)}}
 .pane{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
 .pane > h2{font-family:var(--f-display);font-size:15px;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
 
-/* rules */
-.rules form{display:grid;gap:14px;padding:14px 16px 16px}
-@media (max-width:1280px) and (min-width:901px){.rules form{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* rules: collapsible bar */
+.rules summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px}
+.rules summary::-webkit-details-marker{display:none}
+.rules summary .t{font-family:var(--f-display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.rules summary .t::before{content:"▸";color:var(--muted);font-size:12px;transition:transform .15s}
+.rules[open] summary .t::before{transform:rotate(90deg)}
+.rules summary .sum{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
+.rules summary .sum span{font-size:12px;color:var(--muted);background:var(--raise);border-radius:5px;padding:2px 8px}
+.rules summary .filters{margin-left:auto}
+.rules form{display:grid;gap:18px 24px;padding:14px 16px 18px;border-top:1px solid var(--line);grid-template-columns:repeat(4,minmax(0,1fr))}
+.rules .col{display:grid;gap:12px;align-content:start;min-width:0}
+@media (max-width:1000px){.rules form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.rules form{grid-template-columns:minmax(0,1fr)}}
 .fld{display:grid;gap:5px}
 .fld select,.fld input[type=number]{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%}
 .fld .hint{font-size:12px;color:var(--muted)}
 .chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
 .chk input{margin-top:3px;accent-color:var(--accent)}
-.group-t{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.06em;border-top:1px dashed var(--line);padding-top:10px}
-.group-t:first-child{border-top:0;padding-top:0}
+.group-t{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.06em}
 
 /* board */
 .filters{display:flex;gap:6px;flex-wrap:wrap}
@@ -78,8 +86,8 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 .seg[aria-pressed="true"]{background:var(--raise);color:var(--fg);border-color:var(--muted)}
 .tbl-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{font-weight:500;text-align:left;color:var(--muted);font-size:11px;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-weight:500;text-align:left;color:var(--muted);font-size:11px;letter-spacing:.06em;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 tbody tr{cursor:pointer}
 tbody tr:hover{background:var(--raise)}
 tbody tr[aria-selected="true"]{background:var(--raise);box-shadow:inset 3px 0 0 var(--accent)}
@@ -104,7 +112,7 @@ td.num,th.num{text-align:right}
 .d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
 .d-head .name{font-family:var(--f-display);font-size:24px;font-weight:700;line-height:1}
 .tabs{display:flex;gap:6px}
-canvas{width:100%;height:260px;display:block;background:var(--raise);border-radius:8px}
+canvas{width:100%;height:300px;display:block;background:var(--raise);border-radius:8px}
 .checklist{display:grid;gap:6px;margin:0;padding:0;list-style:none}
 .checklist li{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--line)}
 .checklist li .k{display:flex;gap:8px;align-items:center}
@@ -155,11 +163,15 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
   </section>
 
-  <div class="grid">
-    <!-- STRATEGY RULES -->
-    <aside class="pane rules" aria-labelledby="rulesT">
-      <h2 id="rulesT">策略參數 <span class="filters"><button class="seg" type="button" id="pushRules" hidden>套用到推播</button><button class="seg" type="button" id="resetRules">重設</button></span></h2>
-      <form id="rules">
+  <!-- STRATEGY RULES -->
+  <details class="pane rules">
+    <summary>
+      <span class="t">策略參數</span>
+      <span class="sum" id="ruleSum"></span>
+      <span class="filters"><button class="seg" type="button" id="pushRules" hidden>套用到推播</button><button class="seg" type="button" id="resetRules">重設</button></span>
+    </summary>
+    <form id="rules">
+      <div class="col">
         <div class="group-t">結構</div>
         <div class="fld"><label class="label" for="swingLen">15M swing 長度</label>
           <input type="number" id="swingLen" min="2" max="8" value="3"><span class="hint">左右各幾根 K 棒才算有效高低點</span></div>
@@ -167,18 +179,21 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <input type="number" id="htfSwing" min="2" max="8" value="3"></div>
         <div class="fld"><label class="label" for="breakBy">BOS / CHoCH 確認</label>
           <select id="breakBy"><option value="close">收盤突破</option><option value="wick">影線穿過即算</option></select></div>
-
+      </div>
+      <div class="col">
         <div class="group-t">OB</div>
         <div class="fld"><label class="label" for="obInvalid">OB 失效條件</label>
           <select id="obInvalid"><option value="close">收盤穿過 OB</option><option value="wick">影線穿過 OB</option><option value="half">碰到 50% 即失效</option></select></div>
-
+        <div class="fld"><label class="label" for="lookback">訊號有效範圍（15M 根數）</label>
+          <input type="number" id="lookback" min="16" max="200" value="64"><span class="hint">64 根約 16 小時</span></div>
+      </div>
+      <div class="col">
         <div class="group-t">進場條件</div>
         <label class="chk"><input type="checkbox" id="needSweep" checked> 必須先掃流動性</label>
         <label class="chk"><input type="checkbox" id="needChoch" checked> 掃蕩後必須 15M CHoCH</label>
         <label class="chk"><input type="checkbox" id="needFvg"> OB 推動段需有 FVG</label>
-        <div class="fld"><label class="label" for="lookback">訊號有效範圍（15M 根數）</label>
-          <input type="number" id="lookback" min="16" max="200" value="64"><span class="hint">64 根約 16 小時</span></div>
-
+      </div>
+      <div class="col">
         <div class="group-t">風報</div>
         <div class="fld"><label class="label" for="target">目標</label>
           <select id="target"><option value="ltf">最近的 15M 對向流動性</option><option value="htf">H4 區間極值</option></select></div>
@@ -186,9 +201,11 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <input type="number" id="minRR" min="0.5" max="10" step="0.5" value="2"></div>
         <div class="fld"><label class="label" for="stopBuf">止損緩衝 %</label>
           <input type="number" id="stopBuf" min="0" max="2" step="0.05" value="0.1"><span class="hint">放在掃蕩影線或 OB 外側再加緩衝</span></div>
-      </form>
-    </aside>
+      </div>
+    </form>
+  </details>
 
+  <div class="grid">
     <!-- SIGNAL BOARD -->
     <main class="pane board" aria-labelledby="boardT">
       <h2 id="boardT">訊號看板
@@ -210,7 +227,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <tbody id="rows"></tbody>
         </table>
       </div>
-      <div class="empty" id="empty" hidden>目前沒有符合篩選的幣。放寬左側參數，或等下一根 K 棒。</div>
+      <div class="empty" id="empty" hidden>目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</div>
     </main>
 
     <!-- DETAIL -->
