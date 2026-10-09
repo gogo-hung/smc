@@ -56,8 +56,7 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 .stat.w .n{color:var(--watch)}
 
 /* panes */
-.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) 420px;align-items:start}
-@media (max-width:1100px){.grid{grid-template-columns:minmax(0,1fr)}}
+.grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);align-items:start}
 .pane{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
 .pane > h2{font-family:var(--f-display);font-size:15px;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
 
@@ -162,8 +161,15 @@ td.num,th.num{text-align:right}
 .d-actions{display:flex;gap:8px;flex-wrap:wrap}
 .card .tags{display:flex;gap:4px;flex-wrap:wrap}
 .card .tags span{font-size:10.5px;font-weight:700;color:var(--watch);border:1px solid color-mix(in srgb,var(--watch) 50%,transparent);border-radius:4px;padding:0 5px}
+/* detail popup */
+#detailModal .modal-card{width:min(560px,100%);max-height:calc(100% - 8px)}
+#detailModal .pane > h2{position:sticky;top:0;background:var(--surface);z-index:1}
+.pane > h2 .x{border:0;background:transparent;color:var(--muted);font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
+.pane > h2 .x:hover{color:var(--fg)}
+.empty{display:grid;gap:10px;justify-items:center}
 /* post modal */
 .modal{position:fixed;inset:0;background:rgba(5,8,14,.6);display:grid;place-items:center;padding:16px;z-index:20}
+#postModal{z-index:30}
 .modal-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:min(920px,100%);max-height:calc(100% - 8px);overflow:auto}
 .post-body{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;padding:0 16px 16px}
 @media (max-width:700px){.post-body{grid-template-columns:minmax(0,1fr)}}
@@ -406,24 +412,30 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   <div class="grid">
     <!-- SIGNAL BOARD -->
     <main class="pane board" aria-labelledby="boardT">
-      <h2 id="boardT">訊號看板
+      <h2 id="boardT">推薦幣種
         <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
         <span class="filters" role="group" aria-label="篩選">
-          <button class="seg" type="button" data-f="all" aria-pressed="true">全部</button>
-          <button class="seg" type="button" data-f="trigger" aria-pressed="false">觸發</button>
-          <button class="seg" type="button" data-f="watch" aria-pressed="false">觀察</button>
+          <button class="seg" type="button" data-f="trigger" aria-pressed="true">推薦</button>
+          <button class="seg" type="button" data-f="watch" aria-pressed="false">觀察中</button>
+          <button class="seg" type="button" data-f="all" aria-pressed="false">全部</button>
           <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
           <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
         </span>
       </h2>
       <div class="cards" id="rows" role="listbox" aria-label="幣種"></div>
       <div class="empty" id="empty" hidden><span id="emptyTxt">目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</span>
-        <button class="btn primary" type="button" id="addBtn" hidden></button></div>
+        <button class="btn primary" type="button" id="addBtn" hidden></button>
+        <button class="btn" type="button" id="showWatch" hidden></button></div>
     </main>
 
-    <!-- DETAIL -->
-    <section class="pane detail" aria-labelledby="detT">
-      <h2 id="detT">選取幣種</h2>
+  </div>
+
+
+  <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Telegram。</p>
+</div>
+<div class="modal" id="detailModal" hidden role="dialog" aria-modal="true" aria-labelledby="detT">
+  <section class="pane detail modal-card" aria-labelledby="detT">
+      <h2 id="detT">幣種詳情<button class="x" type="button" id="detailClose" aria-label="關閉">×</button></h2>
       <div class="body">
         <div class="d-head">
           <div><div class="name" id="dName">—</div><div class="muted mono" id="dSub"></div></div>
@@ -459,10 +471,6 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         </div>
       </div>
     </section>
-  </div>
-
-
-  <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Telegram。</p>
 </div>
 <div class="modal" id="postModal" hidden role="dialog" aria-modal="true" aria-labelledby="postT">
   <div class="modal-card">

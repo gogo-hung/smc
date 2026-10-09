@@ -55,7 +55,7 @@ function renderSum(){
 function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v2',rules); renderSum(); }
 
 // ---- state ----
-let results=[], selected=null, filt='all', dirF=0, tf='ltf', prevTrig=null, q='';
+let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
 const STAGES=[['htf','H4 趨勢'],['fib','斐波便宜區'],['ob','1H OB'],['engulf','1H 吞沒 K'],['ema','EMA 順勢'],['rr','RR 達標']];
 
 const fp = p => p==null||!isFinite(p) ? '—' : p>=1000? p.toLocaleString('en-US',{maximumFractionDigits:1}) : p>=10? p.toFixed(2) : p>=1? p.toFixed(3) : p>=0.01? p.toFixed(4) : p.toPrecision(4);
@@ -73,8 +73,7 @@ function scan(){
   prevTrig=trig;
   $('nT').textContent=trig.size; $('nW').textContent=results.filter(r=>r.status==='watch').length; $('nA').textContent=results.length;
   $('lastScan').textContent= DataSource.mode==='live' ? (DataSource.updatedAt? hhmm(new Date(DataSource.updatedAt)) : '掃描中') : hhmm(new Date());
-  if(!selected || !results.find(r=>r.sym===selected)) selected=(results[0]||{}).sym;
-  renderRows(); renderDetail();
+  renderRows(); if(!$('detailModal').hidden && results.find(r=>r.sym===selected)) renderDetail();
 }
 
 function alertNew(r){
@@ -104,7 +103,8 @@ function spark(r){
   return `<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">${lvl}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function renderRows(){
-  const view=results.filter(r=>(filt==='all' || r.status===filt) && (!dirF || r.dir===dirF) && (!q || r.sym.includes(q)));
+  // 搜尋時從全部幣種找；沒搜尋時照分頁（預設只顯示推薦）
+  const view=results.filter(r=>(q ? r.sym.includes(q) : (filt==='all' || r.status===filt)) && (!dirF || r.dir===dirF));
   $('rows').innerHTML = view.map(r=>{
     const stages=STAGES.map(([k,n])=>`<i class="${r.st[k]?'on':''} ${r.need.includes(k)?'':'opt'}" title="${n}${r.need.includes(k)?'':'（選用）'}"></i>`).join('');
     const dir = r.dir? `<span class="dir ${r.dir>0?'L':'S'}">${r.dir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:12px">盤整</span>';
@@ -127,8 +127,11 @@ function renderRows(){
   }).join('');
   $('empty').hidden = view.length>0;
   const canAdd = q && DataSource.mode==='live' && /^[A-Z0-9]{2,15}$/.test(q) && !results.some(r=>r.sym===q);
-  $('emptyTxt').textContent = !q ? '目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。'
-    : canAdd ? `${q} 不在目前的掃描名單裡。` : results.some(r=>r.sym.includes(q)) ? `有符合「${q}」的幣，但被上方篩選條件擋住了，切回「全部」看看。` : `找不到「${q}」。`;
+  const nWatch=results.filter(r=>r.status==='watch').length;
+  $('showWatch').hidden = !(!q && filt==='trigger' && nWatch);
+  if(!$('showWatch').hidden) $('showWatch').textContent=`看觀察中的 ${nWatch} 個幣`;
+  $('emptyTxt').textContent = !q ? (filt==='trigger' ? '目前沒有推薦幣種。條件全部成立（1H 吞沒出現）時會出現在這裡，也會推到提醒中心。' : '目前沒有符合篩選的幣。')
+    : canAdd ? `${q} 不在目前的掃描名單裡。` : results.some(r=>r.sym.includes(q)) ? `有符合「${q}」的幣，但被「只看多 / 只看空」擋住了。` : `找不到「${q}」。`;
   $('addBtn').hidden=!canAdd; if(canAdd) $('addBtn').textContent=`把 ${q} 加入掃描`;
 }
 
@@ -233,7 +236,14 @@ function drawChart(g,W,H,r,tf,C){
 }
 
 // ---- events ----
-const pick=el=>{ if(!el) return; selected=el.dataset.s; renderRows(); renderDetail(); const c=$('rows').querySelector(`[data-s="${selected}"]`); if(c) c.focus({preventScroll:true}); };
+// 點卡片 → 跳出詳情小視窗
+let lastCard=null;
+function openDetail(){ $('detailModal').hidden=false; renderDetail(); $('detailClose').focus({preventScroll:true}); }
+function closeDetail(){ $('detailModal').hidden=true; if(lastCard) lastCard.focus({preventScroll:true}); }
+const pick=el=>{ if(!el) return; selected=el.dataset.s; lastCard=el; renderRows(); lastCard=$('rows').querySelector(`[data-s="${selected}"]`); openDetail(); };
+$('detailClose').onclick=closeDetail;
+$('detailModal').addEventListener('click',e=>{ if(e.target===$('detailModal')) closeDetail(); });
+$('showWatch').onclick=()=>{ filt='watch'; document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-pressed',x.dataset.f==='watch')); renderRows(); };
 $('rows').addEventListener('click',e=>pick(e.target.closest('[data-s]')));
 $('rows').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(e.target.closest('[data-s]')); } });
 document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ filt=b.dataset.f; document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderRows(); });
@@ -253,14 +263,14 @@ const gate=()=>{ const v=$('verdict');
 $('g1').onchange=gate; $('g2').onchange=gate;
 let timer=null; $('auto').onchange=e=>{ clearInterval(timer); if(!e.target.checked) return;
   timer = DataSource.mode==='live' ? setInterval(async()=>{ await DataSource.refresh(); scan(); },60000) : setInterval(()=>{DataSource.advance(); scan();},30000); };
-window.addEventListener('resize',()=>draw());
+window.addEventListener('resize',()=>{ if(!$('detailModal').hidden) draw(); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw());
 new MutationObserver(()=>draw()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 if(document.fonts) document.fonts.ready.then(()=>draw());
 
 // ---- 搜尋 ----
 $('q').addEventListener('input',e=>{ q=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/USDT$/,''); renderRows();
-  const exact=results.find(r=>r.sym===q); if(exact && exact.sym!==selected){ selected=exact.sym; renderRows(); renderDetail(); } });
+ });
 $('q').addEventListener('keydown',e=>{ if(e.key==='Enter' && !$('addBtn').hidden) $('addBtn').click(); });
 $('addBtn').onclick=async()=>{ const b=$('addBtn'), sym=q; b.disabled=true; b.textContent=`正在抓 ${sym} 的 K 線…`;
   try{ const r=await fetch('api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sym})}); const j=await r.json().catch(()=>({}));
@@ -310,7 +320,7 @@ const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.s
 function openDrawer(id){ for(const [bt,pn] of Object.entries(drawers)){ const on=pn===id && $(pn).hidden; $(pn).hidden=!on; $(bt).setAttribute('aria-expanded',on); if(on&&onOpen[pn]) onOpen[pn](); } }
 for(const [bt,pn] of Object.entries(drawers)) $(bt).onclick=()=>openDrawer(pn);
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{ $(b.dataset.close).hidden=true; for(const [bt,pn] of Object.entries(drawers)) if(pn===b.dataset.close) $(bt).setAttribute('aria-expanded',false); });
-document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('postModal').hidden){ $('postModal').hidden=true; return; } for(const [bt,pn] of Object.entries(drawers)){ $(pn).hidden=true; $(bt).setAttribute('aria-expanded',false); } });
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('postModal').hidden){ $('postModal').hidden=true; return; } if(!$('detailModal').hidden){ closeDetail(); return; } for(const [bt,pn] of Object.entries(drawers)){ $(pn).hidden=true; $(bt).setAttribute('aria-expanded',false); } });
 
 // 下單前自檢：一小時內有美國高影響數據就提醒
 function renderCalWarn(){
@@ -419,7 +429,7 @@ $('jForm').addEventListener('submit',async e=>{ e.preventDefault();
 $('jList').addEventListener('click',async e=>{ const id=e.target.dataset&&e.target.dataset.del; if(!id) return;
   if(e.target.dataset.confirm!=='1'){ e.target.dataset.confirm='1'; e.target.textContent='確定刪除？'; return; }
   const r=await adminFetch('api/journal?id='+encodeURIComponent(id),{method:'DELETE'}); if(r&&r.ok){ renderJournal(await r.json()); loadAlerts(); } });
-$('logTradeBtn').onclick=()=>{ const r=results.find(x=>x.sym===selected); if($('journalPane').hidden) openDrawer('journalPane');
+$('logTradeBtn').onclick=()=>{ const r=results.find(x=>x.sym===selected); $('detailModal').hidden=true; if($('journalPane').hidden) openDrawer('journalPane');
   if(r){ $('jSym').value=r.sym; if(r.dir) $('jDir').value=String(r.dir); $('jSig').checked=r.status==='trigger'; }
   $('journalPane').scrollIntoView({behavior:'smooth',block:'start'}); setTimeout(()=>$('jPnl').focus(),300); };
 
