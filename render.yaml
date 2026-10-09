@@ -1,0 +1,23 @@
+# Render Blueprint：New → Blueprint → 選這個 repo 就會照這裡建立服務
+services:
+  - type: web
+    name: smc-scanner
+    runtime: node
+    region: singapore        # 亞洲機房，避開 BingX 的地區限制
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: ADMIN_TOKEN       # 自動產生，cron-job.org 叫醒時要用
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: TOP_N
+        value: "60"
+      - key: WATCHLIST
+        value: BTC,ETH,SOL

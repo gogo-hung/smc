@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SMC 掃幣台</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* Layout: terminal-style three panes — strategy rules | signal board | selected-coin detail. Dark-first. */
+:root{
+  --bg:#10141d; --surface:#171c28; --raise:#1e2433; --line:#283044;
+  --fg:#e5e8f0; --muted:#8b93a7; --accent:#e5a13a; --accent-ink:#1a1206;
+  --long:#2fbf9b; --short:#ee6a6a; --watch:#c9a25a;
+  --f-display:"Chakra Petch","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --bg:#f3f4f7; --surface:#ffffff; --raise:#eef0f5; --line:#d9dde7;
+  --fg:#161b26; --muted:#5e6779; --accent:#b8761a; --accent-ink:#fff8ec;
+  --long:#12876c; --short:#c64242; --watch:#94711f; color-scheme:light } }
+:root[data-theme="light"]{
+  --bg:#f3f4f7; --surface:#ffffff; --raise:#eef0f5; --line:#d9dde7;
+  --fg:#161b26; --muted:#5e6779; --accent:#b8761a; --accent-ink:#fff8ec;
+  --long:#12876c; --short:#c64242; --watch:#94711f; color-scheme:light }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
+.wrap{padding-inline:16px;padding-block:16px 40px;max-width:1500px;margin:0 auto;display:grid;gap:16px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* header */
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
+.brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.brand h1{font-family:var(--f-display);font-weight:700;font-size:26px;margin:0;letter-spacing:.02em}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--muted)}
+.chip .dot{width:7px;height:7px;border-radius:50%;background:var(--watch)}
+.chip.live .dot{background:var(--long)}
+.btn:disabled{opacity:.6;cursor:wait}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);padding:7px 14px;border-radius:8px;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
+
+/* summary */
+.summary{display:flex;flex-wrap:wrap;gap:28px;padding-block:4px}
+.stat .n{font-family:var(--f-display);font-size:30px;font-weight:600;line-height:1.1}
+.stat.t .n{color:var(--accent)}
+.stat.w .n{color:var(--watch)}
+
+/* panes */
+.grid{display:grid;gap:16px;grid-template-columns:270px minmax(0,1fr) 400px;align-items:start}
+@media (max-width:1280px){.grid{grid-template-columns:minmax(0,1fr) 380px}.rules{grid-column:1/-1;order:3}}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.rules{order:3}}
+.pane{background:var(--surface);border:1px solid var(--line);border-radius:12px;min-width:0}
+.pane > h2{font-family:var(--f-display);font-size:15px;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
+
+/* rules */
+.rules form{display:grid;gap:14px;padding:14px 16px 16px}
+@media (max-width:1280px) and (min-width:901px){.rules form{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.fld{display:grid;gap:5px}
+.fld select,.fld input[type=number]{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%}
+.fld .hint{font-size:12px;color:var(--muted)}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.chk input{margin-top:3px;accent-color:var(--accent)}
+.group-t{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.06em;border-top:1px dashed var(--line);padding-top:10px}
+.group-t:first-child{border-top:0;padding-top:0}
+
+/* board */
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.seg{border:1px solid var(--line);background:transparent;padding:3px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--muted)}
+.seg[aria-pressed="true"]{background:var(--raise);color:var(--fg);border-color:var(--muted)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-weight:500;text-align:left;color:var(--muted);font-size:11px;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--raise)}
+tbody tr[aria-selected="true"]{background:var(--raise);box-shadow:inset 3px 0 0 var(--accent)}
+td.num,th.num{text-align:right}
+.sym b{font-family:var(--f-display);font-size:15px;font-weight:600}
+.sym span{color:var(--muted);font-size:11px;margin-left:2px}
+.dir{font-size:12px;font-weight:700;padding:2px 8px;border-radius:5px}
+.dir.L{color:var(--long);background:color-mix(in srgb,var(--long) 14%,transparent)}
+.dir.S{color:var(--short);background:color-mix(in srgb,var(--short) 14%,transparent)}
+.status{font-size:12px;font-weight:700}
+.status.trigger{color:var(--accent)}
+.status.watch{color:var(--watch)}
+.status.idle{color:var(--muted);font-weight:400}
+.stages{display:flex;gap:3px}
+.stages i{width:9px;height:9px;border-radius:2px;background:var(--line);display:block}
+.stages i.on{background:var(--fg)}
+.stages i.opt{opacity:.45}
+.empty{padding:28px 16px;color:var(--muted);text-align:center}
+
+/* detail */
+.detail .body{padding:14px 16px 16px;display:grid;gap:16px}
+.d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.d-head .name{font-family:var(--f-display);font-size:24px;font-weight:700;line-height:1}
+.tabs{display:flex;gap:6px}
+canvas{width:100%;height:260px;display:block;background:var(--raise);border-radius:8px}
+.checklist{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.checklist li{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.checklist li .k{display:flex;gap:8px;align-items:center}
+.mark{width:18px;text-align:center;font-weight:700}
+.mark.y{color:var(--long)} .mark.n{color:var(--muted)}
+.checklist li .v{color:var(--muted);font-size:12px;text-align:right}
+.levels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.lv{background:var(--raise);border-radius:8px;padding:8px 10px;min-width:0}
+.lv .label{font-size:10px}
+.lv .x{font-family:var(--f-mono);font-size:13px;overflow-wrap:anywhere}
+@media (max-width:420px){.levels{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.calc{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.calc .fld input{padding:5px 7px}
+.out{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px;font-size:13px}
+.out div{display:flex;justify-content:space-between;gap:8px}
+.out b{font-family:var(--f-mono);font-weight:600}
+.gate{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px}
+.gate .verdict{font-weight:700;font-size:13px}
+.gate .verdict.ok{color:var(--long)} .gate .verdict.stop{color:var(--short)}
+h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-weight:500}
+
+/* log */
+.log ol{list-style:none;margin:0;padding:8px 16px 14px;display:grid;gap:4px;font-size:13px;max-height:180px;overflow:auto}
+.log li{display:flex;gap:10px}
+.note{font-size:12px;color:var(--muted);max-width:75ch}
+.toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:calc(100vw - 32px)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.4}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>SMC 掃幣台</h1>
+      <span class="chip" id="srcChip"><span class="dot"></span><span id="srcTxt">示範資料，非實際行情</span></span>
+      <span class="chip mono" id="scanInfo">BingX USDT 永續 · 15M / H4</span>
+    </div>
+    <div class="actions">
+      <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
+      <button class="btn primary" id="scanBtn" type="button">立即掃描</button>
+    </div>
+  </header>
+
+  <section class="summary" aria-label="掃描摘要">
+    <div class="stat t"><div class="label">觸發訊號</div><div class="n mono" id="nT">0</div></div>
+    <div class="stat w"><div class="label">觀察中（已到 POI）</div><div class="n mono" id="nW">0</div></div>
+    <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
+    <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
+  </section>
+
+  <div class="grid">
+    <!-- STRATEGY RULES -->
+    <aside class="pane rules" aria-labelledby="rulesT">
+      <h2 id="rulesT">策略參數 <span class="filters"><button class="seg" type="button" id="pushRules" hidden>套用到推播</button><button class="seg" type="button" id="resetRules">重設</button></span></h2>
+      <form id="rules">
+        <div class="group-t">結構</div>
+        <div class="fld"><label class="label" for="swingLen">15M swing 長度</label>
+          <input type="number" id="swingLen" min="2" max="8" value="3"><span class="hint">左右各幾根 K 棒才算有效高低點</span></div>
+        <div class="fld"><label class="label" for="htfSwing">H4 swing 長度</label>
+          <input type="number" id="htfSwing" min="2" max="8" value="3"></div>
+        <div class="fld"><label class="label" for="breakBy">BOS / CHoCH 確認</label>
+          <select id="breakBy"><option value="close">收盤突破</option><option value="wick">影線穿過即算</option></select></div>
+
+        <div class="group-t">OB</div>
+        <div class="fld"><label class="label" for="obInvalid">OB 失效條件</label>
+          <select id="obInvalid"><option value="close">收盤穿過 OB</option><option value="wick">影線穿過 OB</option><option value="half">碰到 50% 即失效</option></select></div>
+
+        <div class="group-t">進場條件</div>
+        <label class="chk"><input type="checkbox" id="needSweep" checked> 必須先掃流動性</label>
+        <label class="chk"><input type="checkbox" id="needChoch" checked> 掃蕩後必須 15M CHoCH</label>
+        <label class="chk"><input type="checkbox" id="needFvg"> OB 推動段需有 FVG</label>
+        <div class="fld"><label class="label" for="lookback">訊號有效範圍（15M 根數）</label>
+          <input type="number" id="lookback" min="16" max="200" value="64"><span class="hint">64 根約 16 小時</span></div>
+
+        <div class="group-t">風報</div>
+        <div class="fld"><label class="label" for="target">目標</label>
+          <select id="target"><option value="ltf">最近的 15M 對向流動性</option><option value="htf">H4 區間極值</option></select></div>
+        <div class="fld"><label class="label" for="minRR">最低 RR</label>
+          <input type="number" id="minRR" min="0.5" max="10" step="0.5" value="2"></div>
+        <div class="fld"><label class="label" for="stopBuf">止損緩衝 %</label>
+          <input type="number" id="stopBuf" min="0" max="2" step="0.05" value="0.1"><span class="hint">放在掃蕩影線或 OB 外側再加緩衝</span></div>
+      </form>
+    </aside>
+
+    <!-- SIGNAL BOARD -->
+    <main class="pane board" aria-labelledby="boardT">
+      <h2 id="boardT">訊號看板
+        <span class="filters" role="group" aria-label="篩選">
+          <button class="seg" type="button" data-f="all" aria-pressed="true">全部</button>
+          <button class="seg" type="button" data-f="trigger" aria-pressed="false">觸發</button>
+          <button class="seg" type="button" data-f="watch" aria-pressed="false">觀察</button>
+          <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
+          <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
+        </span>
+      </h2>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>幣種</th><th>方向</th><th>狀態</th>
+            <th title="H4結構 / 折溢價 / POI / 掃蕩 / CHoCH / OB / FVG / RR">進度</th>
+            <th class="num">現價</th><th class="num">進場</th><th class="num">止損</th><th class="num">RR</th><th class="num">距進場</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="empty" hidden>目前沒有符合篩選的幣。放寬左側參數，或等下一根 K 棒。</div>
+    </main>
+
+    <!-- DETAIL -->
+    <section class="pane detail" aria-labelledby="detT">
+      <h2 id="detT">選取幣種</h2>
+      <div class="body">
+        <div class="d-head">
+          <div><div class="name" id="dName">—</div><div class="muted mono" id="dSub"></div></div>
+          <div class="tabs" role="group" aria-label="時框">
+            <button class="seg" type="button" data-tf="ltf" aria-pressed="true">15M</button>
+            <button class="seg" type="button" data-tf="htf" aria-pressed="false">H4</button>
+          </div>
+        </div>
+        <canvas id="chart" aria-label="K 線圖，標示 POI、OB、掃蕩與進出場位"></canvas>
+
+        <div class="levels" id="levels"></div>
+
+        <div><h3>SMC 條件</h3><ul class="checklist" id="checks"></ul></div>
+
+        <div>
+          <h3>倉位計算（由止損距離推槓桿）</h3>
+          <div class="calc">
+            <div class="fld"><label class="label" for="equity">帳戶 USDT</label><input type="number" id="equity" value="1000" min="0"></div>
+            <div class="fld"><label class="label" for="riskPct">單筆風險 %</label><input type="number" id="riskPct" value="1" step="0.25" min="0"></div>
+            <div class="fld"><label class="label" for="margin">本筆保證金</label><input type="number" id="margin" value="100" min="1"></div>
+          </div>
+          <div class="out" id="calcOut" style="margin-top:10px"></div>
+        </div>
+
+        <div class="gate">
+          <h3 style="margin:0">下單前自檢</h3>
+          <label class="chk"><input type="checkbox" id="g1"> 這筆是訊號觸發，不是情緒或想發內容</label>
+          <label class="chk"><input type="checkbox" id="g2"> 今天沒有連續虧損兩筆</label>
+          <div class="verdict stop" id="verdict">兩項都確認前，先不要下單</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="pane log" aria-labelledby="logT">
+    <h2 id="logT">提醒紀錄 <span class="label">本頁開啟期間</span></h2>
+    <ol id="log"><li class="muted">尚無新觸發</li></ol>
+  </section>
+
+  <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Telegram。</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="smc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

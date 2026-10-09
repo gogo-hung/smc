@@ -1,0 +1,14 @@
+{
+  "name": "crypto-scanner",
+  "version": "1.0.0",
+  "description": "SMC 掃幣台：掃描 BingX USDT 永續合約，SMC 條件觸發時推播到 Telegram（只提醒，不下單）",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "scan": "node src/scan-once.js",
+    "test": "node test/mock-test.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED",
+  "private": true
+}

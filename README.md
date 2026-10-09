@@ -1,0 +1,72 @@
+# SMC 掃幣台（crypto-scanner）
+
+掃描 BingX USDT 永續合約，當 SMC 條件全部成立時推播到 Telegram。**只提醒，不下單**，也不需要 BingX API Key。
+
+## 流程
+
+```
+每根 15M 收盤後 15 秒
+ → 抓合約清單 + 24h 成交額，挑出前 N 名（加上自選清單）
+ → 每個幣抓 15M（500 根）與 4H（200 根，有新 K 棒才重抓）
+ → SMC 判斷：H4 結構 → 折/溢價 → H4 POI → 15M 掃蕩 → CHoCH → 進場 OB → RR
+ → 新觸發推 Telegram（同一個進場 OB 只推一次）
+```
+
+判斷邏輯在 `src/smc.js`，網頁看板和後端用的是同一份檔案，所以畫面上看到的訊號跟推播一致。只用已收盤的 K 棒，不會被還沒走完的那根騙。
+
+## 需求
+
+Node.js 18 以上，不需要安裝任何套件。
+
+## 開始使用
+
+```bash
+cp .env.example .env     # 填 Telegram 設定（不填也能跑，提醒會印在終端機）
+npm test                 # 離線測試（用假資料，不連網）
+npm run scan             # 實際抓 BingX 跑一次，終端機列出結果
+npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
+```
+
+## 設定 Telegram
+
+1. 在 Telegram 找 **@BotFather**，輸入 `/newbot` 建立機器人，拿到 token。
+2. 對你的機器人隨便傳一則訊息。
+3. 打開 `https://api.telegram.org/bot<你的token>/getUpdates`，找 `"chat":{"id":...}` 的數字，就是 `TELEGRAM_CHAT_ID`。
+4. 填進 `.env`，重新 `npm start`。
+
+## API
+
+| 方法 | 路徑 | 說明 |
+|---|---|---|
+| GET | `/api/signals?status=trigger` | 目前訊號（`trigger` / `watch` / 不填全部） |
+| GET | `/api/market` | 所有幣的 15M / 4H K 線（看板用） |
+| GET | `/api/health` | 上次掃描時間、錯誤 |
+| POST | `/api/scan` | 立即掃描 |
+| GET / POST | `/api/rules` | 讀取 / 更新推播用的策略參數 |
+
+設了 `ADMIN_TOKEN` 時，POST 需要帶 `x-admin-token` header（看板會跳出輸入框）。
+
+## 調整策略
+
+- 看板左側改參數只會影響畫面；按「套用到推播」才會寫進 `data/rules.json`，之後的推播改用新規則。
+- 要改判斷方式本身（例如加入新條件），改 `src/smc.js` 的 `analyze()`，前後端會同時生效。
+
+## 部署到 Render（免費方案）
+
+1. Render → New → **Blueprint** → 選這個 repo，會照 `render.yaml` 建立服務（新加坡機房、免費方案）。
+2. 填 `TELEGRAM_BOT_TOKEN`、`TELEGRAM_CHAT_ID`；`ADMIN_TOKEN` 會自動產生，到服務的 Environment 頁面複製下來。
+3. 免費方案閒置 15 分鐘會休眠，所以到 [cron-job.org](https://cron-job.org) 建一個排程，每 10 分鐘打一次：
+   `https://<你的服務>.onrender.com/api/cron?token=<ADMIN_TOKEN>`
+   這會叫醒服務並掃描；服務醒著時，也會在每根 15M 收盤後自己掃描。
+
+免費方案的限制：
+- 重啟會清掉 `data/`，「套用到推播」的規則會回到預設。要長期改規則，直接改 `src/scanner.js` 的 `DEFAULT_RULES` 再推上 GitHub。
+- 推播只發「最近 3 根 15M 內才成立」的訊號（`ALERT_MAX_AGE_BARS`），所以重啟不會重推舊訊號；休眠期間錯過的訊號仍會出現在看板上。
+
+要完全常駐，改用付費方案或自己的機器跑 `npm start`（可用 pm2 常駐）。
+
+## 注意
+
+- 只用 BingX 公開行情端點：`/openApi/swap/v2/quote/contracts`、`/openApi/swap/v2/quote/ticker`、`/openApi/swap/v3/quote/klines`。
+- 預設前 60 名，每輪約 120 次請求、同時 4 條；遇到 429 會自動重試。被限流的話調低 `CONCURRENCY` 或調高 `REQUEST_GAP_MS`。
+- 訊號是篩選工具，不是下單指令。進場前照自己的規則：先確認是訊號不是情緒、連虧兩筆就休息、止損放在結構位、槓桿由止損距離推出來。
