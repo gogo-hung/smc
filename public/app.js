@@ -26,14 +26,19 @@ const DataSource = {
   htf(sym){ return this.mode==='live'? this.htfs[sym] : undefined; },
   async advance(){
     if(this.mode==='demo'){ this.tick++; for(const s in this.series) SMC.addBar(this.series[s], s, this.tick); return; }
-    const r=await adminFetch('api/scan',{method:'POST'}); if(r && r.ok) await this.refresh();
+    const r=await fetch('api/scan',{method:'POST'}); if(r && r.ok){ const j=await r.json().catch(()=>({})); if(j.skipped) showToast('1 分鐘內剛掃描過，已顯示最新結果'); await this.refresh(); }
   }
 };
 // 伺服器有設 ADMIN_TOKEN 時，寫入動作需要密碼（只存在這台電腦的瀏覽器）
 async function adminFetch(url,opt={}){
   const go=()=>fetch(url,{...opt,headers:{'Content-Type':'application/json','x-admin-token':store.get('smc-admin')||'',...(opt.headers||{})}});
   let r=await go();
-  if(r.status===401){ const t=window.prompt('伺服器需要管理密碼（ADMIN_TOKEN）'); if(!t) return r; store.set('smc-admin',t); r=await go(); }
+  if(r.status===401){
+    const t=(window.prompt('請輸入管理員密碼（Render 的 ADMIN_TOKEN），輸入一次後這台瀏覽器會記住')||'').trim();
+    if(!t) return r;
+    store.set('smc-admin',t); r=await go();
+    if(r.status===401){ store.set('smc-admin',''); showToast('管理員密碼不正確，請到 Render 的 Environment 確認 ADMIN_TOKEN'); }
+  }
   return r;
 }
 
@@ -200,7 +205,7 @@ $('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
-  showToast(r&&r.ok? 'Telegram 推播已改用這組參數' : '套用失敗，請確認伺服器狀態'); };
+  if(r&&r.ok) showToast('Telegram 推播已改用這組參數'); else if(r&&r.status!==401) showToast('套用失敗，請確認伺服器狀態'); };
 ['equity','riskPct','margin'].forEach(id=>$(id).addEventListener('input',calc));
 const gate=()=>{ const ok=$('g1').checked&&$('g2').checked; const v=$('verdict'); v.className='verdict '+(ok?'ok':'stop'); v.textContent= ok? '可以照計畫下單，止損先掛好' : '兩項都確認前，先不要下單'; };
 $('g1').onchange=gate; $('g2').onchange=gate;

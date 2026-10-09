@@ -59,8 +59,9 @@ const server = http.createServer(async (req, res) => {
       const fresh = s.lastScan && Date.now() - s.lastScan < 5 * 60e3;
       return send(res, 200, fresh ? { skipped: '5 分鐘內已掃描過', lastScan: s.lastScan } : await scanner.scanOnce());
     }
+    // 立即掃描：只抓公開行情、不改設定，所以不需要密碼；1 分鐘內重複按只回傳上次結果
     if (url.pathname === '/api/scan' && req.method === 'POST') {
-      if (!authorized(req)) return send(res, 401, { error: '需要 x-admin-token' });
+      if (s.lastScan && Date.now() - s.lastScan < 60e3) return send(res, 200, { skipped: '1 分鐘內已掃描過', lastScan: s.lastScan });
       return send(res, 200, await scanner.scanOnce());
     }
     if (url.pathname === '/api/rules') {
