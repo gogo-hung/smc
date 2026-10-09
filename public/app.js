@@ -380,6 +380,25 @@ function renderLock(){
   if(Feed.locked) $('lockBar').textContent=`🔒 今天已連虧 ${Feed.lossStreak} 筆：風控鎖啟動，進場提醒暫停推播。休息，明天再來。`;
 }
 
+// ================= 匯出 CSV（Excel 可直接開，含中文） =================
+function downloadCSV(name, header, rows){
+  const cell=v=>{ const t=v==null?'':String(v); return /[",\n]/.test(t)? `"${t.replace(/"/g,'""')}"` : t; };
+  const csv='\ufeff'+[header,...rows].map(r=>r.map(cell).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`${name}-${new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'})}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+const tw=ts=>ts? new Date(ts).toLocaleString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,16) : '';
+async function exportSignals(){
+  const s=await (await fetch('api/stats?all=1',{cache:'no-store'})).json();
+  downloadCSV('訊號紀錄',['訊號時間','幣種','方向','進場','止損','目標','RR','結果','R','進場時間','結束時間','警告'],
+    s.recent.slice().reverse().map(x=>[tw(x.createdAt),x.sym,x.dir>0?'多':'空',x.entry,x.stop,x.target,x.rr&&x.rr.toFixed(2),ST_ZH[x.status],x.R??'',tw(x.filledAt),tw(x.closedAt),(x.flags||[]).join('；')]));
+}
+async function exportJournal(){
+  const r=await adminFetch('api/journal?all=1',{cache:'no-store'}); if(!r||!r.ok) return;
+  const j=await r.json();
+  downloadCSV('交易紀錄',['時間','幣種','方向','盈虧 USDT','照訊號','備註'], j.trades.slice().reverse().map(t=>[tw(t.at),t.sym,t.dir>0?'多':'空',t.pnl,t.followedSignal?'是':'',t.note]));
+}
+
 // ================= 成績單 =================
 const ST_ZH={pending:'等待進場',filled:'已進場',win:'打到目標',loss:'打到止損',missed:'沒回進場就走了',expired:'24h 未成交'};
 const pct=v=>v==null?'—':`${(v*100).toFixed(0)}%`;
@@ -393,10 +412,12 @@ async function loadStats(){
   const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?'<span class="pill loss">-1R</span>' : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}</span>`;
     return `<tr><td class="num">${new Date(x.createdAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(x.sym)}</b></td><td><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span></td>
       <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${fp(x.target)}</td><td class="num">${x.rr.toFixed(2)}</td><td>${res}</td></tr>`; }).join('');
+  setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });
   box.innerHTML=`<div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
     <div class="split">${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
     <div><h3>最近的訊號</h3>${s.recent.length?`<div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="hint">還沒有訊號。之後每個觸發都會記在這裡。</p>'}</div>
-    <p class="hint">統計的是「推播用參數」下的訊號。同一根 K 棒同時碰到止損和目標，保守算止損；24 小時沒回到進場位算過期。</p>`;
+    <div><button class="btn" type="button" id="exportSig">匯出全部訊號紀錄（CSV）</button></div>
+    <p class="hint">贏輸都會保留（最近 5000 筆）。統計的是「推播用參數」下的訊號。同一根 K 棒同時碰到止損和目標，保守算止損；24 小時沒回到進場位算過期。</p>`;
 }
 
 // ================= 交易紀錄 + 風控鎖 =================
@@ -419,6 +440,8 @@ function renderJournal(j){
       <td><span class="dir ${t.dir>0?'L':'S'}">${t.dir>0?'多':'空'}</span></td><td class="num">${pnl(t.pnl)}</td>
       <td style="white-space:normal">${t.followedSignal?'<span class="pill">照訊號</span> ':''}${esc(t.note)}</td><td><button class="j-del" type="button" data-del="${t.id}">刪除</button></td></tr>`).join('')}</tbody></table></div>`
     : '<p class="hint">還沒有紀錄。每筆平倉後記一下盈虧，連虧兩筆系統會幫你上鎖。</p>';
+  $('jList').insertAdjacentHTML('beforeend','<div style="margin-top:10px"><button class="btn" type="button" id="exportJ">匯出全部交易紀錄（CSV）</button></div>');
+  $('exportJ').onclick=exportJournal;
 }
 $('jForm').addEventListener('submit',async e=>{ e.preventDefault();
   const body={sym:$('jSym').value, dir:+$('jDir').value, pnl:$('jPnl').value, note:$('jNote').value, followedSignal:$('jSig').checked};

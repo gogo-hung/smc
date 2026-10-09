@@ -35,7 +35,7 @@ async function emit(type, title, lines, extra = {}) {
   const muted = (type === 'signal' || type === 'near') && journal.locked();
   const item = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: Date.now(), type, title, body: lines.join('\n'), muted, ...extra };
   state.feed.unshift(item);
-  state.feed = state.feed.slice(0, 150);
+  state.feed = state.feed.slice(0, 300);
   await store.save('feed', state.feed);
   const on = { signal: state.settings.signal, near: state.settings.near, calendar: state.settings.calendar, earnings: state.settings.calendar, result: state.settings.result }[type];
   if (on && !muted) await notify.send([`<b>${title}</b>`, ...lines, cfg.PUBLIC_URL].filter(Boolean).join('\n'));
@@ -116,7 +116,7 @@ async function onScan(results, market) {
 
   if (changed) {
     const open = state.signals.filter(s => s.status === 'pending' || s.status === 'filled');
-    const done = state.signals.filter(s => !(s.status === 'pending' || s.status === 'filled')).slice(-400);
+    const done = state.signals.filter(s => !(s.status === 'pending' || s.status === 'filled')).slice(-5000); // 已結束的訊號保留最近 5000 筆，贏輸都留
     state.signals = [...done, ...open].sort((a, b) => a.createdAt - b.createdAt);
     await store.save('signals', state.signals);
   }
@@ -125,7 +125,7 @@ async function onScan(results, market) {
 // 還在追蹤中的幣（就算掉出成交量排名也要繼續抓）
 const openSymbols = () => [...new Set(state.signals.filter(s => s.status === 'pending' || s.status === 'filled').map(s => s.sym))];
 
-function stats() {
+function stats(all = false) {
   const done = state.signals.filter(s => s.status === 'win' || s.status === 'loss');
   const wins = done.filter(s => s.status === 'win');
   const sumR = a => +a.reduce((x, s) => x + s.R, 0).toFixed(2);
@@ -141,7 +141,7 @@ function stats() {
     avgR: done.length ? +(sumR(done) / done.length).toFixed(2) : null, totalR: sumR(done),
     pending: count('pending'), filled: count('filled'), missed: count('missed'), expired: count('expired'),
     byDir: group(s => (s.dir > 0 ? '做多' : '做空')), bySym: group(s => s.sym).slice(0, 10),
-    recent: state.signals.slice(-60).reverse(),
+    recent: (all ? state.signals : state.signals.slice(-60)).slice().reverse(),
   };
 }
 

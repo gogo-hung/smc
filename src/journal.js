@@ -25,7 +25,7 @@ async function add(t) {
   const trade = clean(t);
   state.trades.push(trade);
   state.trades.sort((a, b) => a.at - b.at);
-  state.trades = state.trades.slice(-1000);
+  state.trades = state.trades.slice(-5000); // 保留最近 5000 筆（約 1MB）
   await store.save('journal', state.trades);
   return trade;
 }
@@ -46,7 +46,7 @@ function lossStreak() {
 }
 const locked = () => LOCK_AFTER > 0 && lossStreak() >= LOCK_AFTER;
 
-function summary() {
+function summary(allTrades = false) {
   const td = today(), all = state.trades;
   const sum = a => a.reduce((s, t) => s + t.pnl, 0);
   const wins = all.filter(t => t.pnl > 0).length;
@@ -54,7 +54,7 @@ function summary() {
     locked: locked(), lockAfter: LOCK_AFTER, lossStreak: lossStreak(),
     today: { count: td.length, pnl: sum(td), wins: td.filter(t => t.pnl > 0).length, losses: td.filter(t => t.pnl < 0).length },
     all: { count: all.length, pnl: sum(all), winRate: all.length ? wins / all.length : null },
-    trades: all.slice(-100).reverse(),
+    trades: (allTrades ? all : all.slice(-100)).reverse(),
   };
 }
 

@@ -96,12 +96,12 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { ok: await notify.send('✅ <b>SMC 掃幣台</b>\nTelegram 推播設定成功，之後訊號、接近進場區、數據公布前都會推到這裡。') });
     }
     // 訊號成績單
-    if (url.pathname === '/api/stats' && req.method === 'GET') return send(res, 200, tracker.stats());
+    if (url.pathname === '/api/stats' && req.method === 'GET') return send(res, 200, tracker.stats(url.searchParams.get('all') === '1'));
     // 交易紀錄（私人資料，看和改都要密碼）
     if (url.pathname === '/api/journal') {
       if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
       try {
-        if (req.method === 'GET') return send(res, 200, journal.summary());
+        if (req.method === 'GET') return send(res, 200, journal.summary(url.searchParams.get('all') === '1'));
         if (req.method === 'POST') { await journal.add(await readBody(req)); return send(res, 200, journal.summary()); }
         if (req.method === 'DELETE') { await journal.remove(url.searchParams.get('id')); return send(res, 200, journal.summary()); }
       } catch (e) { return fail(res, e); }
