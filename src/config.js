@@ -28,6 +28,7 @@ module.exports = {
   TOP_N: num(process.env.TOP_N, 60),
   WATCHLIST: list(process.env.WATCHLIST),        // 例：BTC,ETH,SOL
   EXCLUDE: list(process.env.EXCLUDE),            // 例：USDC,FDUSD
+  INCLUDE_TRADFI: /^(1|true|yes)$/i.test(process.env.INCLUDE_TRADFI || ''), // 是否掃 BingX 的美股、指數、商品（NC 開頭）
   MIN_QUOTE_VOLUME: num(process.env.MIN_QUOTE_VOLUME, 5_000_000), // 24h 成交額下限（USDT）
 
   LTF_LIMIT: num(process.env.LTF_LIMIT, 500),    // 15M 根數（約 5 天）

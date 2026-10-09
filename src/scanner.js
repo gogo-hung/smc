@@ -40,6 +40,7 @@ async function pickUniverse() {
   const base = s => s.replace(/-USDT$/, '');
   const ranked = contracts
     .filter(s => !cfg.EXCLUDE.includes(base(s)))
+    .filter(s => cfg.INCLUDE_TRADFI || !/^NC[A-Z0-9]*2USD-USDT$|^NC(CO|SK|SI|FX)/.test(s)) // 預設排除美股、指數、商品
     .filter(s => (vol.get(s) || 0) >= cfg.MIN_QUOTE_VOLUME)
     .sort((a, b) => (vol.get(b) || 0) - (vol.get(a) || 0))
     .slice(0, cfg.TOP_N);
