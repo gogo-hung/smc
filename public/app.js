@@ -83,6 +83,18 @@ function alertNew(r){
 }
 function showToast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(showToast._t); showToast._t=setTimeout(()=>t.hidden=true,5000); }
 
+// 訊號多久了：觸發 = 吞沒 K 收盤時間；觀察 = 進入斐波便宜區那根收盤時間
+const barMs=r=> r.ltf&&r.ltf.length>1 ? r.ltf[1].t-r.ltf[0].t : 3600e3;
+const tfName=ms=> ms>=86400e3?'D1': ms>=14400e3?'H4': ms>=3600e3?'1H': `${Math.round(ms/60000)}M`;
+function since(r){
+  const idx = r.status==='trigger' ? r.sigIdx : r.status==='watch' ? r.fibIdx : null;
+  if(idx==null || !r.ltf[idx]) return null;
+  return { ts: r.ltf[idx].t + barMs(r), what: r.status==='trigger' ? '吞沒出現' : '進入便宜區', tf: tfName(barMs(r)) };
+}
+function ago(ts){ const m=Math.max(0,Math.floor((Date.now()-ts)/60000)); if(m<1) return '剛剛'; if(m<60) return `${m} 分鐘前`; const h=Math.floor(m/60); return h<24? `${h} 小時前` : `${Math.floor(h/24)} 天前`; }
+const fullTime=ts=>new Date(ts).toLocaleString('zh-TW',{month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false});
+setInterval(()=>document.querySelectorAll('.age[data-ts]').forEach(el=>{ const ts=+el.dataset.ts; el.querySelector('b').textContent=ago(ts); el.classList.toggle('fresh',Date.now()-ts<3600e3); }),30000);
+
 function spark(r){
   const c=(r.ltf||[]).slice(-64).map(b=>b.c); if(c.length<2) return '';
   const lo=Math.min(...c), hi=Math.max(...c), k=hi-lo||1;
@@ -105,6 +117,7 @@ function renderRows(){
       : `<div class="miss">還差：${missing.slice(0,3).join('、')}${missing.length>3?'…':''}</div>`;
     return `<div class="card ${r.status}" data-s="${r.sym}" role="option" tabindex="0" aria-selected="${r.sym===selected}">
       <div class="hd"><b>${r.sym}</b>${dir}<span class="status ${r.status}">${stTxt}</span></div>
+      ${(s=>s? `<div class="age ${Date.now()-s.ts<3600e3?'fresh':''}" data-ts="${s.ts}" title="${s.what}：${fullTime(s.ts)}"><span class="tf">${s.tf}</span>${s.what} <b>${ago(s.ts)}</b></div>` : '')(since(r))}
       ${(r.flags&&r.flags.length)||r.blocked? `<div class="tags">${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
       <div class="px"><span class="p">${fp(r.last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
       ${spark(r)}
@@ -122,7 +135,8 @@ function renderRows(){
 function renderDetail(){
   const r=results.find(x=>x.sym===selected); if(!r) return;
   $('dName').innerHTML=`${r.sym}<span class="muted" style="font-size:14px">/USDT</span>`;
-  $('dSub').textContent=`現價 ${fp(r.last)} · ${{trigger:'吞沒確認，訊號成立',watch:'便宜區有 1H OB，等吞沒',idle:'條件未成形'}[r.status]}`;
+  const sn=since(r);
+  $('dSub').textContent=`現價 ${fp(r.last)} · ${{trigger:'吞沒確認，訊號成立',watch:'便宜區有 1H OB，等吞沒',idle:'條件未成形'}[r.status]}${sn?` · ${sn.tf} ${sn.what} ${ago(sn.ts)}（${fullTime(sn.ts)}）`:''}`;
   const lv=[['進場',r.entry],['止損',r.stop],['目標',r.target],['RR',r.rr]];
   $('levels').innerHTML=lv.map(([k,v])=>`<div class="lv"><div class="label">${k}</div><div class="x">${k==='RR'?(v?v.toFixed(2):'—'):fp(v)}</div></div>`).join('');
   const D=r.dir>0;

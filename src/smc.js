@@ -126,7 +126,7 @@ const SMC = (() => {
     res.fib={lo,hi,from:a,to:b,levels:[0,0.5,0.618,0.786,1].map(r=>({r,p:lvl(r)}))};
     res.retr=retr(last);
     const W=Math.min(s.lookback||12, n-2), start=n-W;
-    for(let i=Math.max(start,b);i<n;i++){ if(retr(dir>0? ltf[i].l : ltf[i].h)>=s.fibMin){ st.fib=true; break; } }
+    for(let i=Math.max(start,b);i<n;i++){ if(retr(dir>0? ltf[i].l : ltf[i].h)>=s.fibMin){ st.fib=true; res.fibIdx=i; break; } }
 
     // 便宜區裡、未失效的順勢 1H OB（取最近的）
     const obs=L.events.filter(e=>e.dir===dir && !e.ob.broken).map(e=>e.ob)
