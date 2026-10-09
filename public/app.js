@@ -77,18 +77,33 @@ function alertNew(r){
 }
 function showToast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(showToast._t); showToast._t=setTimeout(()=>t.hidden=true,5000); }
 
+function spark(r){
+  const c=(r.ltf||[]).slice(-64).map(b=>b.c); if(c.length<2) return '';
+  const lo=Math.min(...c), hi=Math.max(...c), k=hi-lo||1;
+  const pts=c.map((v,i)=>`${(i/(c.length-1)*100).toFixed(1)},${(28-(v-lo)/k*26).toFixed(1)}`).join(' ');
+  const col = r.dir>0? 'var(--long)' : r.dir<0? 'var(--short)' : 'var(--muted)';
+  let lvl=''; if(r.entry && r.entry>=lo && r.entry<=hi){ const yy=(28-(r.entry-lo)/k*26).toFixed(1); lvl=`<line x1="0" x2="100" y1="${yy}" y2="${yy}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity=".5"/>`; }
+  return `<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">${lvl}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
+}
 function renderRows(){
   const view=results.filter(r=>(filt==='all' || r.status===filt) && (!dirF || r.dir===dirF));
   $('rows').innerHTML = view.map(r=>{
     const stages=STAGES.map(([k,n])=>`<i class="${r.st[k]?'on':''} ${r.need.includes(k)?'':'opt'}" title="${n}${r.need.includes(k)?'':'（選用）'}"></i>`).join('');
-    const dir = r.dir? `<span class="dir ${r.dir>0?'L':'S'}">${r.dir>0?'多':'空'}</span>` : '<span class="muted">盤整</span>';
-    const stTxt={trigger:'觸發',watch:'觀察',idle:'—'}[r.status];
-    const dist = r.entry? `${r.dist>0?'+':''}${r.dist.toFixed(2)}%` : '—';
-    return `<tr data-s="${r.sym}" aria-selected="${r.sym===selected}" tabindex="0">
-      <td class="sym"><b>${r.sym}</b><span>USDT</span></td><td>${dir}</td>
-      <td><span class="status ${r.status}">${stTxt}</span></td><td><span class="stages">${stages}</span></td>
-      <td class="num mono">${fp(r.last)}</td><td class="num mono">${r.entry?fp(r.entry):'—'}</td><td class="num mono">${r.stop?fp(r.stop):'—'}</td>
-      <td class="num mono">${r.rr?r.rr.toFixed(1):'—'}</td><td class="num mono">${dist}</td></tr>`;
+    const dir = r.dir? `<span class="dir ${r.dir>0?'L':'S'}">${r.dir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:12px">盤整</span>';
+    const stTxt={trigger:'觸發',watch:'觀察',idle:'未成形'}[r.status];
+    const chg = r.ltf && r.ltf.length>96 ? (r.last/r.ltf[r.ltf.length-97].c-1)*100 : null;
+    const missing = r.need.filter(k=>!r.st[k]).map(k=>STAGES.find(x=>x[0]===k)[1]);
+    const bottom = r.entry
+      ? `<div class="kv"><div><span>進場</span><b>${fp(r.entry)}</b></div><div><span>RR</span><b>${r.rr.toFixed(1)}</b></div>
+           <div><span>止損</span><b>${fp(r.stop)}</b></div><div><span>距離</span><b>${r.dist>0?'+':''}${r.dist.toFixed(1)}%</b></div></div>`
+      : `<div class="miss">還差：${missing.slice(0,3).join('、')}${missing.length>3?'…':''}</div>`;
+    return `<div class="card ${r.status}" data-s="${r.sym}" role="option" tabindex="0" aria-selected="${r.sym===selected}">
+      <div class="hd"><b>${r.sym}</b>${dir}<span class="status ${r.status}">${stTxt}</span></div>
+      <div class="px"><span class="p">${fp(r.last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
+      ${spark(r)}
+      <div class="prog"><span class="stages">${stages}</span><span>${r.met}/${r.need.length}</span></div>
+      ${bottom}
+    </div>`;
   }).join('');
   $('empty').hidden = view.length>0;
 }
@@ -173,8 +188,9 @@ function draw(){
 }
 
 // ---- events ----
-$('rows').addEventListener('click',e=>{ const tr=e.target.closest('tr'); if(!tr) return; selected=tr.dataset.s; renderRows(); renderDetail(); });
-$('rows').addEventListener('keydown',e=>{ if(e.key==='Enter'){ const tr=e.target.closest('tr'); if(tr){selected=tr.dataset.s; renderRows(); renderDetail();} } });
+const pick=el=>{ if(!el) return; selected=el.dataset.s; renderRows(); renderDetail(); const c=$('rows').querySelector(`[data-s="${selected}"]`); if(c) c.focus({preventScroll:true}); };
+$('rows').addEventListener('click',e=>pick(e.target.closest('[data-s]')));
+$('rows').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); pick(e.target.closest('[data-s]')); } });
 document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{ filt=b.dataset.f; document.querySelectorAll('[data-f]').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderRows(); });
 document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.dataset.d; dirF = dirF===d?0:d; document.querySelectorAll('[data-d]').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.d===dirF)); renderRows(); });
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });

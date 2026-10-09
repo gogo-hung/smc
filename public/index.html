@@ -107,6 +107,27 @@ td.num,th.num{text-align:right}
 .stages i.opt{opacity:.45}
 .empty{padding:28px 16px;color:var(--muted);text-align:center}
 
+/* coin cards */
+.cards{display:grid;gap:10px;padding:12px;grid-template-columns:repeat(auto-fill,minmax(172px,1fr))}
+.card{aspect-ratio:1/1;max-width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0}
+.card:hover{border-color:var(--muted)}
+.card[aria-selected="true"]{outline:2px solid var(--accent);outline-offset:-1px}
+.card.trigger{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.card.idle{opacity:.72}
+.card .hd{display:flex;align-items:center;gap:6px;min-width:0}
+.card .hd b{font-family:var(--f-display);font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.card .hd .status{margin-left:auto;flex:none}
+.card .px{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.card .px .p{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:14px}
+.card .px .d{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.card svg.spark{width:100%;height:34px;flex:none;display:block}
+.card .prog{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.card .kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px;font-size:11.5px;margin-top:auto}
+.card .kv div{display:flex;justify-content:space-between;gap:4px;min-width:0}
+.card .kv span{color:var(--muted)}
+.card .kv b{font-family:var(--f-mono);font-weight:500;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.card .miss{font-size:12px;color:var(--muted);margin-top:auto;line-height:1.4}
+
 /* detail */
 .detail .body{padding:14px 16px 16px;display:grid;gap:16px}
 .d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
@@ -217,16 +238,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
         </span>
       </h2>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>
-            <th>幣種</th><th>方向</th><th>狀態</th>
-            <th title="H4結構 / 折溢價 / POI / 掃蕩 / CHoCH / OB / FVG / RR">進度</th>
-            <th class="num">現價</th><th class="num">進場</th><th class="num">止損</th><th class="num">RR</th><th class="num">距進場</th>
-          </tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
+      <div class="cards" id="rows" role="listbox" aria-label="幣種"></div>
       <div class="empty" id="empty" hidden>目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</div>
     </main>
 
