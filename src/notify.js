@@ -10,7 +10,7 @@ function formatSignal(r) {
     `<b>${r.sym}/USDT ${side}</b>`,
     `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
     `RR ${r.rr.toFixed(2)}　現價 ${fp(r.last)}（距進場 ${r.dist > 0 ? '+' : ''}${r.dist.toFixed(2)}%）`,
-    `H4 POI ${fp(r.poi.lo)}–${fp(r.poi.hi)}${r.sweep ? `｜掃 ${fp(r.sweep.level)}` : ''}${r.choch ? `｜${r.choch.type} ${fp(r.choch.level)}` : ''}${r.entryOB && r.entryOB.fvg ? '｜有 FVG' : ''}`,
+    r.entryOB ? `1H OB ${fp(r.entryOB.lo)}–${fp(r.entryOB.hi)}｜斐波回撤 ${(r.retr * 100).toFixed(0)}%` : '',
     '',
     '下單前：這是訊號不是情緒？今天沒連虧兩筆？止損先掛。',
   ];

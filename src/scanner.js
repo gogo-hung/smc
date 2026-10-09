@@ -6,7 +6,8 @@ const store = require('./store');
 const tracker = require('./tracker');
 const journal = require('./journal');
 
-const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', needSweep: true, needChoch: true, needFvg: false, minRR: 2, lookback: 64, stopBuf: 0.1, target: 'ltf', btcFilter: 'warn', fundingMax: 0.05 };
+// 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
+const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', fibMin: 0.5, needEma: true, emaLen: 50, lookback: 12, entry: 'close', minRR: 2, stopBuf: 0.1, target: 'swing', btcFilter: 'warn', fundingMax: 0.05 };
 
 const state = {
   rules: { ...DEFAULT_RULES },
@@ -42,6 +43,7 @@ async function pickUniverse() {
   const [contracts, tickers] = await Promise.all([bingx.getContracts(), bingx.getTickers()]);
   const live = new Set(contracts);
   const vol = new Map(tickers.map(t => [t.symbol, t.quoteVolume]));
+  const price = new Map(tickers.map(t => [t.symbol, t.last]));
   const base = s => s.replace(/-USDT$/, '');
   const ranked = contracts
     .filter(s => !cfg.EXCLUDE.includes(base(s)))
@@ -51,7 +53,7 @@ async function pickUniverse() {
     .slice(0, cfg.TOP_N);
   // BTC 一定要掃（大盤濾網要用），加上自選、搜尋加入的、還在追蹤成績的幣
   const watch = ['BTC', ...cfg.WATCHLIST, ...state.extras, ...tracker.openSymbols()].map(s => `${s}-USDT`).filter(s => live.has(s));
-  return { symbols: [...new Set([...watch, ...ranked])], vol };
+  return { symbols: [...new Set([...watch, ...ranked])], vol, price };
 }
 
 // 用目前的行情與規則重新判斷（改規則時不用重抓資料）
@@ -77,7 +79,7 @@ async function scanOnce() {
   state.scanning = true; state.errors = [];
   const t0 = Date.now();
   try {
-    const { symbols, vol } = await pickUniverse();
+    const { symbols, vol, price } = await pickUniverse();
     const now = Date.now();
     const fetched = await bingx.pool(symbols, async symbol => {
       const sym = symbol.replace(/-USDT$/, '');
@@ -85,10 +87,10 @@ async function scanOnce() {
       // 4H 只在有新 K 棒收盤時才重抓
       const htfStale = !prev || !prev.htf || !prev.htf.length || now >= prev.htf[prev.htf.length - 1].t + 2 * bingx.INTERVAL_MS['4h'];
       const [ltf, htf] = await Promise.all([
-        bingx.getKlines(symbol, '15m', cfg.LTF_LIMIT),
+        bingx.getKlines(symbol, cfg.LTF_INTERVAL, cfg.LTF_LIMIT),
         htfStale ? bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT) : Promise.resolve(prev.htf),
       ]);
-      return { sym, symbol, ltf, htf, quoteVolume: vol.get(symbol) || 0 };
+      return { sym, symbol, ltf, htf, quoteVolume: vol.get(symbol) || 0, price: price.get(symbol) };
     });
     const market = {};
     for (const f of fetched) {
@@ -121,7 +123,7 @@ async function addSymbol(raw) {
   const symbol = `${sym}-USDT`;
   const contracts = await bingx.getContracts();
   if (!contracts.includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });
-  const [ltf, htf] = await Promise.all([bingx.getKlines(symbol, '15m', cfg.LTF_LIMIT), bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT)]);
+  const [ltf, htf] = await Promise.all([bingx.getKlines(symbol, cfg.LTF_INTERVAL, cfg.LTF_LIMIT), bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT)]);
   if (ltf.length < 50) throw Object.assign(new Error(`${sym} 上市時間太短，K 線不足`), { code: 422 });
   state.market[sym] = { sym, symbol, ltf, htf, quoteVolume: 0 };
   state.extras = [...state.extras.filter(s => s !== sym), sym].slice(-cfg.EXTRA_MAX);
@@ -130,7 +132,7 @@ async function addSymbol(raw) {
   return { sym, added: true };
 }
 
-// 每根 15M 收盤後 SCAN_DELAY_SEC 秒掃一次
+// 每 15 分鐘掃一次（1H 收盤時一定會掃到；中間幾次用來更新現價、接近進場區提醒）
 function startSchedule() {
   const period = bingx.INTERVAL_MS['15m'];
   const tick = () => {

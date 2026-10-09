@@ -79,67 +79,94 @@ const SMC = (() => {
     return {sw,events,trend};
   }
 
-  // ---- full pipeline for one symbol ----
-  // ltf = 15M K 線；htfIn = H4 K 線（後端直接抓 4h，沒給就用 15M 合成）
+  // ---- EMA（收盤價） ----
+  function ema(c, n){
+    const out=new Array(c.length).fill(null), k=2/(n+1); let e=null;
+    for(let i=0;i<c.length;i++){
+      if(i<n-1) continue;
+      if(e===null){ let sum=0; for(let j=i-n+1;j<=i;j++) sum+=c[j].c; e=sum/n; } else e=c[i].c*k+e*(1-k);
+      out[i]=e;
+    }
+    return out;
+  }
+  // 吞沒：這根實體完全包住前一根實體（影線不算），且方向對
+  function isEngulf(c,i,dir){
+    if(i<1) return false; const a=c[i-1], b=c[i];
+    const aT=Math.max(a.o,a.c), aB=Math.min(a.o,a.c), bT=Math.max(b.o,b.c), bB=Math.min(b.o,b.c);
+    if(bT-bB<=aT-aB) return false;
+    return (dir>0? b.c>b.o : b.c<b.o) && bT>=aT && bB<=aB;
+  }
+
+  // ---- 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢 ----
+  // ltf = 1H K 線；htfIn = H4 K 線（沒給就用 1H 合成）
   function analyze(sym, ltf, s, htfIn){
-    const htf = htfIn && htfIn.length ? htfIn : aggregate(ltf,16);
+    const htf = htfIn && htfIn.length ? htfIn : aggregate(ltf,4);
     const H=structure(htf,{...s,swingLen:s.htfSwing});
     const L=structure(ltf,s);
-    const dir=H.trend; const last=ltf[ltf.length-1].c;
-    const st={htf:false,pd:false,poi:false,sweep:false,choch:false,ob:false,fvg:false,rr:false};
-    const res={sym,dir,last,st,htf,ltf,H,L};
+    const dir=H.trend; const n=ltf.length, last=ltf[n-1].c;
+    const st={htf:false,fib:false,ob:false,engulf:false,ema:false,rr:false};
+    const res={sym,dir,last,st,htf,ltf,H,L,emaLine:ema(ltf,s.emaLen||50)};
     if(!dir) return finish(res,s);
     st.htf=true;
+    // H4 區間（圖表用）
     const lastEv=[...H.events].reverse().find(e=>e.dir===dir);
     let rHi=-Infinity,rLo=Infinity;
     for(let i=lastEv.from;i<htf.length;i++){rHi=Math.max(rHi,htf[i].h);rLo=Math.min(rLo,htf[i].l);}
-    const eq=(rHi+rLo)/2; res.range={hi:rHi,lo:rLo,eq};
-    st.pd = dir>0 ? last<eq : last>eq;
-    const pois=H.events.filter(e=>e.dir===dir && !e.ob.broken && (dir>0? e.ob.hi<=eq*1.002 : e.ob.lo>=eq*0.998));
-    const poi=pois[pois.length-1]; if(!poi) return finish(res,s);
-    st.poi=true; res.poi=poi.ob;
-    // map POI time onto LTF
-    const W=Math.min(s.lookback, ltf.length-1); const start=ltf.length-W;
-    const inPoi=i=> dir>0 ? ltf[i].l<=poi.ob.hi*1.001 : ltf[i].h>=poi.ob.lo*0.999;
-    // sweep: wick through a prior LTF swing point, close back inside, while at POI
-    const pts = dir>0? L.sw.lo : L.sw.hi;
-    let sweep=null;
-    for(let i=ltf.length-1;i>=start;i--){
-      if(!inPoi(i)) continue;
-      const prev=pts.filter(p=>p.conf<i && p.i>=i-120);
-      for(const p of prev.reverse()){
-        if(dir>0 ? (ltf[i].l<p.price && ltf[i].c>p.price) : (ltf[i].h>p.price && ltf[i].c<p.price)){ sweep={idx:i,level:p.price,ext:dir>0?ltf[i].l:ltf[i].h,swingIdx:p.i}; break; }
-      }
-      if(sweep)break;
+    res.range={hi:rHi,lo:rLo,eq:(rHi+rLo)/2};
+
+    // 1H 最近一段順勢推動 → 畫斐波
+    const leg=[...L.events].reverse().find(e=>e.dir===dir);
+    if(!leg) return finish(res,s);
+    let lo=Infinity, hi=-Infinity, a=leg.from, b=leg.idx;
+    if(dir>0){ for(let i=a;i<=b;i++) if(ltf[i].l<lo){lo=ltf[i].l;a=i;} for(let i=leg.idx;i<n;i++) if(ltf[i].h>hi){hi=ltf[i].h;b=i;} }
+    else     { for(let i=a;i<=b;i++) if(ltf[i].h>hi){hi=ltf[i].h;a=i;} for(let i=leg.idx;i<n;i++) if(ltf[i].l<lo){lo=ltf[i].l;b=i;} }
+    const span=hi-lo||1;
+    const retr=p=> dir>0? (hi-p)/span : (p-lo)/span;         // 0 = 推動終點，1 = 起點
+    const lvl=r=> dir>0? hi-span*r : lo+span*r;
+    res.fib={lo,hi,from:a,to:b,levels:[0,0.5,0.618,0.786,1].map(r=>({r,p:lvl(r)}))};
+    res.retr=retr(last);
+    const W=Math.min(s.lookback||12, n-2), start=n-W;
+    for(let i=Math.max(start,b);i<n;i++){ if(retr(dir>0? ltf[i].l : ltf[i].h)>=s.fibMin){ st.fib=true; break; } }
+
+    // 便宜區裡、未失效的順勢 1H OB（取最近的）
+    const obs=L.events.filter(e=>e.dir===dir && !e.ob.broken).map(e=>e.ob)
+      .filter(ob=> dir>0 ? (ob.lo>=lo*0.998 && retr(ob.hi)>=s.fibMin) : (ob.hi<=hi*1.002 && retr(ob.lo)>=s.fibMin));
+    const ob=obs.sort((x,y)=>y.idx-x.idx)[0];
+    const emaAt=i=>res.emaLine[i];
+    const emaOk=i=> emaAt(i)!=null && (dir>0? ltf[i].c>emaAt(i) : ltf[i].c<emaAt(i));
+    st.ema=emaOk(n-1);
+    if(!ob) return finish(res,s);
+    st.ob=true; res.entryOB=ob;
+
+    // 回到 OB 後的 1H 吞沒（在有效範圍內，最新的那根）
+    let eng=-1;
+    for(let i=n-1;i>=Math.max(start,ob.idx+2);i--){
+      if(!isEngulf(ltf,i,dir)) continue;
+      const touch = dir>0 ? Math.min(ltf[i].l,ltf[i-1].l)<=ob.hi*1.002 && ltf[i].c>ob.lo
+                          : Math.max(ltf[i].h,ltf[i-1].h)>=ob.lo*0.998 && ltf[i].c<ob.hi;
+      if(touch){ eng=i; break; }
     }
-    if(sweep){st.sweep=true;res.sweep=sweep;}
-    const after = sweep? sweep.idx : start;
-    const ch=L.events.find(e=>e.dir===dir && e.idx>after && (e.type==='CHoCH' || !s.needChoch));
-    if(ch){ st.choch = ch.type==='CHoCH'; res.choch=ch;
-      if(!ch.ob.broken){ st.ob=true; res.entryOB=ch.ob; st.fvg=ch.ob.fvg; } }
-    if(res.entryOB){
-      const ob=res.entryOB;
-      const entry = dir>0? ob.hi : ob.lo;
-      const ext = sweep? sweep.ext : (dir>0? ob.lo : ob.hi);
-      const stop = dir>0? Math.min(ext,ob.lo)*(1-s.stopBuf/100) : Math.max(ext,ob.hi)*(1+s.stopBuf/100);
-      let target = dir>0? rHi : rLo;
-      if(s.target==='ltf'){ // nearest unswept LTF liquidity beyond entry
-        const pool=(dir>0? L.sw.hi : L.sw.lo).filter(p=>p.i>ltf.length-300);
-        const ref = dir>0? Math.max(entry,ch.level) : Math.min(entry,ch.level);
-        const cand=pool.filter(p=>dir>0? p.price>ref*1.001 : p.price<ref*0.999).map(p=>p.price).sort((a,b)=>dir>0?a-b:b-a);
-        if(cand.length) target=cand[0];
-      }
-      const rr = Math.abs(target-entry)/Math.abs(entry-stop);
-      Object.assign(res,{entry,stop,target,rr,dist:(last-entry)/entry*100});
-      st.rr = rr>=s.minRR && (dir>0? target>entry : target<entry);
+    const pairLow = i=> Math.min(ltf[i].l,ltf[i-1].l), pairHigh = i=> Math.max(ltf[i].h,ltf[i-1].h);
+    let stopRaw = dir>0? ob.lo : ob.hi;
+    if(eng>=0){
+      stopRaw = dir>0? Math.min(ob.lo,pairLow(eng)) : Math.max(ob.hi,pairHigh(eng));
+      // 吞沒之後收盤跌破止損位 → 這個吞沒失效
+      let dead=false; for(let i=eng+1;i<n;i++){ if(dir>0? ltf[i].c<stopRaw : ltf[i].c>stopRaw){dead=true;break;} }
+      if(!dead){ st.engulf=true; res.engulf={idx:eng}; res.sigIdx=eng; st.ema=emaOk(eng); }
     }
+    const entry = st.engulf && s.entry!=='ob' ? ltf[eng].c : (dir>0? ob.hi : ob.lo);
+    const stop = dir>0? stopRaw*(1-s.stopBuf/100) : stopRaw*(1+s.stopBuf/100);
+    const target = s.target==='htf' ? (dir>0? rHi : rLo) : (dir>0? hi : lo);
+    const rr = Math.abs(target-entry)/Math.abs(entry-stop);
+    Object.assign(res,{entry,stop,target,rr,dist:(last-entry)/entry*100});
+    st.rr = rr>=s.minRR && (dir>0? target>entry && stop<entry : target<entry && stop>entry);
     return finish(res,s);
   }
   function finish(r,s){
     const st=r.st;
-    const need=['htf','pd','poi','ob','rr']; if(s.needSweep)need.push('sweep'); if(s.needChoch)need.push('choch'); if(s.needFvg)need.push('fvg');
+    const need=['htf','fib','ob','engulf','rr']; if(s.needEma!==false) need.splice(4,0,'ema');
     r.need=need; r.met=need.filter(k=>st[k]).length;
-    r.status = need.every(k=>st[k]) ? 'trigger' : (st.htf&&st.pd&&st.poi ? 'watch' : 'idle');
+    r.status = need.every(k=>st[k]) ? 'trigger' : (st.htf&&st.fib&&st.ob ? 'watch' : 'idle');
     return r;
   }
   // 大盤濾網：BTC H4 方向、資金費率（前後端共用）
@@ -159,6 +186,6 @@ const SMC = (() => {
     }
     return r;
   }
-  return {genSeries,addBar,aggregate,analyze,applyContext};
+  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=SMC;

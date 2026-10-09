@@ -5,7 +5,7 @@ const store = { get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){r
 
 // ---- 資料來源：有後端就讀 api/market（BingX 即時 K 線），沒有就用示範資料 ----
 const BASE = {BTC:98000,ETH:3600,SOL:180,XRP:2.4,DOGE:0.21,BNB:640,ADA:0.7,AVAX:30,LINK:18,SUI:3.5,TON:3.2,DOT:5,NEAR:3,APT:6,ARB:0.5,OP:0.9,INJ:15,SEI:0.3,TIA:2.5,WIF:1,PEPE:0.0000105,FET:0.8,RENDER:4,ATOM:5,LTC:95,BCH:450,FIL:3,AAVE:260,UNI:9,ENA:0.5,JUP:0.6,ONDO:1,TAO:400,HBAR:0.2,TRX:0.3,WLD:1.5};
-const SEED = {ETH:152,SUI:594,DOGE:358,INJ:423};
+const SEED = {SOL:87,SUI:107,INJ:10,AVAX:290};
 const unpack = a => a.map(k=>({t:k[0],o:k[1],h:k[2],l:k[3],c:k[4],v:k[5]}));
 const DataSource = {
   mode:'demo', list:Object.keys(BASE), series:{}, htfs:{}, tick:0, updatedAt:null, serverRules:null, ctx:{btcDir:0,funding:{}},
@@ -22,7 +22,7 @@ const DataSource = {
     for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); }
   },
   async refresh(){ const r=await fetch('api/market',{cache:'no-store'}); if(r.ok) await this.apply(await r.json()); },
-  ltf(sym){ if(this.mode==='demo' && !this.series[sym]) this.series[sym]=SMC.genSeries(sym,BASE[sym],1920,SEED[sym]||1); return this.series[sym]; },
+  ltf(sym){ if(this.mode==='demo'){ if(!this.series[sym]) this.series[sym]=SMC.genSeries(sym,BASE[sym],1920,SEED[sym]||1); return SMC.aggregate(this.series[sym],4); } return this.series[sym]; }, // 示範：15M 合成 1H
   htf(sym){ return this.mode==='live'? this.htfs[sym] : undefined; },
   async advance(){
     if(this.mode==='demo'){ this.tick++; for(const s in this.series) SMC.addBar(this.series[s], s, this.tick); return; }
@@ -43,19 +43,20 @@ async function adminFetch(url,opt={}){
 }
 
 // ---- rules ----
-const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',needSweep:true,needChoch:true,needFvg:false,minRR:2,lookback:64,stopBuf:0.1,target:'ltf',btcFilter:'warn',fundingMax:0.05};
-let rules = {...DEFAULTS, ...(store.get('smc-rules-v1')||{})};
+// 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
+const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05};
+let rules = {...DEFAULTS, ...(store.get('smc-rules-v2')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
-  const t=[`swing ${rules.swingLen}/${rules.htfSwing}`, rules.breakBy==='close'?'收盤確認':'影線確認', {close:'OB 收盤失效',wick:'OB 影線失效',half:'OB 50% 失效'}[rules.obInvalid],
-    rules.needSweep&&'需掃蕩', rules.needChoch&&'需 CHoCH', rules.needFvg&&'需 FVG', `RR ≥ ${rules.minRR}`, rules.target==='ltf'?'目標 15M 流動性':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter]].filter(Boolean);
+  const t=[`斐波 ≥ ${rules.fibMin}`, rules.needEma?`EMA${rules.emaLen} 順勢`:'不看 EMA', `吞沒 ${rules.lookback}H 內`, rules.entry==='close'?'吞沒收盤進場':'OB 邊緣進場',
+    `RR ≥ ${rules.minRR}`, rules.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter]].filter(Boolean);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v1',rules); renderSum(); }
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v2',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='all', dirF=0, tf='ltf', prevTrig=null, q='';
-const STAGES=[['htf','H4 結構'],['pd','折 / 溢價'],['poi','H4 POI'],['sweep','流動性掃蕩'],['choch','15M CHoCH'],['ob','進場 OB'],['fvg','FVG'],['rr','RR 達標']];
+const STAGES=[['htf','H4 趨勢'],['fib','斐波便宜區'],['ob','1H OB'],['engulf','1H 吞沒 K'],['ema','EMA 順勢'],['rr','RR 達標']];
 
 const fp = p => p==null||!isFinite(p) ? '—' : p>=1000? p.toLocaleString('en-US',{maximumFractionDigits:1}) : p>=10? p.toFixed(2) : p>=1? p.toFixed(3) : p>=0.01? p.toFixed(4) : p.toPrecision(4);
 const hhmm = d => d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});
@@ -96,7 +97,7 @@ function renderRows(){
     const stages=STAGES.map(([k,n])=>`<i class="${r.st[k]?'on':''} ${r.need.includes(k)?'':'opt'}" title="${n}${r.need.includes(k)?'':'（選用）'}"></i>`).join('');
     const dir = r.dir? `<span class="dir ${r.dir>0?'L':'S'}">${r.dir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:12px">盤整</span>';
     const stTxt={trigger:'觸發',watch:'觀察',idle:'未成形'}[r.status];
-    const chg = r.ltf && r.ltf.length>96 ? (r.last/r.ltf[r.ltf.length-97].c-1)*100 : null;
+    const chg = r.ltf && r.ltf.length>24 ? (r.last/r.ltf[r.ltf.length-25].c-1)*100 : null;
     const missing = r.need.filter(k=>!r.st[k]).map(k=>STAGES.find(x=>x[0]===k)[1]);
     const bottom = r.entry
       ? `<div class="kv"><div><span>進場</span><b>${fp(r.entry)}</b></div><div><span>RR</span><b>${r.rr.toFixed(1)}</b></div>
@@ -121,18 +122,17 @@ function renderRows(){
 function renderDetail(){
   const r=results.find(x=>x.sym===selected); if(!r) return;
   $('dName').innerHTML=`${r.sym}<span class="muted" style="font-size:14px">/USDT</span>`;
-  $('dSub').textContent=`現價 ${fp(r.last)} · ${{trigger:'訊號觸發',watch:'已到 POI，等確認',idle:'條件未成形'}[r.status]}`;
+  $('dSub').textContent=`現價 ${fp(r.last)} · ${{trigger:'吞沒確認，訊號成立',watch:'便宜區有 1H OB，等吞沒',idle:'條件未成形'}[r.status]}`;
   const lv=[['進場',r.entry],['止損',r.stop],['目標',r.target],['RR',r.rr]];
   $('levels').innerHTML=lv.map(([k,v])=>`<div class="lv"><div class="label">${k}</div><div class="x">${k==='RR'?(v?v.toFixed(2):'—'):fp(v)}</div></div>`).join('');
   const D=r.dir>0;
+  const n=r.ltf.length, eAt=i=>r.emaLine&&r.emaLine[i];
   const val={
     htf: r.dir? `H4 ${D?'多頭':'空頭'}（最後 ${[...r.H.events].reverse().find(e=>e.dir===r.dir).type}）` : '沒有明確結構',
-    pd: r.range? `${D?'折價':'溢價'}區判斷，EQ ${fp(r.range.eq)}` : '—',
-    poi: r.poi? `${fp(r.poi.lo)} – ${fp(r.poi.hi)}` : '找不到未失效的 H4 OB',
-    sweep: r.sweep? `掃過 ${fp(r.sweep.level)}，影線到 ${fp(r.sweep.ext)}` : '尚未掃蕩',
-    choch: r.choch? `${r.choch.type} @ ${fp(r.choch.level)}` : '尚未出現',
-    ob: r.entryOB? `${fp(r.entryOB.lo)} – ${fp(r.entryOB.hi)}` : (r.choch?'OB 已失效':'—'),
-    fvg: r.entryOB? (r.entryOB.fvg?'推動段有 FVG':'沒有 FVG') : '—',
+    fib: r.fib? `${D?'推動':'下跌'} ${fp(D?r.fib.lo:r.fib.hi)} → ${fp(D?r.fib.hi:r.fib.lo)}，目前回撤 ${(r.retr*100).toFixed(0)}%（要 ≥ ${(rules.fibMin*100).toFixed(1).replace('.0','')}%）` : '1H 還沒有順勢推動',
+    ob: r.entryOB? `${fp(r.entryOB.lo)} – ${fp(r.entryOB.hi)}` : (r.fib?'便宜區裡沒有未失效的 OB':'—'),
+    engulf: r.engulf? `${new Date(r.ltf[r.engulf.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤 ${fp(r.ltf[r.engulf.idx].c)}` : (r.entryOB?'回到 OB 後還沒出現':'—'),
+    ema: (()=>{ const i=r.engulf? r.engulf.idx : n-1, e=eAt(i); return e==null?'資料不足':`${r.engulf?'吞沒收盤':'現價'}在 EMA${rules.emaLen} ${r.ltf[i].c>e?'上方':'下方'}（${fp(e)}）`; })(),
     rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）` : '—'
   };
   const fl=[...(r.blocked?[`⛔ ${r.blocked}`]:[]), ...(r.flags||[]).map(f=>`⚠ ${f.t}`)];
@@ -161,7 +161,7 @@ function draw(){
   drawChart(g,W,H,r,tf,C);
 }
 function drawChart(g,W,H,r,tf,C){
-  const src = tf==='ltf'? r.ltf : r.htf; const N = tf==='ltf'? Math.min(140,src.length) : src.length; const off=src.length-N; const bars=src.slice(off);
+  const src = tf==='ltf'? r.ltf : r.htf; const N = tf==='ltf'? Math.min(120,src.length) : src.length; const off=src.length-N; const bars=src.slice(off);
   let lo=Math.min(...bars.map(b=>b.l)), hi=Math.max(...bars.map(b=>b.h));
   [r.entry,r.stop,r.target].forEach(v=>{ if(v){lo=Math.min(lo,v);hi=Math.max(hi,v);} });
   const pad=(hi-lo)*0.06; lo-=pad; hi+=pad;
@@ -183,13 +183,28 @@ function drawChart(g,W,H,r,tf,C){
   // POI
   if(r.poi){ const x1= tf==='htf'? Math.max(8,x(r.poi.idx)-cw/2) : 8; box(x1,r.poi.lo,r.poi.hi,C('--accent'),.16); tag('H4 POI',x1+4,y(r.poi.hi)+9,C('--accent')); }
   if(tf==='htf' && r.range){ g.setLineDash([2,4]); g.strokeStyle=C('--muted'); g.beginPath(); g.moveTo(8,y(r.range.eq)); g.lineTo(W-R,y(r.range.eq)); g.stroke(); g.setLineDash([]); tag('EQ',10,y(r.range.eq)-8,C('--muted')); }
-  if(tf==='ltf' && r.entryOB && r.entryOB.idx>=off){ const x1=x(r.entryOB.idx)-cw/2; box(x1,r.entryOB.lo,r.entryOB.hi,dirCol,.28); tag('OB',x1+3,y(r.entryOB.lo)+ (r.dir>0?9:-9),dirCol); }
+  // 斐波（1H 推動段）
+  if(tf==='ltf' && r.fib){ const x0=Math.max(8,x(Math.max(off,r.fib.from))-cw/2);
+    r.fib.levels.forEach(L=>{ if(L.p<lo||L.p>hi) return; const yy=Math.round(y(L.p))+.5, key=L.r===0.5||L.r===rules.fibMin;
+      g.strokeStyle=C('--muted'); g.globalAlpha=key?.9:.45; g.setLineDash(L.r===0||L.r===1?[]:[2,3]); g.beginPath(); g.moveTo(x0,yy); g.lineTo(W-R,yy); g.stroke(); g.setLineDash([]); g.globalAlpha=1;
+      g.fillStyle=C('--muted'); g.font='10px "JetBrains Mono",monospace'; g.fillText(String(L.r),x0+2,yy-6); g.font='11px "JetBrains Mono",monospace'; });
+    const z1=r.fib.levels.find(L=>L.r===1).p, zc=r.dir>0? r.fib.hi-(r.fib.hi-r.fib.lo)*rules.fibMin : r.fib.lo+(r.fib.hi-r.fib.lo)*rules.fibMin;
+    g.globalAlpha=.07; g.fillStyle=dirCol; g.fillRect(x0,y(Math.max(z1,zc)),W-R-x0,Math.abs(y(z1)-y(zc))); g.globalAlpha=1; }
+  if(tf==='ltf' && r.entryOB && r.entryOB.idx>=off){ const x1=x(r.entryOB.idx)-cw/2; box(x1,r.entryOB.lo,r.entryOB.hi,dirCol,.28); tag('1H OB',x1+3,y(r.entryOB.lo)+ (r.dir>0?9:-9),dirCol); }
   // candles
   bars.forEach((b,j)=>{ const i=j+off, up=b.c>=b.o, col=up?C('--long'):C('--short'); g.strokeStyle=col; g.fillStyle=col;
     const xx=Math.round(x(i))+.5; g.beginPath(); g.moveTo(xx,y(b.h)); g.lineTo(xx,y(b.l)); g.stroke();
     const bw=Math.max(1,cw*.62); g.fillRect(x(i)-bw/2,y(Math.max(b.o,b.c)),bw,Math.max(1,Math.abs(y(b.o)-y(b.c)))); });
+  // EMA
+  if(tf==='ltf' && r.emaLine){ g.strokeStyle=C('--watch'); g.lineWidth=1.5; g.beginPath(); let st=false;
+    for(let i=off;i<src.length;i++){ const e=r.emaLine[i]; if(e==null) continue; const yy=y(e); if(!st){g.moveTo(x(i),yy);st=true;} else g.lineTo(x(i),yy); } g.stroke(); g.lineWidth=1;
+    const le=r.emaLine[src.length-1]; if(le!=null) tag(`EMA${rules.emaLen}`,x(src.length-1)-58,y(le)+(r.dir>0?12:-12),C('--watch')); }
+  // 吞沒 K
+  if(tf==='ltf' && r.engulf && r.engulf.idx>=off){ const i=r.engulf.idx, b=src[i], xx=x(i), yy= r.dir>0? y(b.l)+12 : y(b.h)-12;
+    g.fillStyle=C('--accent'); g.beginPath(); if(r.dir>0){g.moveTo(xx,yy-6);g.lineTo(xx-6,yy+4);g.lineTo(xx+6,yy+4);} else {g.moveTo(xx,yy+6);g.lineTo(xx-6,yy-4);g.lineTo(xx+6,yy-4);} g.fill();
+    tag('吞沒',xx+9,yy,C('--accent')); }
   // structure events
-  const evs = tf==='ltf'? (r.choch? [r.choch]:[]) : r.H.events.slice(-4);
+  const evs = tf==='ltf'? [] : r.H.events.slice(-4);
   evs.forEach(e=>{ if(e.idx<off) return; const x1=Math.max(8,x(e.from)), x2=x(e.idx), yy=Math.round(y(e.level))+.5; const col=e.dir>0?C('--long'):C('--short');
     g.strokeStyle=col; g.setLineDash([4,3]); g.beginPath(); g.moveTo(x1,yy); g.lineTo(x2,yy); g.stroke(); g.setLineDash([]); tag(e.type,(x1+x2)/2-14,yy+(e.dir>0?-9:9),col); });
   // sweep
@@ -212,7 +227,7 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v1',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v2',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
@@ -439,7 +454,7 @@ function drawPost(){
   const ref=$('postRef').value.trim();
   g.fillStyle=C('--line'); g.fillRect(64,1170,W-128,2);
   if(ref){ g.fillStyle=C('--fg'); g.font='600 32px "Noto Sans TC",sans-serif'; g.fillText(ref,64,1230); }
-  g.fillStyle=C('--muted'); g.font='400 24px "Noto Sans TC",sans-serif'; g.fillText('H4 結構 → 流動性掃蕩 → 15M CHoCH → OB 進場｜僅供參考，非投資建議',64,ref?1280:1230);
+  g.fillStyle=C('--muted'); g.font='400 24px "Noto Sans TC",sans-serif'; g.fillText('H4 趨勢 → 1H OB × 斐波便宜區 → 吞沒 K + EMA50｜僅供參考，非投資建議',64,ref?1280:1230);
 }
 $('postBtn').onclick=()=>{ $('postModal').hidden=false; $('postDl').hidden=DataSource.mode!=='live'; drawPost(); if(document.fonts) document.fonts.ready.then(drawPost); };
 $('postClose').onclick=()=>{ $('postModal').hidden=true; };
@@ -455,7 +470,7 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
     if(DataSource.serverRules) rules={...DEFAULTS,...DataSource.serverRules};
     $('srcChip').classList.add('live'); $('srcTxt').textContent='BingX 即時資料';
     $('autoLbl').textContent='每分鐘自動更新'; $('pushRules').hidden=false;
-    $('note').textContent='資料來自 BingX USDT 永續合約（已收盤的 K 棒）。後端每根 15M 收盤後自動掃描，新訊號、接近進場區、數據公布前都會推到 Telegram；策略參數改完按「套用到推播」，推播才會改用新規則。';
+    $('note').textContent='資料來自 BingX USDT 永續合約（已收盤的 1H / H4 K 棒）。後端每 15 分鐘掃描一次，新訊號、接近進場區、數據公布前都會推到 Telegram；策略參數改完按「套用到推播」，推播才會改用新規則。';
     if(!DataSource.list.length){ $('note').textContent='伺服器第一次掃描中，完成後會自動顯示。';
       const wait=setInterval(async()=>{ await DataSource.refresh(); if(DataSource.list.length){ clearInterval(wait); scan(); } },8000); }
   }

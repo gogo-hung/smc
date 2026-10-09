@@ -258,7 +258,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <div class="brand">
       <h1>SMC 掃幣台</h1>
       <span class="chip" id="srcChip"><span class="dot"></span><span id="srcTxt">示範資料，非實際行情</span></span>
-      <span class="chip mono" id="scanInfo">BingX USDT 永續 · 15M / H4</span>
+      <span class="chip mono" id="scanInfo">BingX USDT 永續 · 1H / H4</span>
     </div>
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
@@ -346,26 +346,31 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </div>
     <form id="rules">
       <div class="col">
-        <div class="group-t">結構</div>
-        <div class="fld"><label class="label" for="swingLen">15M swing 長度</label>
-          <input type="number" id="swingLen" min="2" max="8" value="3"><span class="hint">左右各幾根 K 棒才算有效高低點</span></div>
+        <div class="group-t">H4 趨勢</div>
         <div class="fld"><label class="label" for="htfSwing">H4 swing 長度</label>
-          <input type="number" id="htfSwing" min="2" max="8" value="3"></div>
+          <input type="number" id="htfSwing" min="2" max="8" value="3"><span class="hint">左右各幾根 K 棒才算有效高低點</span></div>
         <div class="fld"><label class="label" for="breakBy">BOS / CHoCH 確認</label>
           <select id="breakBy"><option value="close">收盤突破</option><option value="wick">影線穿過即算</option></select></div>
       </div>
       <div class="col">
-        <div class="group-t">OB</div>
+        <div class="group-t">1H OB × 斐波</div>
+        <div class="fld"><label class="label" for="swingLen">1H swing 長度</label>
+          <input type="number" id="swingLen" min="2" max="8" value="3"></div>
+        <div class="fld"><label class="label" for="fibMin">便宜區：回撤至少</label>
+          <select id="fibMin"><option value="0.5">0.5（折價區）</option><option value="0.618">0.618</option><option value="0.705">0.705</option><option value="0.786">0.786</option></select>
+          <span class="hint">OB 要在最近一段 1H 推動的這個回撤位以下（做空則以上）</span></div>
         <div class="fld"><label class="label" for="obInvalid">OB 失效條件</label>
           <select id="obInvalid"><option value="close">收盤穿過 OB</option><option value="wick">影線穿過 OB</option><option value="half">碰到 50% 即失效</option></select></div>
-        <div class="fld"><label class="label" for="lookback">訊號有效範圍（15M 根數）</label>
-          <input type="number" id="lookback" min="16" max="200" value="64"><span class="hint">64 根約 16 小時</span></div>
       </div>
       <div class="col">
-        <div class="group-t">進場條件</div>
-        <label class="chk"><input type="checkbox" id="needSweep" checked> 必須先掃流動性</label>
-        <label class="chk"><input type="checkbox" id="needChoch" checked> 掃蕩後必須 15M CHoCH</label>
-        <label class="chk"><input type="checkbox" id="needFvg"> OB 推動段需有 FVG</label>
+        <div class="group-t">吞沒 + EMA</div>
+        <label class="chk"><input type="checkbox" id="needEma" checked> 吞沒 K 收盤要在 EMA 順勢一側</label>
+        <div class="fld"><label class="label" for="emaLen">EMA 週期（1H）</label>
+          <input type="number" id="emaLen" min="5" max="200" value="50"></div>
+        <div class="fld"><label class="label" for="lookback">吞沒有效範圍（1H 根數）</label>
+          <input type="number" id="lookback" min="2" max="72" value="12"><span class="hint">12 根 = 最近 12 小時內的吞沒才算</span></div>
+        <div class="fld"><label class="label" for="entry">進場價</label>
+          <select id="entry"><option value="close">吞沒 K 收盤價</option><option value="ob">OB 邊緣掛單</option></select></div>
       </div>
       <div class="col">
         <div class="group-t">大盤濾網</div>
@@ -377,11 +382,11 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <div class="col">
         <div class="group-t">風報</div>
         <div class="fld"><label class="label" for="target">目標</label>
-          <select id="target"><option value="ltf">最近的 15M 對向流動性</option><option value="htf">H4 區間極值</option></select></div>
+          <select id="target"><option value="swing">這段 1H 推動的前高 / 前低</option><option value="htf">H4 區間極值</option></select></div>
         <div class="fld"><label class="label" for="minRR">最低 RR</label>
           <input type="number" id="minRR" min="0.5" max="10" step="0.5" value="2"></div>
         <div class="fld"><label class="label" for="stopBuf">止損緩衝 %</label>
-          <input type="number" id="stopBuf" min="0" max="2" step="0.05" value="0.1"><span class="hint">放在掃蕩影線或 OB 外側再加緩衝</span></div>
+          <input type="number" id="stopBuf" min="0" max="2" step="0.05" value="0.1"><span class="hint">放在 OB 與吞沒 K 的低點外側（做空為高點），再加緩衝</span></div>
       </div>
     </form>
   </section>
@@ -419,11 +424,11 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="d-head">
           <div><div class="name" id="dName">—</div><div class="muted mono" id="dSub"></div></div>
           <div class="tabs" role="group" aria-label="時框">
-            <button class="seg" type="button" data-tf="ltf" aria-pressed="true">15M</button>
+            <button class="seg" type="button" data-tf="ltf" aria-pressed="true">1H</button>
             <button class="seg" type="button" data-tf="htf" aria-pressed="false">H4</button>
           </div>
         </div>
-        <canvas id="chart" aria-label="K 線圖，標示 POI、OB、掃蕩與進出場位"></canvas>
+        <canvas id="chart" aria-label="K 線圖，標示斐波、EMA50、OB、吞沒 K 與進出場位"></canvas>
 
         <div class="levels" id="levels"></div>
         <div class="flags" id="dFlags" hidden></div>
@@ -462,7 +467,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <canvas id="postCanvas" width="1080" height="1350" aria-label="貼文圖卡預覽"></canvas>
       <div class="post-side">
         <div class="fld"><label class="label" for="postRef">推薦碼或連結（會印在圖上）</label><input id="postRef" placeholder="例：BingX 推薦碼 ABC123"></div>
-        <div class="fld"><label class="label" for="postNote">一句話說明（選填）</label><input id="postNote" maxlength="40" placeholder="例：H4 POI 掃完流動性，等回 OB"></div>
+        <div class="fld"><label class="label" for="postNote">一句話說明（選填）</label><input id="postNote" maxlength="40" placeholder="例：回到 0.618 的 1H OB，吞沒確認"></div>
         <button class="btn primary" type="button" id="postDl">下載圖片</button>
         <button class="btn" type="button" id="postCopy">複製圖片</button>
         <p class="hint">圖上會附「僅供參考，非投資建議」。</p>

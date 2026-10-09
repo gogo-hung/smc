@@ -8,15 +8,15 @@ const dataDir = path.join(__dirname, '..', 'data');
 for (const f of fs.existsSync(dataDir) ? fs.readdirSync(dataDir) : []) if (f.endsWith('.json')) fs.unlinkSync(path.join(dataDir, f));
 const SMC = require('../src/smc');
 
-const SEEDS = { ETH: 152, SUI: 594, DOGE: 358, INJ: 423 };
+const SEEDS = { SOL: 87, SUI: 107, INJ: 10, AVAX: 290 }; // 這幾個種子在新策略下會出訊號
 const COINS = ['BTC', 'ETH', 'SOL', 'SUI', 'DOGE', 'INJ', 'XRP', 'LINK', 'AVAX', 'TIA'];
-const Q = 15 * 60e3;
+const Q = 60 * 60e3; // 1H
 const end = Math.floor(Date.now() / Q) * Q - 2 * Q; // 留兩根空間，之後模擬價格走勢
 const fake = {};
 for (const c of [...COINS, 'TINY']) {
-  const s = SMC.genSeries(c, 100, 1920, SEEDS[c] || 1);
+  const s = SMC.aggregate(SMC.genSeries(c, 100, 1920, SEEDS[c] || 1), 4); // 1H
   s.forEach((b, i) => { b.t = end - (s.length - i) * Q; });
-  fake[c] = { ltf: s, htf: SMC.aggregate(s, 16) };
+  fake[c] = { ltf: s, htf: SMC.aggregate(s, 4) };
 }
 const nyDate = add => new Date(Date.now() + add * 86400e3).toLocaleDateString('sv-SE', { timeZone: 'America/New_York' });
 
@@ -41,11 +41,11 @@ global.fetch = async (url) => {
   }
   if (u.pathname.endsWith('/quote/contracts')) return json([...COINS.map(c => ({ symbol: `${c}-USDT`, status: 1 })), { symbol: 'OLD-USDT', status: 0 }, { symbol: 'TINY-USDT', status: 1 }, { symbol: 'NCSKASML2USD-USDT', status: 1 }]);
   if (u.pathname.endsWith('/quote/ticker')) return json([...COINS.map((c, i) => ({ symbol: `${c}-USDT`, lastPrice: '1', quoteVolume: String(1e9 / (i + 1)) })), { symbol: 'TINY-USDT', lastPrice: '1', quoteVolume: '10' }, { symbol: 'NCSKASML2USD-USDT', quoteVolume: '9e9' }]);
-  if (u.pathname.endsWith('/quote/premiumIndex')) return json(COINS.map(c => ({ symbol: `${c}-USDT`, lastFundingRate: c === 'DOGE' ? '0.0010' : '0.0001' })));
+  if (u.pathname.endsWith('/quote/premiumIndex')) return json(COINS.map(c => ({ symbol: `${c}-USDT`, lastFundingRate: c === 'SOL' ? '0.0010' : '0.0001' })));
   if (u.pathname.endsWith('/quote/klines')) {
     const c = u.searchParams.get('symbol').replace('-USDT', '');
     const iv = u.searchParams.get('interval'), lim = +u.searchParams.get('limit');
-    let bars = (iv === '15m' ? fake[c].ltf : fake[c].htf).slice(-lim);
+    let bars = (iv === '1h' ? fake[c].ltf : fake[c].htf).slice(-lim);
     // 模擬 BingX：字串數值、新到舊排序、多一根尚未收盤的 K 棒
     const forming = { ...bars[bars.length - 1], t: Date.now() - 1000 };
     bars = [...bars, forming].reverse();
@@ -71,25 +71,36 @@ global.fetch = async (url) => {
   assert.strictEqual(tracker.state.signals.length, sum.trigger, '每個觸發都記進成績單');
   assert.strictEqual(tracker.state.feed.filter(f => f.type === 'signal').length, sum.trigger, '每個觸發都進提醒紀錄');
 
+  // 策略內容
+  for (const r of scanner.state.results.filter(r => r.status === 'trigger')) {
+    assert(r.st.fib && r.st.ob && r.st.engulf && r.st.ema && r.st.rr, '觸發要滿足全部條件');
+    assert(r.retr >= 0.5 || r.entryOB, 'OB 要在斐波便宜區');
+    assert(r.dir > 0 ? r.ltf[r.sigIdx].c > r.emaLine[r.sigIdx] : r.ltf[r.sigIdx].c < r.emaLine[r.sigIdx], '吞沒 K 收盤要在 EMA50 對的一側');
+    assert(SMC.isEngulf(r.ltf, r.sigIdx, r.dir), '訊號那根要是吞沒');
+  }
+  console.log('觸發：', scanner.state.results.filter(r => r.status === 'trigger').map(r => `${r.sym} ${r.dir > 0 ? '多' : '空'} RR ${r.rr.toFixed(2)} 回撤 ${(r.retr * 100).toFixed(0)}%`).join('、'));
   // 大盤濾網
-  const doge = scanner.state.results.find(r => r.sym === 'DOGE');
-  assert(doge.flags.some(f => f.k === 'fund'), 'DOGE 做多 + 資金費率 0.1% 應標示多方擁擠');
-  console.log('BTC H4：', scanner.state.ctx.btcDir, '｜DOGE 標記：', doge.flags.map(f => f.t).join('、'));
+  const sol = scanner.state.results.find(r => r.sym === 'SOL');
+  assert(sol.dir > 0 && sol.flags.some(f => f.k === 'fund'), 'SOL 做多 + 資金費率 0.1% 應標示多方擁擠');
+  console.log('BTC H4：', scanner.state.ctx.btcDir, '｜SOL 標記：', sol.flags.map(f => f.t).join('、'));
 
   // 第二次掃描不重複提醒
   await scanner.scanOnce();
   assert.strictEqual(tracker.state.feed.filter(f => f.type === 'signal').length, sum.trigger, '第二次掃描不應重複提醒');
 
-  // ---- 成績單：模擬 ETH（空）先碰進場再打到目標、DOGE（多）碰進場後打到止損 ----
-  const eth = tracker.state.signals.find(s => s.sym === 'ETH');
-  const dg = tracker.state.signals.find(s => s.sym === 'DOGE');
+  // ---- 成績單：第一個訊號先碰進場再打到目標，第二個碰進場後打到止損 ----
+  const [eth, dg] = tracker.state.signals;
+  assert(eth && dg, '至少要有兩個訊號');
   const push = (c, bars) => bars.forEach((b, i) => fake[c].ltf.push({ t: end + i * Q, o: b[0], h: b[1], l: b[2], c: b[3], v: 1000 }));
-  push('ETH', [[eth.entry - 0.3, eth.entry + 0.01, eth.entry - 0.4, eth.entry - 0.2], [eth.entry - 0.2, eth.entry - 0.1, eth.target - 0.1, eth.target]]);
-  push('DOGE', [[dg.entry + 0.3, dg.entry + 0.4, dg.entry - 0.01, dg.entry + 0.1], [dg.entry, dg.entry + 0.1, dg.stop - 0.1, dg.stop]]);
-  for (const c of COINS) if (c !== 'ETH' && c !== 'DOGE') { const l = fake[c].ltf.at(-1); push(c, [[l.c, l.c, l.c, l.c], [l.c, l.c, l.c, l.c]]); }
+  const touch = s => [s.entry, s.entry, s.entry, s.entry];
+  const toTarget = s => s.dir > 0 ? [s.entry, s.target * 1.001, s.entry, s.target] : [s.entry, s.entry, s.target * 0.999, s.target];
+  const toStop = s => s.dir > 0 ? [s.entry, s.entry, s.stop * 0.999, s.stop] : [s.entry, s.stop * 1.001, s.entry, s.stop];
+  push(eth.sym, [touch(eth), toTarget(eth)]);
+  push(dg.sym, [touch(dg), toStop(dg)]);
+  for (const c of COINS) if (c !== eth.sym && c !== dg.sym) { const l = fake[c].ltf.at(-1); push(c, [[l.c, l.c, l.c, l.c], [l.c, l.c, l.c, l.c]]); }
   await scanner.scanOnce();
-  assert.strictEqual(eth.status, 'win', `ETH 應為 win，實際 ${eth.status}`);
-  assert.strictEqual(dg.status, 'loss', `DOGE 應為 loss，實際 ${dg.status}`);
+  assert.strictEqual(eth.status, 'win', `${eth.sym} 應為 win，實際 ${eth.status}`);
+  assert.strictEqual(dg.status, 'loss', `${dg.sym} 應為 loss，實際 ${dg.status}`);
   assert(eth.near && dg.near, '碰到進場位應發「接近進場區」提醒');
   const st = tracker.stats();
   console.log(`成績單：已結算 ${st.resolved}｜勝率 ${(st.winRate * 100).toFixed(0)}%｜累計 ${st.totalR}R｜等待中 ${st.pending}`);
@@ -108,7 +119,7 @@ global.fetch = async (url) => {
 
   const m = (await req('GET', '/api/market')).json();
   assert.strictEqual(m.symbols.length, COINS.length);
-  assert(m.ctx && m.ctx.funding.DOGE === 0.001, '行情要附上大盤資訊');
+  assert(m.ctx && m.ctx.funding.SOL === 0.001, '行情要附上大盤資訊');
   const rules = (await req('POST', '/api/rules', { minRR: 99 }, 'pw')).json();
   assert.strictEqual(rules.minRR, 99);
   assert.strictEqual((await req('GET', '/api/signals?status=trigger')).json().results.length, 0, 'RR 門檻 99 時不應有觸發');

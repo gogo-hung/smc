@@ -6,7 +6,7 @@ const notify = require('./notify');
 const journal = require('./journal');
 const cfg = require('./config');
 
-const Q = 15 * 60e3;
+const Q = 60 * 60e3; // 1H
 const DEFAULT_SETTINGS = { signal: true, near: true, nearPct: 0.3, calendar: true, result: true };
 const state = { signals: [], feed: [], settings: { ...DEFAULT_SETTINGS } };
 
@@ -47,11 +47,11 @@ async function emitNear(s, last, touched) {
   const dist = Math.abs(last - s.entry) / s.entry * 100;
   await emit('near', `🔔 ${s.sym}/USDT ${side(s.dir)}：${touched ? '已碰到進場位' : `距進場 ${dist.toFixed(2)}%`}`, [
     `進場 ${fp(s.entry)}　止損 ${fp(s.stop)}　目標 ${fp(s.target)}　RR ${s.rr.toFixed(2)}`,
-    `現價 ${fp(last)}`, '確認 15M 結構還在，止損先掛好再進。',
+    `現價 ${fp(last)}`, '確認 1H 結構還在，止損先掛好再進。',
   ], { sym: s.sym });
 }
 
-const keyOf = r => `${r.sym}:${r.dir}:${r.ltf[r.entryOB.idx].t}`;
+const keyOf = r => `${r.sym}:${r.dir}:${r.ltf[r.sigIdx].t}`; // 同一根吞沒 K 只算一次
 
 async function onScan(results, market) {
   let changed = false;
@@ -64,7 +64,7 @@ async function onScan(results, market) {
     if (state.signals.some(s => s.k === k)) continue;
     const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
     state.signals.push(sig); changed = true;
-    const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.choch.idx) < cfg.ALERT_MAX_AGE_BARS;
+    const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS;
     if (fresh) {
       const dist = (r.last - r.entry) / r.entry * 100;
       await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：訊號成立`, [
@@ -109,7 +109,7 @@ async function onScan(results, market) {
 
     // 3. 還沒碰到進場位，但已經很接近 → 提醒一次
     if (!s.near && s.status === 'pending') {
-      const last = m.ltf[m.ltf.length - 1].c;
+      const last = isFinite(m.price) ? m.price : m.ltf[m.ltf.length - 1].c; // 用即時價，不用等 1H 收盤
       if (Math.abs(last - s.entry) / s.entry * 100 <= state.settings.nearPct) await emitNear(s, last, false);
     }
   }
