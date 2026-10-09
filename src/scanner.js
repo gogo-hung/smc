@@ -7,7 +7,7 @@ const tracker = require('./tracker');
 const journal = require('./journal');
 
 // 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
-const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', fibMin: 0.618, needEma: true, emaLen: 50, lookback: 12, entry: 'close', minRR: 2, stopBuf: 0.1, target: 'swing', btcFilter: 'block', fundingMax: 0.05, side: 'both', stopMode: 'leg' };
+const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', fibMin: 0.618, needEma: true, emaLen: 50, lookback: 10, entry: 'close', minRR: 2.5, stopBuf: 0.2, target: 'swing', btcFilter: 'block', fundingMax: 0.05, side: 'long', stopMode: 'ob' };
 
 const state = {
   rules: { ...DEFAULT_RULES },
@@ -19,7 +19,7 @@ const state = {
 };
 
 async function init() {
-  state.rules = { ...DEFAULT_RULES, ...(await store.load('rules_v3', {})) };
+  state.rules = { ...DEFAULT_RULES, ...(await store.load('rules_v4', {})) };
   state.extras = await store.load('extras', []);
   await journal.init();
   await tracker.init();
@@ -32,7 +32,7 @@ async function setRules(next) {
     clean[k] = typeof DEFAULT_RULES[k] === 'number' ? +next[k] : typeof DEFAULT_RULES[k] === 'boolean' ? !!next[k] : String(next[k]);
   }
   state.rules = { ...DEFAULT_RULES, ...clean };
-  await store.save('rules_v3', state.rules);
+  await store.save('rules_v4', state.rules);
   rerun();
   return state.rules;
 }
