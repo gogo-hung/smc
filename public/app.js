@@ -441,7 +441,7 @@ function drawPost(){
   if(ref){ g.fillStyle=C('--fg'); g.font='600 32px "Noto Sans TC",sans-serif'; g.fillText(ref,64,1230); }
   g.fillStyle=C('--muted'); g.font='400 24px "Noto Sans TC",sans-serif'; g.fillText('H4 結構 → 流動性掃蕩 → 15M CHoCH → OB 進場｜僅供參考，非投資建議',64,ref?1280:1230);
 }
-$('postBtn').onclick=()=>{ $('postModal').hidden=false; drawPost(); if(document.fonts) document.fonts.ready.then(drawPost); };
+$('postBtn').onclick=()=>{ $('postModal').hidden=false; $('postDl').hidden=DataSource.mode!=='live'; drawPost(); if(document.fonts) document.fonts.ready.then(drawPost); };
 $('postClose').onclick=()=>{ $('postModal').hidden=true; };
 $('postModal').addEventListener('click',e=>{ if(e.target===$('postModal')) $('postModal').hidden=true; });
 ['postRef','postNote'].forEach(id=>$(id).addEventListener('input',()=>{ if(id==='postRef') store.set('smc-post-ref',$('postRef').value); drawPost(); }));
