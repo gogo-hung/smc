@@ -64,6 +64,8 @@ global.fetch = async (url) => {
   const tracker = require('../src/tracker');
   const server = require('../src/server');
   await scanner.init();
+  // 示範資料是隨機 K 線：用寬鬆一點的規則測流程（不是測策略好壞）
+  Object.assign(scanner.state.rules, { fibMin: 0.5, lookback: 12, minRR: 2, stopBuf: 0.1, btcFilter: 'warn', side: 'both' });
 
   // ---- 掃描 ----
   const sum = await scanner.scanOnce();
