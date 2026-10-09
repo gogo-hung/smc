@@ -38,6 +38,13 @@ module.exports = {
   SCAN_DELAY_SEC: num(process.env.SCAN_DELAY_SEC, 15), // 15M 收盤後等幾秒再抓
   ALERT_MAX_AGE_BARS: num(process.env.ALERT_MAX_AGE_BARS, 3), // CHoCH 在最近幾根 15M 內才推播（0 = 不限）
 
+  // 財經日曆提醒
+  CAL_ENABLED: !/^(0|false|no)$/i.test(process.env.CAL_ENABLED || ''),
+  CAL_COUNTRIES: list(process.env.CAL_COUNTRIES || 'USD'),          // 要提醒的國家，例：USD,CNY
+  CAL_MIN_IMPACT: process.env.CAL_MIN_IMPACT || 'High',               // High / Medium / Low
+  CAL_ALERT_LEADS: (process.env.CAL_ALERT_LEADS || '30,5').split(',').map(Number).filter(n => n > 0), // 公布前幾分鐘提醒
+  EXTRA_MAX: num(process.env.EXTRA_MAX, 20),                         // 搜尋加入的幣最多幾個
+
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || '',
   PUBLIC_URL: process.env.PUBLIC_URL || '',      // 有填的話，推播會附上看板連結

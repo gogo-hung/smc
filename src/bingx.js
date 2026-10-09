@@ -23,12 +23,16 @@ async function get(path, params = {}, tries = 3) {
   throw new Error(`${path} ${params.symbol || ''} 失敗：${lastErr.message}`);
 }
 
-// 所有 USDT 永續合約
+// 所有 USDT 永續合約（快取 1 小時）
+let contractsCache = { at: 0, list: [] };
 async function getContracts() {
+  if (Date.now() - contractsCache.at < 3600e3 && contractsCache.list.length) return contractsCache.list;
   const data = await get('/openApi/swap/v2/quote/contracts');
-  return (data || [])
+  const list = (data || [])
     .filter(c => /-USDT$/.test(c.symbol) && (c.status === undefined || +c.status === 1))
     .map(c => c.symbol);
+  contractsCache = { at: Date.now(), list };
+  return list;
 }
 
 // 24h 行情：用成交額挑出流動性夠的幣

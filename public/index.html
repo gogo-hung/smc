@@ -107,6 +107,37 @@ td.num,th.num{text-align:right}
 .stages i.opt{opacity:.45}
 .empty{padding:28px 16px;color:var(--muted);text-align:center}
 
+/* economic calendar */
+.cal summary{list-style:none;cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px}
+.cal summary::-webkit-details-marker{display:none}
+.cal summary .t{font-family:var(--f-display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.cal summary .t::before{content:"▸";color:var(--muted);font-size:12px;transition:transform .15s}
+.cal[open] summary .t::before{transform:rotate(90deg)}
+.cal summary .next{font-size:13px;min-width:0;flex:1}
+.cal summary .next b{color:var(--accent)}
+.cal summary .filters{margin-left:auto}
+.cal-body{border-top:1px solid var(--line);max-height:340px;overflow:auto}
+.cal-day{position:sticky;top:0;background:var(--raise);font-size:12px;font-weight:700;color:var(--muted);padding:5px 16px;letter-spacing:.04em}
+.cal-row{display:grid;grid-template-columns:52px 64px 34px minmax(0,1fr) 92px 92px;gap:10px;align-items:center;padding:7px 16px;border-bottom:1px solid var(--line);font-size:13px}
+.cal-row .tm{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.cal-row .cc{color:var(--muted);font-size:12px}
+.cal-row .imp{display:flex;gap:2px}
+.cal-row .imp i{width:6px;height:12px;border-radius:1px;background:var(--line)}
+.cal-row .imp.h i{background:var(--short)} .cal-row .imp.m i:nth-child(-n+2){background:var(--watch)} .cal-row .imp.l i:first-child{background:var(--muted)}
+.cal-row .tt{min-width:0}
+.cal-row .tt small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-row .fv{font-family:var(--f-mono);font-size:12px;text-align:right;color:var(--muted)}
+.cal-row .fv b{color:var(--fg);font-weight:500}
+.cal-row.past{opacity:.45}
+.cal-row.soon{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.cal-row .bell{color:var(--accent);font-size:11px;margin-left:4px}
+.cal-empty{padding:18px 16px;color:var(--muted);font-size:13px}
+@media (max-width:640px){.cal-row{grid-template-columns:46px 40px minmax(0,1fr);row-gap:2px}.cal-row .imp{display:none}.cal-row .fv{grid-column:3;text-align:left}}
+.cal-warn{font-size:12.5px;color:var(--short);font-weight:600;line-height:1.45}
+.search{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px;width:200px;max-width:100%;margin-left:auto}
+.board > h2{flex-wrap:wrap}
+.empty .btn{margin-top:10px}
+
 /* coin cards */
 .cards{display:grid;gap:10px;padding:12px;grid-template-columns:repeat(auto-fill,minmax(172px,1fr))}
 .card{aspect-ratio:1/1;max-width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0}
@@ -184,6 +215,21 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
   </section>
 
+  <!-- ECONOMIC CALENDAR -->
+  <details class="pane cal" id="calPane" open>
+    <summary>
+      <span class="t">數據日曆</span>
+      <span class="next" id="calNext">載入中…</span>
+      <span class="filters" role="group" aria-label="日曆篩選">
+        <button class="seg" type="button" data-cc="USD" aria-pressed="true">只看美國</button>
+        <button class="seg" type="button" data-cc="ALL" aria-pressed="false">全部國家</button>
+        <button class="seg" type="button" data-imp="3" aria-pressed="true">高影響</button>
+        <button class="seg" type="button" data-imp="2" aria-pressed="false">中以上</button>
+      </span>
+    </summary>
+    <div class="cal-body" id="calBody"></div>
+  </details>
+
   <!-- STRATEGY RULES -->
   <details class="pane rules">
     <summary>
@@ -230,6 +276,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <!-- SIGNAL BOARD -->
     <main class="pane board" aria-labelledby="boardT">
       <h2 id="boardT">訊號看板
+        <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
         <span class="filters" role="group" aria-label="篩選">
           <button class="seg" type="button" data-f="all" aria-pressed="true">全部</button>
           <button class="seg" type="button" data-f="trigger" aria-pressed="false">觸發</button>
@@ -239,7 +286,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         </span>
       </h2>
       <div class="cards" id="rows" role="listbox" aria-label="幣種"></div>
-      <div class="empty" id="empty" hidden>目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</div>
+      <div class="empty" id="empty" hidden><span id="emptyTxt">目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</span>
+        <button class="btn primary" type="button" id="addBtn" hidden></button></div>
     </main>
 
     <!-- DETAIL -->
@@ -274,6 +322,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <label class="chk"><input type="checkbox" id="g1"> 這筆是訊號觸發，不是情緒或想發內容</label>
           <label class="chk"><input type="checkbox" id="g2"> 今天沒有連續虧損兩筆</label>
           <div class="verdict stop" id="verdict">兩項都確認前，先不要下單</div>
+          <div class="cal-warn" id="calWarn" hidden></div>
         </div>
       </div>
     </section>

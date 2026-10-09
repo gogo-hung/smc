@@ -54,7 +54,7 @@ function renderSum(){
 function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (parseFloat(el.value)||DEFAULTS[k]) : el.value); } store.set('smc-rules-v1',rules); renderSum(); }
 
 // ---- state ----
-let results=[], selected=null, filt='all', dirF=0, tf='ltf', prevTrig=null;
+let results=[], selected=null, filt='all', dirF=0, tf='ltf', prevTrig=null, q='';
 const STAGES=[['htf','H4 結構'],['pd','折 / 溢價'],['poi','H4 POI'],['sweep','流動性掃蕩'],['choch','15M CHoCH'],['ob','進場 OB'],['fvg','FVG'],['rr','RR 達標']];
 
 const fp = p => p==null||!isFinite(p) ? '—' : p>=1000? p.toLocaleString('en-US',{maximumFractionDigits:1}) : p>=10? p.toFixed(2) : p>=1? p.toFixed(3) : p>=0.01? p.toFixed(4) : p.toPrecision(4);
@@ -91,7 +91,7 @@ function spark(r){
   return `<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">${lvl}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function renderRows(){
-  const view=results.filter(r=>(filt==='all' || r.status===filt) && (!dirF || r.dir===dirF));
+  const view=results.filter(r=>(filt==='all' || r.status===filt) && (!dirF || r.dir===dirF) && (!q || r.sym.includes(q)));
   $('rows').innerHTML = view.map(r=>{
     const stages=STAGES.map(([k,n])=>`<i class="${r.st[k]?'on':''} ${r.need.includes(k)?'':'opt'}" title="${n}${r.need.includes(k)?'':'（選用）'}"></i>`).join('');
     const dir = r.dir? `<span class="dir ${r.dir>0?'L':'S'}">${r.dir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:12px">盤整</span>';
@@ -111,6 +111,10 @@ function renderRows(){
     </div>`;
   }).join('');
   $('empty').hidden = view.length>0;
+  const canAdd = q && DataSource.mode==='live' && /^[A-Z0-9]{2,15}$/.test(q) && !results.some(r=>r.sym===q);
+  $('emptyTxt').textContent = !q ? '目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。'
+    : canAdd ? `${q} 不在目前的掃描名單裡。` : results.some(r=>r.sym.includes(q)) ? `有符合「${q}」的幣，但被上方篩選條件擋住了，切回「全部」看看。` : `找不到「${q}」。`;
+  $('addBtn').hidden=!canAdd; if(canAdd) $('addBtn').textContent=`把 ${q} 加入掃描`;
 }
 
 function renderDetail(){
@@ -216,6 +220,56 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw())
 new MutationObserver(()=>draw()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 if(document.fonts) document.fonts.ready.then(()=>draw());
 
+// ---- 搜尋 ----
+$('q').addEventListener('input',e=>{ q=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/USDT$/,''); renderRows();
+  const exact=results.find(r=>r.sym===q); if(exact && exact.sym!==selected){ selected=exact.sym; renderRows(); renderDetail(); } });
+$('q').addEventListener('keydown',e=>{ if(e.key==='Enter' && !$('addBtn').hidden) $('addBtn').click(); });
+$('addBtn').onclick=async()=>{ const b=$('addBtn'), sym=q; b.disabled=true; b.textContent=`正在抓 ${sym} 的 K 線…`;
+  try{ const r=await fetch('api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sym})}); const j=await r.json().catch(()=>({}));
+    if(!r.ok){ showToast(j.error||'加入失敗'); return; }
+    await DataSource.refresh(); selected=sym; scan(); showToast(`${sym} 已加入，之後每輪都會掃描`);
+  } finally { b.disabled=false; } };
+
+// ---- 數據日曆 ----
+const Cal={ events:[], cc:store.get('smc-cal-cc')||'USD', imp:+(store.get('smc-cal-imp')||3), ok:false };
+const calFmt=(ts,o)=>new Date(ts).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false,...o});
+const until=ms=>{ const m=Math.round(ms/60000); if(m<60) return `${m} 分鐘後`; const h=Math.floor(m/60); return h<24? `${h} 小時 ${m%60} 分後` : `${Math.floor(h/24)} 天後`; };
+async function loadCal(){
+  try{ const r=await fetch('api/calendar',{cache:'no-store'}); if(!r.ok||!(r.headers.get('content-type')||'').includes('json')) throw 0;
+    const j=await r.json(); Cal.events=j.events||[]; Cal.ok=true; Cal.error=j.error; }
+  catch(e){ Cal.ok=false; }
+  renderCal();
+}
+function calView(){ return Cal.events.filter(e=>(Cal.cc==='ALL'||e.country===Cal.cc) && e.rank>=Cal.imp); }
+function renderCal(){
+  document.querySelectorAll('[data-cc]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.cc===Cal.cc));
+  document.querySelectorAll('[data-imp]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.imp===Cal.imp));
+  if(!Cal.ok){ $('calNext').textContent= DataSource.mode==='live'?'暫時抓不到日曆，稍後會自動重試':'數據日曆需要連上後端，在你的 Render 網站上會顯示';
+    $('calBody').innerHTML='<div class="cal-empty">沒有日曆資料。</div>'; renderCalWarn(); return; }
+  const now=Date.now(), list=calView(), next=list.find(e=>e.ts>now);
+  $('calNext').innerHTML = next ? `下一個：<b>${next.countryZh} ${next.titleZh}</b> · ${calFmt(next.ts,{weekday:'short',hour:'2-digit',minute:'2-digit'})} · ${until(next.ts-now)}` : (Cal.error? '日曆更新失敗，顯示的是舊資料' : '這段期間沒有符合條件的數據');
+  if(!list.length){ $('calBody').innerHTML='<div class="cal-empty">這週沒有符合篩選的數據。</div>'; renderCalWarn(); return; }
+  let day='', html='';
+  for(const e of list){
+    const d=calFmt(e.ts,{month:'numeric',day:'numeric',weekday:'short'}); if(d!==day){ day=d; html+=`<div class="cal-day">${d}</div>`; }
+    const cls=e.ts<now-60000?'past':(e.ts-now<3600e3?'soon':'');
+    const imp={3:'h',2:'m',1:'l'}[e.rank]||'';
+    html+=`<div class="cal-row ${cls}"><span class="tm">${calFmt(e.ts,{hour:'2-digit',minute:'2-digit'})}</span><span class="cc">${e.countryZh}</span>
+      <span class="imp ${imp}" title="${e.impact}"><i></i><i></i><i></i></span>
+      <span class="tt">${e.titleZh}${e.alert?'<span class="bell" title="會推播到 Telegram">● 推播</span>':''}${e.titleZh!==e.title?`<small>${e.title}</small>`:''}</span>
+      <span class="fv">預測 <b>${e.forecast||'—'}</b></span><span class="fv">前值 <b>${e.previous||'—'}</b></span></div>`;
+  }
+  $('calBody').innerHTML=html; renderCalWarn();
+}
+// 下單前自檢：一小時內有美國高影響數據就提醒
+function renderCalWarn(){
+  const now=Date.now(), e=Cal.events.find(x=>x.country==='USD' && x.rank>=3 && x.ts>now && x.ts-now<3600e3);
+  $('calWarn').hidden=!e; if(e) $('calWarn').textContent=`⚠ ${until(e.ts-now)}公布 ${e.countryZh} ${e.titleZh}，波動大：避免數據前進場，持倉確認止損已掛。`;
+}
+document.querySelectorAll('[data-cc]').forEach(b=>b.onclick=e=>{ e.preventDefault(); e.stopPropagation(); Cal.cc=b.dataset.cc; store.set('smc-cal-cc',Cal.cc); renderCal(); });
+document.querySelectorAll('[data-imp]').forEach(b=>b.onclick=e=>{ e.preventDefault(); e.stopPropagation(); Cal.imp=+b.dataset.imp; store.set('smc-cal-imp',Cal.imp); renderCal(); });
+setInterval(renderCal,30000); setInterval(loadCal,15*60000);
+
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{
   await DataSource.init();
@@ -227,6 +281,6 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
     if(!DataSource.list.length){ $('note').textContent='伺服器第一次掃描中，完成後會自動顯示。';
       const wait=setInterval(async()=>{ await DataSource.refresh(); if(DataSource.list.length){ clearInterval(wait); scan(); } },8000); }
   }
-  syncForm(); scan();
+  syncForm(); scan(); loadCal();
 })();
 })();

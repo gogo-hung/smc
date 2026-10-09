@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cfg = require('./config');
 const scanner = require('./scanner');
+const calendar = require('./calendar');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const PUBLIC_DIR = path.join(cfg.ROOT, 'public');
@@ -64,6 +65,17 @@ const server = http.createServer(async (req, res) => {
       if (s.lastScan && Date.now() - s.lastScan < 60e3) return send(res, 200, { skipped: '1 分鐘內已掃描過', lastScan: s.lastScan });
       return send(res, 200, await scanner.scanOnce());
     }
+    if (url.pathname === '/api/calendar' && req.method === 'GET') {
+      const c = calendar.state;
+      return send(res, 200, { updatedAt: c.updatedAt, error: c.error, alert: { countries: cfg.CAL_COUNTRIES, minImpact: cfg.CAL_MIN_IMPACT, leads: cfg.CAL_ALERT_LEADS }, events: calendar.upcoming() });
+    }
+    // 搜尋加入幣種：不需要密碼，3 秒內只受理一次
+    if (url.pathname === '/api/add' && req.method === 'POST') {
+      if (Date.now() - (server.lastAdd || 0) < 3000) return send(res, 429, { error: '太快了，請稍等幾秒' });
+      server.lastAdd = Date.now();
+      try { return send(res, 200, await scanner.addSymbol((await readBody(req)).sym)); }
+      catch (e) { return send(res, e.code || 500, { error: e.message }); }
+    }
     if (url.pathname === '/api/rules') {
       if (req.method === 'GET') return send(res, 200, s.rules);
       if (req.method === 'POST') {
@@ -82,6 +94,7 @@ if (require.main === module) {
     console.log(`SMC 掃幣台：http://localhost:${cfg.PORT}`);
     console.log(`Telegram 推播：${cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID ? '已啟用' : '未設定（提醒只會印在終端機）'}`);
     scanner.scanOnce().then(() => scanner.startSchedule());
+    calendar.start();
   });
 }
 

@@ -42,9 +42,22 @@ npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
 | GET | `/api/market` | 所有幣的 15M / 4H K 線（看板用） |
 | GET | `/api/health` | 上次掃描時間、錯誤 |
 | POST | `/api/scan` | 立即掃描（不需密碼，1 分鐘冷卻） |
+| GET | `/api/calendar` | 財經日曆（過去 12 小時到未來 8 天） |
+| POST | `/api/add` | 加入幣種 `{"sym":"PEPE"}` |
 | GET / POST | `/api/rules` | 讀取 / 更新推播用的策略參數 |
 
 `POST /api/scan` 不需要密碼（1 分鐘內只會掃一次）。設了 `ADMIN_TOKEN` 時，`POST /api/rules` 需要帶 `x-admin-token` header（看板會跳出輸入框，輸入一次後會記住）。
+
+## 數據日曆
+
+- 來源是 ForexFactory 公開週曆（每小時更新），時間換成台灣時間，常見數據翻成中文。
+- 預設美國高影響數據（CPI、非農、FOMC…）在公布前 30 分鐘與 5 分鐘推到 Telegram；看板上標「● 推播」的就是會推的。
+- 一小時內有美國高影響數據時，「下單前自檢」會出現警示。
+- 調整推播範圍：`CAL_COUNTRIES`、`CAL_MIN_IMPACT`、`CAL_ALERT_LEADS`。
+
+## 搜尋幣種
+
+看板上方的搜尋框可以篩選卡片；搜尋不在名單裡的幣（例如成交量較小的），按「加入掃描」就會立刻抓資料，之後每輪都會掃（最多 20 個，重啟後保留到下次部署）。
 
 ## 調整策略
 

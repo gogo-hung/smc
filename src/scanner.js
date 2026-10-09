@@ -16,6 +16,7 @@ const writeJSON = (f, v) => { fs.mkdirSync(path.dirname(f), { recursive: true })
 const state = {
   rules: { ...DEFAULT_RULES, ...readJSON(RULES_FILE, {}) },
   alerted: readJSON(STATE_FILE, { alerted: [] }).alerted, // 已推播過的訊號 key，重開也不會重複推
+  extras: readJSON(STATE_FILE, { extras: [] }).extras || [], // 用搜尋加入的幣，之後每輪都會掃
   market: {},          // { BTC: { symbol, ltf, htf, quoteVolume } }
   results: [],
   lastScan: null, lastError: null, scanning: false, errors: [],
@@ -44,7 +45,7 @@ async function pickUniverse() {
     .filter(s => (vol.get(s) || 0) >= cfg.MIN_QUOTE_VOLUME)
     .sort((a, b) => (vol.get(b) || 0) - (vol.get(a) || 0))
     .slice(0, cfg.TOP_N);
-  const watch = cfg.WATCHLIST.map(s => `${s}-USDT`).filter(s => live.has(s));
+  const watch = [...cfg.WATCHLIST, ...state.extras].map(s => `${s}-USDT`).filter(s => live.has(s));
   return { symbols: [...new Set([...watch, ...ranked])], vol };
 }
 
@@ -103,7 +104,7 @@ async function scanOnce({ silent = false } = {}) {
       if (!silent) await notify.send(notify.formatSignal(r));
     }
     state.alerted = state.alerted.slice(-500);
-    writeJSON(STATE_FILE, { alerted: state.alerted });
+    writeJSON(STATE_FILE, { alerted: state.alerted, extras: state.extras });
 
     state.lastScan = Date.now(); state.lastError = null;
     const summary = { symbols: Object.keys(market).length, trigger: results.filter(r => r.status === 'trigger').length, watch: results.filter(r => r.status === 'watch').length, newAlerts: fresh.length, ms: Date.now() - t0, errors: state.errors.length };
@@ -118,6 +119,23 @@ async function scanOnce({ silent = false } = {}) {
   }
 }
 
+// 搜尋：把不在名單裡的幣加進來（立即抓資料，之後每輪都會掃）
+async function addSymbol(raw) {
+  const sym = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/USDT$/, '');
+  if (!sym) throw Object.assign(new Error('請輸入幣種代號'), { code: 400 });
+  if (state.market[sym]) return { sym, already: true };
+  const symbol = `${sym}-USDT`;
+  const contracts = await bingx.getContracts();
+  if (!contracts.includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });
+  const [ltf, htf] = await Promise.all([bingx.getKlines(symbol, '15m', cfg.LTF_LIMIT), bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT)]);
+  if (ltf.length < 50) throw Object.assign(new Error(`${sym} 上市時間太短，K 線不足`), { code: 422 });
+  state.market[sym] = { sym, symbol, ltf, htf, quoteVolume: 0 };
+  state.extras = [...state.extras.filter(s => s !== sym), sym].slice(-cfg.EXTRA_MAX);
+  writeJSON(STATE_FILE, { alerted: state.alerted, extras: state.extras });
+  rerun();
+  return { sym, added: true };
+}
+
 // 每根 15M 收盤後 SCAN_DELAY_SEC 秒掃一次
 function startSchedule() {
   const period = bingx.INTERVAL_MS['15m'];
@@ -128,4 +146,4 @@ function startSchedule() {
   tick();
 }
 
-module.exports = { state, scanOnce, startSchedule, setRules, rerun, DEFAULT_RULES };
+module.exports = { state, scanOnce, startSchedule, setRules, rerun, addSymbol, DEFAULT_RULES };
