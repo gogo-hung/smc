@@ -123,10 +123,20 @@ const server = http.createServer(async (req, res) => {
       } catch (e) { return fail(res, e); }
     }
     if (url.pathname === '/api/history' && req.method === 'GET') {
+      if (url.searchParams.get('fresh') === '1') histCache.clear();
       const sym = String(url.searchParams.get('sym') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       const days = Math.min(180, Math.max(7, +url.searchParams.get('days') || 90));
       if (!sym) return send(res, 400, { error: '缺少 sym' });
-      try { return send(res, 200, await history(sym, days)); } catch (e) { return fail(res, e); }
+      try {
+        const data = await history(sym, days);
+        if (url.searchParams.get('meta') === '1') { // 檢查用：只回根數、起訖、缺口
+          const info = arr => { const step = arr.length > 1 ? Math.min(...arr.slice(1, 50).map((b, i) => b[0] - arr[i][0])) : 0;
+            const gaps = []; for (let i = 1; i < arr.length; i++) if (arr[i][0] - arr[i - 1][0] !== step) gaps.push({ after: new Date(arr[i - 1][0]).toISOString(), missing: (arr[i][0] - arr[i - 1][0]) / step - 1 });
+            return { count: arr.length, first: arr[0] && new Date(arr[0][0]).toISOString(), last: arr.length && new Date(arr[arr.length - 1][0]).toISOString(), stepMin: step / 60000, gaps: gaps.slice(0, 20) }; };
+          return send(res, 200, { sym, days, ltf: info(data.ltf), htf: info(data.htf) });
+        }
+        return send(res, 200, data);
+      } catch (e) { return fail(res, e); }
     }
     if (url.pathname === '/api/earnings' && req.method === 'GET') {
       const e = earnings.state;

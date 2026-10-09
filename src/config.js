@@ -45,7 +45,7 @@ module.exports = {
   CAL_MIN_IMPACT: process.env.CAL_MIN_IMPACT || 'High',               // High / Medium / Low
   CAL_ALERT_LEADS: (process.env.CAL_ALERT_LEADS || '30,5').split(',').map(Number).filter(n => n > 0), // 公布前幾分鐘提醒
   EARNINGS_TICKERS: list(process.env.EARNINGS_TICKERS || 'NVDA,TSLA,AAPL,MSFT,AMZN,META,GOOGL,COIN,MSTR'), // 財報會推播的美股（日曆另外顯示 BingX 全部美股）
-  HISTORY_PAGE: num(process.env.HISTORY_PAGE, 1440),                 // 回測抓歷史時每段幾根（BingX 上限 1440）
+  HISTORY_PAGE: num(process.env.HISTORY_PAGE, 500),                  // 回測抓歷史時每段幾根（保守一點，避免撞到單次上限）
   EXTRA_MAX: num(process.env.EXTRA_MAX, 20),                         // 搜尋加入的幣最多幾個
 
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
