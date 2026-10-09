@@ -142,6 +142,23 @@ const SMC = (() => {
     r.status = need.every(k=>st[k]) ? 'trigger' : (st.htf&&st.pd&&st.poi ? 'watch' : 'idle');
     return r;
   }
-  return {genSeries,addBar,aggregate,analyze};
+  // 大盤濾網：BTC H4 方向、資金費率（前後端共用）
+  function applyContext(r, ctx, s){
+    r.flags=[];
+    if(!r.dir || !ctx) return r;
+    const mode=s.btcFilter||'warn';
+    if(mode!=='off' && r.sym!=='BTC' && ctx.btcDir && ctx.btcDir!==r.dir){
+      r.flags.push({k:'btc',t:`逆 BTC 大盤（H4 ${ctx.btcDir>0?'多':'空'}）`});
+      if(mode==='block' && r.status==='trigger'){ r.status='watch'; r.blocked='BTC 大盤方向相反，訊號被濾掉'; }
+    }
+    const f=ctx.funding && ctx.funding[r.sym];
+    if(f!=null && isFinite(f)){
+      r.funding=f; const th=(s.fundingMax==null?0.05:s.fundingMax)/100;
+      if(th>0 && r.dir>0 && f>=th) r.flags.push({k:'fund',t:`資金費率 +${(f*100).toFixed(3)}% 多方擁擠`});
+      if(th>0 && r.dir<0 && f<=-th) r.flags.push({k:'fund',t:`資金費率 ${(f*100).toFixed(3)}% 空方擁擠`});
+    }
+    return r;
+  }
+  return {genSeries,addBar,aggregate,analyze,applyContext};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=SMC;

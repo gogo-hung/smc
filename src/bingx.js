@@ -46,6 +46,18 @@ async function getTickers() {
   }));
 }
 
+// 全市場資金費率：{ BTC: 0.0001, ... }（小數，0.0001 = 0.01%）
+async function getFunding() {
+  const data = await get('/openApi/swap/v2/quote/premiumIndex');
+  const out = {};
+  for (const x of Array.isArray(data) ? data : [data]) {
+    if (!x || !/-USDT$/.test(x.symbol || '')) continue;
+    const f = +(x.lastFundingRate ?? x.fundingRate);
+    if (isFinite(f)) out[x.symbol.replace(/-USDT$/, '')] = f;
+  }
+  return out;
+}
+
 // K 線 → [{t,o,h,l,c,v}]，時間由舊到新，並去掉還沒收盤的那根
 async function getKlines(symbol, interval, limit) {
   const data = await get('/openApi/swap/v3/quote/klines', { symbol, interval, limit });
@@ -73,4 +85,4 @@ async function pool(items, worker, n = cfg.CONCURRENCY) {
   return out;
 }
 
-module.exports = { getContracts, getTickers, getKlines, pool, INTERVAL_MS };
+module.exports = { getContracts, getTickers, getKlines, getFunding, pool, INTERVAL_MS };

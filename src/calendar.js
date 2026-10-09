@@ -1,14 +1,11 @@
 // 財經日曆：ForexFactory 公開週曆（每小時更新），重要數據公布前推播提醒
-const fs = require('fs');
-const path = require('path');
 const cfg = require('./config');
-const notify = require('./notify');
+const store = require('./store');
 
 const FEEDS = [
   'https://nfs.faireconomy.media/ff_calendar_thisweek.json',
   'https://nfs.faireconomy.media/ff_calendar_nextweek.json', // 週末前不一定有，抓不到就略過
 ];
-const SENT_FILE = path.join(cfg.DATA_DIR, 'calendar-sent.json');
 const IMPACT_RANK = { Holiday: 0, Low: 1, Medium: 2, High: 3 };
 const COUNTRY_ZH = { USD: '美國', EUR: '歐元區', GBP: '英國', JPY: '日本', CNY: '中國', AUD: '澳洲', CAD: '加拿大', CHF: '瑞士', NZD: '紐西蘭', All: '全球' };
 
@@ -80,7 +77,7 @@ function titleZh(t) {
 
 const state = {
   events: [], updatedAt: null, error: null,
-  sent: new Set((() => { try { return JSON.parse(fs.readFileSync(SENT_FILE, 'utf8')); } catch { return []; } })()),
+  sent: new Set(), emit: null,
 };
 
 async function refresh() {
@@ -114,15 +111,13 @@ const watched = e => cfg.CAL_COUNTRIES.includes(e.country.toUpperCase()) && e.ra
 const twTime = ts => new Date(ts).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
 function format(e, mins) {
-  const when = mins >= 60 ? `${Math.floor(mins / 60)} 小時 ${mins % 60} 分後` : `${mins} 分鐘後`;
   return [
-    `📅 <b>${when}公布｜${e.countryZh} ${e.titleZh}</b>`,
     `${e.title}（${e.impact === 'High' ? '高' : e.impact === 'Medium' ? '中' : '低'}影響）`,
     `台灣時間 ${twTime(e.ts)}`,
     `預測 ${e.forecast || '—'}｜前值 ${e.previous || '—'}`,
     '',
     '數據前後波動大：別在公布前追單，持倉先確認止損有掛。',
-  ].join('\n');
+  ];
 }
 
 // 每分鐘檢查：落在提醒時間內就推一次（30 分、5 分各一次；剛醒來只推最近的那一個）
@@ -139,12 +134,13 @@ async function checkAlerts() {
     if (state.sent.has(key)) continue;
     leads.slice(0, idx + 1).forEach(L => state.sent.add(`${e.id}|${L}`)); // 較早的提醒一起標記，避免補發
     changed = true;
-    await notify.send(format(e, mins));
+    const when = mins >= 60 ? `${Math.floor(mins / 60)} 小時 ${mins % 60} 分後` : `${mins} 分鐘後`;
+    if (state.emit) await state.emit('calendar', `📅 ${when}公布｜${e.countryZh} ${e.titleZh}`, format(e, mins));
   }
   if (changed) {
     const keep = [...state.sent].slice(-300);
     state.sent = new Set(keep);
-    try { fs.mkdirSync(cfg.DATA_DIR, { recursive: true }); fs.writeFileSync(SENT_FILE, JSON.stringify(keep)); } catch {}
+    await store.save('calSent', keep);
   }
 }
 
@@ -153,8 +149,10 @@ function upcoming() {
   return state.events.filter(e => e.ts >= now - 12 * 3600e3 && e.ts <= now + 8 * 86400e3).map(e => ({ ...e, alert: watched(e) }));
 }
 
-function start() {
+async function start(emit) {
   if (!cfg.CAL_ENABLED) return;
+  state.emit = emit;
+  state.sent = new Set(await store.load('calSent', []));
   refresh().then(checkAlerts);
   setInterval(refresh, 60 * 60e3);          // 來源有頻率限制，一小時抓一次就夠
   setInterval(() => checkAlerts().catch(() => {}), 60e3);

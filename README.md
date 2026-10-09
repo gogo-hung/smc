@@ -43,21 +43,39 @@ npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
 | GET | `/api/health` | 上次掃描時間、錯誤 |
 | POST | `/api/scan` | 立即掃描（不需密碼，1 分鐘冷卻） |
 | GET | `/api/calendar` | 財經日曆（過去 12 小時到未來 8 天） |
+| GET | `/api/earnings` | 美股財報（未來 14 天） |
+| GET | `/api/alerts` | 提醒紀錄、提醒設定、風控鎖狀態 |
+| POST | `/api/alert-settings` | 更新提醒設定（需密碼） |
+| POST | `/api/test-alert` | 送一則 Telegram 測試訊息（需密碼） |
+| GET | `/api/stats` | 訊號成績單 |
+| GET / POST / DELETE | `/api/journal` | 交易紀錄（需密碼） |
 | POST | `/api/add` | 加入幣種 `{"sym":"PEPE"}` |
 | GET / POST | `/api/rules` | 讀取 / 更新推播用的策略參數 |
 
 `POST /api/scan` 不需要密碼（1 分鐘內只會掃一次）。設了 `ADMIN_TOKEN` 時，`POST /api/rules` 需要帶 `x-admin-token` header（看板會跳出輸入框，輸入一次後會記住）。
 
-## 數據日曆
+## 功能
 
-- 來源是 ForexFactory 公開週曆（每小時更新），時間換成台灣時間，常見數據翻成中文。
-- 預設美國高影響數據（CPI、非農、FOMC…）在公布前 30 分鐘與 5 分鐘推到 Telegram；看板上標「● 推播」的就是會推的。
-- 一小時內有美國高影響數據時，「下單前自檢」會出現警示。
-- 調整推播範圍：`CAL_COUNTRIES`、`CAL_MIN_IMPACT`、`CAL_ALERT_LEADS`。
+| 按鈕 | 做什麼 |
+|---|---|
+| 🔔 提醒中心 | 新訊號成立、價格接近進場區（或碰到進場位）、訊號結果、數據公布前、財報前一天。全部記在這裡並推 Telegram；可開瀏覽器通知 |
+| 成績單 | 每個觸發的訊號都追蹤：先碰進場位 → 先打止損還是目標。統計勝率、平均 R、依方向/幣種 |
+| 交易紀錄 | 記每筆實際盈虧。今天（台灣時間）連虧 2 筆自動上鎖：進場提醒只記錄不推播，自檢區顯示休息 |
+| 數據日曆 | ForexFactory 週曆（中文、台灣時間）＋美股財報（Nasdaq，追蹤 `EARNINGS_TICKERS` 和 BingX 美股） |
+| 策略參數 | SMC 條件 + 大盤濾網（逆 BTC H4 方向警告或濾掉、資金費率擁擠門檻） |
+| 卡片 → 產生貼文圖卡 | 1080×1350 圖片，含圖表、進出場位、推薦碼，下載或複製後直接發 IG / Threads |
 
-## 搜尋幣種
+看板上方的搜尋框可以篩選卡片；搜尋不在名單裡的幣，按「加入掃描」就會立刻抓資料，之後每輪都會掃（最多 20 個）。
 
-看板上方的搜尋框可以篩選卡片；搜尋不在名單裡的幣（例如成交量較小的），按「加入掃描」就會立刻抓資料，之後每輪都會掃（最多 20 個，重啟後保留到下次部署）。
+## 永久儲存（建議設定）
+
+Render 免費方案每次重新部署都會清空檔案，交易紀錄和成績單會不見。用 Upstash Redis（免費）保存：
+
+1. 到 [upstash.com](https://upstash.com) 註冊 → Create Database（Redis，Region 選 Singapore）
+2. 在資料庫頁面的 REST API 區塊，複製 `UPSTASH_REDIS_REST_URL` 和 `UPSTASH_REDIS_REST_TOKEN`
+3. 貼到 Render 的 Environment，儲存後自動重新部署
+
+提醒中心下方會顯示目前的儲存方式。
 
 ## 調整策略
 

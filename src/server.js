@@ -5,6 +5,11 @@ const path = require('path');
 const cfg = require('./config');
 const scanner = require('./scanner');
 const calendar = require('./calendar');
+const tracker = require('./tracker');
+const journal = require('./journal');
+const earnings = require('./earnings');
+const store = require('./store');
+const notify = require('./notify');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const PUBLIC_DIR = path.join(cfg.ROOT, 'public');
@@ -18,8 +23,9 @@ const STATIC = {
 const pack = bars => bars.map(b => [b.t, b.o, b.h, b.l, b.c, b.v]);
 const brief = r => ({
   sym: r.sym, dir: r.dir, status: r.status, last: r.last, met: r.met, need: r.need, st: r.st,
-  entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, dist: r.dist ?? null,
+  entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, dist: r.dist ?? null, flags: r.flags || [],
 });
+const fail = (res, e) => send(res, e.code || 500, { error: e.message });
 
 function send(res, code, body, type = 'application/json; charset=utf-8') {
   res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store' });
@@ -46,7 +52,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/market' && req.method === 'GET') {
       return send(res, 200, {
-        updatedAt: s.lastScan, rules: s.rules,
+        updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx,
         symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf) })),
       });
     }
@@ -76,11 +82,39 @@ const server = http.createServer(async (req, res) => {
       try { return send(res, 200, await scanner.addSymbol((await readBody(req)).sym)); }
       catch (e) { return send(res, e.code || 500, { error: e.message }); }
     }
+    // 提醒中心（鈴鐺）
+    if (url.pathname === '/api/alerts' && req.method === 'GET') {
+      return send(res, 200, { feed: tracker.state.feed.slice(0, 100), settings: tracker.state.settings, locked: journal.locked(), lossStreak: journal.lossStreak(), storage: store.kind, persistent: store.persistent, telegram: !!(cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) });
+    }
+    if (url.pathname === '/api/alert-settings' && req.method === 'POST') {
+      if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
+      return send(res, 200, await tracker.setSettings(await readBody(req)));
+    }
+    if (url.pathname === '/api/test-alert' && req.method === 'POST') {
+      if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
+      if (!cfg.TELEGRAM_BOT_TOKEN || !cfg.TELEGRAM_CHAT_ID) return send(res, 400, { error: 'Render 還沒設定 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID' });
+      return send(res, 200, { ok: await notify.send('✅ <b>SMC 掃幣台</b>\nTelegram 推播設定成功，之後訊號、接近進場區、數據公布前都會推到這裡。') });
+    }
+    // 訊號成績單
+    if (url.pathname === '/api/stats' && req.method === 'GET') return send(res, 200, tracker.stats());
+    // 交易紀錄（私人資料，看和改都要密碼）
+    if (url.pathname === '/api/journal') {
+      if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
+      try {
+        if (req.method === 'GET') return send(res, 200, journal.summary());
+        if (req.method === 'POST') { await journal.add(await readBody(req)); return send(res, 200, journal.summary()); }
+        if (req.method === 'DELETE') { await journal.remove(url.searchParams.get('id')); return send(res, 200, journal.summary()); }
+      } catch (e) { return fail(res, e); }
+    }
+    if (url.pathname === '/api/earnings' && req.method === 'GET') {
+      const e = earnings.state;
+      return send(res, 200, { updatedAt: e.updatedAt, error: e.error, tickers: e.tickers, events: e.events });
+    }
     if (url.pathname === '/api/rules') {
       if (req.method === 'GET') return send(res, 200, s.rules);
       if (req.method === 'POST') {
         if (!authorized(req)) return send(res, 401, { error: '需要 x-admin-token' });
-        return send(res, 200, scanner.setRules(await readBody(req)));
+        return send(res, 200, await scanner.setRules(await readBody(req)));
       }
     }
     send(res, 404, { error: 'not found' });
@@ -90,11 +124,14 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) {
-  server.listen(cfg.PORT, () => {
+  server.listen(cfg.PORT, async () => {
     console.log(`SMC 掃幣台：http://localhost:${cfg.PORT}`);
     console.log(`Telegram 推播：${cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID ? '已啟用' : '未設定（提醒只會印在終端機）'}`);
+    console.log(`儲存：${store.kind}`);
+    await scanner.init();
+    calendar.start(tracker.emit);
+    earnings.start(tracker.emit);
     scanner.scanOnce().then(() => scanner.startSchedule());
-    calendar.start();
   });
 }
 

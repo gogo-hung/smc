@@ -2,6 +2,7 @@
 const scanner = require('./scanner');
 
 (async () => {
+  await scanner.init();
   const sum = await scanner.scanOnce();
   if (sum.error) process.exit(1);
   const fp = p => (p == null ? '—' : +p.toPrecision(6));

@@ -63,7 +63,7 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 /* rules: collapsible bar */
 .rules .sum{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0}
 .rules .sum span{font-size:12px;color:var(--muted);background:var(--raise);border-radius:5px;padding:2px 8px}
-.rules form{display:grid;gap:18px 24px;padding:14px 16px 18px;border-top:1px solid var(--line);grid-template-columns:repeat(4,minmax(0,1fr))}
+.rules form{display:grid;gap:18px 24px;padding:14px 16px 18px;border-top:1px solid var(--line);grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
 .rules .col{display:grid;gap:12px;align-content:start;min-width:0}
 @media (max-width:1000px){.rules form{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:520px){.rules form{grid-template-columns:minmax(0,1fr)}}
@@ -112,6 +112,63 @@ td.num,th.num{text-align:right}
 .badge{font-family:var(--f-mono);font-size:11px;padding:1px 7px;border-radius:999px;background:var(--raise);color:var(--muted)}
 .badge.soon{background:var(--short);color:var(--bg)}
 @media (prefers-reduced-motion:no-preference){.drawer:not([hidden]){animation:drop .18s ease-out}@keyframes drop{from{transform:translateY(-6px);opacity:.3}}}
+
+/* lock bar, icon button */
+.lockbar{background:color-mix(in srgb,var(--short) 14%,var(--surface));border:1px solid var(--short);color:var(--short);border-radius:10px;padding:10px 14px;font-weight:700;font-size:13.5px}
+.btn.icon{padding:7px 11px}
+.badge.hot{background:var(--short);color:var(--bg)}
+.hint{font-size:12px;color:var(--muted);margin:0}
+/* alert center */
+.alerts-body{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);border-top:1px solid var(--line)}
+@media (max-width:800px){.alerts-body{grid-template-columns:minmax(0,1fr)}.alert-set{border-right:0;border-bottom:1px solid var(--line)}}
+.alert-set{display:grid;gap:10px;padding:14px 16px;border-right:1px solid var(--line);align-content:start}
+.alert-set .h{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:.06em}
+.alert-set .row{display:flex;flex-wrap:wrap;gap:8px}
+.mini{width:64px;background:var(--raise);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+.feed{max-height:420px;overflow:auto}
+.feed-item{display:grid;grid-template-columns:62px minmax(0,1fr);gap:4px 12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.feed-item.unread{background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.feed-item .tm{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.feed-item .tp{font-size:11px;color:var(--muted);display:block}
+.feed-item b{font-weight:600}
+.feed-item p{margin:2px 0 0;white-space:pre-line;font-size:12.5px;color:var(--muted)}
+.feed-item .mut{font-size:11px;color:var(--short);margin-left:6px}
+/* scorecard */
+.stats-body{border-top:1px solid var(--line);padding:14px 16px;display:grid;gap:16px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.tile{background:var(--raise);border-radius:8px;padding:10px 12px}
+.tile .n{font-family:var(--f-display);font-size:24px;font-weight:600;line-height:1.2}
+.tile .n.pos{color:var(--long)} .tile .n.neg{color:var(--short)}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.mtable{width:100%;border-collapse:collapse;font-size:12.5px}
+.mtable th{font-size:11px;padding:6px 8px}
+.mtable td{padding:6px 8px;white-space:nowrap}
+.mtable .num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.pill{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;background:var(--raise);color:var(--muted)}
+.pill.win{color:var(--long);background:color-mix(in srgb,var(--long) 14%,transparent)}
+.pill.loss{color:var(--short);background:color-mix(in srgb,var(--short) 14%,transparent)}
+.pill.filled{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+/* journal */
+.j-body{border-top:1px solid var(--line);padding:14px 16px;display:grid;gap:14px}
+.j-sum{display:flex;flex-wrap:wrap;gap:22px}
+.j-form{display:grid;grid-template-columns:120px 90px 190px minmax(0,1fr) auto auto;gap:8px;align-items:center}
+@media (max-width:900px){.j-form{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.j-form input,.j-form select{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%;min-width:0}
+.j-del{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:12px}
+.j-del:hover{color:var(--short)}
+/* detail extras */
+.flags{display:grid;gap:4px;font-size:12.5px;color:var(--watch);font-weight:600}
+.d-actions{display:flex;gap:8px;flex-wrap:wrap}
+.card .tags{display:flex;gap:4px;flex-wrap:wrap}
+.card .tags span{font-size:10.5px;font-weight:700;color:var(--watch);border:1px solid color-mix(in srgb,var(--watch) 50%,transparent);border-radius:4px;padding:0 5px}
+/* post modal */
+.modal{position:fixed;inset:0;background:rgba(5,8,14,.6);display:grid;place-items:center;padding:16px;z-index:20}
+.modal-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;width:min(920px,100%);max-height:calc(100% - 8px);overflow:auto}
+.post-body{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;padding:0 16px 16px}
+@media (max-width:700px){.post-body{grid-template-columns:minmax(0,1fr)}}
+#postCanvas{width:100%;height:auto;aspect-ratio:1080/1350;background:#0f131c;border-radius:8px}
+.post-side{display:grid;gap:10px;align-content:start}
+.post-side input{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%}
 
 /* economic calendar */
 .cal .next{font-size:13px;min-width:0;flex:1}
@@ -204,18 +261,70 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </div>
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
+      <button class="btn tgl icon" id="alertsBtn" type="button" aria-expanded="false" aria-controls="alertsPane" aria-label="提醒中心"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge hot" id="alertBadge" hidden></span></button>
+      <button class="btn tgl" id="statsBtn" type="button" aria-expanded="false" aria-controls="statsPane">成績單</button>
+      <button class="btn tgl" id="journalBtn" type="button" aria-expanded="false" aria-controls="journalPane">交易紀錄</button>
       <button class="btn tgl" id="calBtn" type="button" aria-expanded="false" aria-controls="calPane">數據日曆<span class="badge" id="calBadge" hidden></span></button>
       <button class="btn tgl" id="rulesBtn" type="button" aria-expanded="false" aria-controls="rulesPane">策略參數</button>
       <button class="btn primary" id="scanBtn" type="button">立即掃描</button>
     </div>
   </header>
 
+  <div class="lockbar" id="lockBar" hidden></div>
+
+  <!-- ALERT CENTER -->
+  <section class="pane drawer" id="alertsPane" hidden aria-label="提醒中心">
+    <div class="drawer-hd"><span class="t">提醒中心</span><span class="next muted" id="alertsSub">新訊號、接近進場區、數據公布前，都會出現在這裡並推到 Telegram</span>
+      <button class="x" type="button" data-close="alertsPane" aria-label="關閉">×</button></div>
+    <div class="alerts-body">
+      <form id="alertForm" class="alert-set">
+        <div class="h">提醒哪些事</div>
+        <label class="chk"><input type="checkbox" id="as_signal"> 新訊號成立（條件全到，可以進場）</label>
+        <label class="chk"><input type="checkbox" id="as_near"> 價格接近進場區：距離 ≤ <input type="number" id="as_nearPct" class="mini" step="0.05" min="0.05" max="5" aria-label="接近進場區的距離百分比"> %，或碰到進場位</label>
+        <label class="chk"><input type="checkbox" id="as_calendar"> 重要數據公布前、美股財報前一天</label>
+        <label class="chk"><input type="checkbox" id="as_result"> 訊號結果（打到目標或止損）</label>
+        <div class="row"><button class="btn primary" type="submit">儲存設定</button><button class="btn" type="button" id="notifyBtn">開啟瀏覽器通知</button><button class="btn" type="button" id="tgTestBtn">測試 Telegram</button></div>
+        <p class="hint" id="alertStatus"></p>
+      </form>
+      <div class="feed" id="feed"></div>
+    </div>
+  </section>
+
+  <!-- SIGNAL SCORECARD -->
+  <section class="pane drawer" id="statsPane" hidden aria-label="成績單">
+    <div class="drawer-hd"><span class="t">訊號成績單</span><span class="next muted">每個觸發過的訊號都追蹤：先碰進場位，再看先打止損還是目標</span>
+      <button class="x" type="button" data-close="statsPane" aria-label="關閉">×</button></div>
+    <div class="stats-body" id="statsBody"></div>
+  </section>
+
+  <!-- TRADE JOURNAL -->
+  <section class="pane drawer" id="journalPane" hidden aria-label="交易紀錄">
+    <div class="drawer-hd"><span class="t">交易紀錄</span><span class="next muted">今天連虧 2 筆就自動上鎖，進場提醒暫停推播</span>
+      <button class="x" type="button" data-close="journalPane" aria-label="關閉">×</button></div>
+    <div class="j-body">
+      <div class="j-sum" id="jSum"></div>
+      <form id="jForm" class="j-form">
+        <input id="jSym" placeholder="幣種，例如 SOL" aria-label="幣種" autocomplete="off">
+        <select id="jDir" aria-label="方向"><option value="1">做多</option><option value="-1">做空</option></select>
+        <input id="jPnl" type="number" step="0.01" placeholder="盈虧 USDT（虧損填負數）" aria-label="盈虧 USDT">
+        <input id="jNote" placeholder="備註：照計畫 / 追單 / 提早出場…" aria-label="備註">
+        <label class="chk"><input type="checkbox" id="jSig"> 照訊號進場</label>
+        <button class="btn primary" type="submit">新增</button>
+      </form>
+      <div id="jList"></div>
+    </div>
+  </section>
+
   <!-- ECONOMIC CALENDAR -->
   <section class="pane cal drawer" id="calPane" hidden aria-label="數據日曆">
     <div class="drawer-hd">
       <span class="t">數據日曆</span>
+      <span class="filters" role="group" aria-label="切換">
+        <button class="seg" type="button" data-ctab="eco" aria-pressed="true">經濟數據</button>
+        <button class="seg" type="button" data-ctab="earn" aria-pressed="false">美股財報</button>
+      </span>
       <span class="next" id="calNext">載入中…</span>
-      <span class="filters" role="group" aria-label="日曆篩選">
+      <span class="filters" id="calFilters" role="group" aria-label="日曆篩選">
         <button class="seg" type="button" data-cc="USD" aria-pressed="true">只看美國</button>
         <button class="seg" type="button" data-cc="ALL" aria-pressed="false">全部國家</button>
         <button class="seg" type="button" data-imp="3" aria-pressed="true">高影響</button>
@@ -258,6 +367,13 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <label class="chk"><input type="checkbox" id="needFvg"> OB 推動段需有 FVG</label>
       </div>
       <div class="col">
+        <div class="group-t">大盤濾網</div>
+        <div class="fld"><label class="label" for="btcFilter">逆 BTC H4 方向的訊號</label>
+          <select id="btcFilter"><option value="warn">標示警告</option><option value="block">直接濾掉</option><option value="off">不管</option></select></div>
+        <div class="fld"><label class="label" for="fundingMax">資金費率擁擠門檻 %</label>
+          <input type="number" id="fundingMax" min="0" max="1" step="0.01" value="0.05"><span class="hint">做多時費率 ≥ 這個值、做空時 ≤ 負值會標示（0 = 關閉）</span></div>
+      </div>
+      <div class="col">
         <div class="group-t">風報</div>
         <div class="fld"><label class="label" for="target">目標</label>
           <select id="target"><option value="ltf">最近的 15M 對向流動性</option><option value="htf">H4 區間極值</option></select></div>
@@ -272,6 +388,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   <section class="summary" aria-label="掃描摘要">
     <div class="stat t"><div class="label">觸發訊號</div><div class="n mono" id="nT">0</div></div>
     <div class="stat w"><div class="label">觀察中（已到 POI）</div><div class="n mono" id="nW">0</div></div>
+    <div class="stat"><div class="label">BTC H4 大盤</div><div class="n" id="nBtc">—</div></div>
     <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
     <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
   </section>
@@ -308,6 +425,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <canvas id="chart" aria-label="K 線圖，標示 POI、OB、掃蕩與進出場位"></canvas>
 
         <div class="levels" id="levels"></div>
+        <div class="flags" id="dFlags" hidden></div>
+        <div class="d-actions"><button class="btn" type="button" id="logTradeBtn">記一筆交易</button><button class="btn" type="button" id="postBtn">產生貼文圖卡</button></div>
 
         <div><h3>SMC 條件</h3><ul class="checklist" id="checks"></ul></div>
 
@@ -332,12 +451,23 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </section>
   </div>
 
-  <section class="pane log" aria-labelledby="logT">
-    <h2 id="logT">提醒紀錄 <span class="label">本頁開啟期間</span></h2>
-    <ol id="log"><li class="muted">尚無新觸發</li></ol>
-  </section>
 
   <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Telegram。</p>
+</div>
+<div class="modal" id="postModal" hidden role="dialog" aria-modal="true" aria-labelledby="postT">
+  <div class="modal-card">
+    <div class="drawer-hd"><span class="t" id="postT">貼文圖卡</span><span class="next muted">IG / Threads 直式 1080×1350</span><button class="x" type="button" id="postClose" aria-label="關閉">×</button></div>
+    <div class="post-body">
+      <canvas id="postCanvas" width="1080" height="1350" aria-label="貼文圖卡預覽"></canvas>
+      <div class="post-side">
+        <div class="fld"><label class="label" for="postRef">推薦碼或連結（會印在圖上）</label><input id="postRef" placeholder="例：BingX 推薦碼 ABC123"></div>
+        <div class="fld"><label class="label" for="postNote">一句話說明（選填）</label><input id="postNote" maxlength="40" placeholder="例：H4 POI 掃完流動性，等回 OB"></div>
+        <button class="btn primary" type="button" id="postDl">下載圖片</button>
+        <button class="btn" type="button" id="postCopy">複製圖片</button>
+        <p class="hint">圖上會附「僅供參考，非投資建議」。</p>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast" hidden></div>
 <script src="smc.js"></script>

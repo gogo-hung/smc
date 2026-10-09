@@ -17,6 +17,12 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      - key: UPSTASH_REDIS_REST_URL     # 永久儲存（交易紀錄、成績單），見 README
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: PUBLIC_URL
+        value: https://smc-scanner-krbg.onrender.com
       - key: TOP_N
         value: "60"
       - key: WATCHLIST
