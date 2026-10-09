@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const cfg = require('./config');
 const scanner = require('./scanner');
+const bingx = require('./bingx');
 const calendar = require('./calendar');
 const tracker = require('./tracker');
 const journal = require('./journal');
@@ -25,6 +26,21 @@ const brief = r => ({
   sym: r.sym, dir: r.dir, status: r.status, last: r.last, met: r.met, need: r.need, st: r.st,
   entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, dist: r.dist ?? null, flags: r.flags || [],
 });
+// 回測用的歷史資料（暫存 2 小時，避免重複抓）
+const histCache = new Map();
+async function history(sym, days) {
+  const key = `${sym}|${days}`, hit = histCache.get(key);
+  if (hit && Date.now() - hit.at < 2 * 3600e3) return hit.data;
+  const symbol = `${sym}-USDT`;
+  if (!(await bingx.getContracts()).includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });
+  const now = Date.now(), warm = 300 * 3600e3;            // 前面多抓 300 根 1H 當暖機
+  const ltf = await bingx.getKlinesRange(symbol, '1h', now - days * 86400e3 - warm, now);
+  const htf = await bingx.getKlinesRange(symbol, '4h', now - days * 86400e3 - 200 * 4 * 3600e3, now);
+  const data = { sym, days, ltf: pack(ltf), htf: pack(htf) };
+  histCache.set(key, { at: Date.now(), data });
+  if (histCache.size > 80) histCache.delete(histCache.keys().next().value);
+  return data;
+}
 const fail = (res, e) => send(res, e.code || 500, { error: e.message });
 
 function send(res, code, body, type = 'application/json; charset=utf-8') {
@@ -105,6 +121,12 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'POST') { await journal.add(await readBody(req)); return send(res, 200, journal.summary()); }
         if (req.method === 'DELETE') { await journal.remove(url.searchParams.get('id')); return send(res, 200, journal.summary()); }
       } catch (e) { return fail(res, e); }
+    }
+    if (url.pathname === '/api/history' && req.method === 'GET') {
+      const sym = String(url.searchParams.get('sym') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const days = Math.min(180, Math.max(7, +url.searchParams.get('days') || 90));
+      if (!sym) return send(res, 400, { error: '缺少 sym' });
+      try { return send(res, 200, await history(sym, days)); } catch (e) { return fail(res, e); }
     }
     if (url.pathname === '/api/earnings' && req.method === 'GET') {
       const e = earnings.state;

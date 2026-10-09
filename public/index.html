@@ -148,6 +148,18 @@ td.num,th.num{text-align:right}
 .pill.win{color:var(--long);background:color-mix(in srgb,var(--long) 14%,transparent)}
 .pill.loss{color:var(--short);background:color-mix(in srgb,var(--short) 14%,transparent)}
 .pill.filled{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+/* backtest */
+.bt-body{border-top:1px solid var(--line);padding:14px 16px;display:grid;gap:14px}
+.bt-form{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.bt-form .fld{min-width:150px}
+.bt-form select,.bt-form input{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:6px 8px;width:100%}
+.bt-prog{display:grid;gap:6px}
+.bt-prog .bar{height:6px;background:var(--raise);border-radius:3px;overflow:hidden}
+.bt-prog .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.bt-prog span{font-size:12.5px;color:var(--muted)}
+#btEq{width:100%;height:220px;display:block;background:var(--raise);border-radius:8px}
+.bt-cmp{display:flex;flex-wrap:wrap;gap:6px}
+.bt-cmp span{font-size:12px;background:var(--raise);border-radius:5px;padding:2px 8px;color:var(--muted)}
 /* journal */
 .j-body{border-top:1px solid var(--line);padding:14px 16px;display:grid;gap:14px}
 .j-sum{display:flex;flex-wrap:wrap;gap:22px}
@@ -273,6 +285,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
       <button class="btn tgl icon" id="alertsBtn" type="button" aria-expanded="false" aria-controls="alertsPane" aria-label="提醒中心"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge hot" id="alertBadge" hidden></span></button>
+      <button class="btn tgl" id="btBtn" type="button" aria-expanded="false" aria-controls="btPane">回測</button>
       <button class="btn tgl" id="statsBtn" type="button" aria-expanded="false" aria-controls="statsPane">成績單</button>
       <button class="btn tgl" id="journalBtn" type="button" aria-expanded="false" aria-controls="journalPane">交易紀錄</button>
       <button class="btn tgl" id="calBtn" type="button" aria-expanded="false" aria-controls="calPane">數據日曆<span class="badge" id="calBadge" hidden></span></button>
@@ -298,6 +311,28 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <p class="hint" id="alertStatus"></p>
       </form>
       <div class="feed" id="feed"></div>
+    </div>
+  </section>
+
+  <!-- BACKTEST -->
+  <section class="pane drawer" id="btPane" hidden aria-label="歷史回測">
+    <div class="drawer-hd"><span class="t">歷史回測</span><span class="next muted">用過去的 K 線跑目前的策略參數，每根 1H 收盤只看當時已收盤的資料</span>
+      <button class="x" type="button" data-close="btPane" aria-label="關閉">×</button></div>
+    <div class="bt-body">
+      <form id="btForm" class="bt-form">
+        <div class="fld"><label class="label" for="btDays">期間</label>
+          <select id="btDays"><option value="30">最近 30 天</option><option value="60">最近 60 天</option><option value="90" selected>最近 90 天</option><option value="180">最近 180 天</option></select></div>
+        <div class="fld"><label class="label" for="btN">幣種</label>
+          <select id="btN"><option value="10">成交量前 10</option><option value="20" selected>成交量前 20</option><option value="40">成交量前 40</option><option value="999">整個掃描名單</option></select></div>
+        <div class="fld"><label class="label" for="btFee">手續費 + 滑點（單邊 %）</label>
+          <input type="number" id="btFee" value="0.06" step="0.01" min="0" max="1"></div>
+        <div class="fld"><label class="label" for="btWait">幾小時內沒回到進場價算過期</label>
+          <input type="number" id="btWait" value="24" step="1" min="1" max="168"></div>
+        <button class="btn primary" type="submit" id="btRun">開始回測</button>
+      </form>
+      <p class="hint" id="btHint">使用「策略參數」裡目前的設定。歷史資料第一次要下載（約 1 分鐘），之後改參數再按一次幾秒就有結果。</p>
+      <div class="bt-prog" id="btProg" hidden><div class="bar"><i id="btBar"></i></div><span id="btTxt"></span></div>
+      <div id="btOut"></div>
     </div>
   </section>
 

@@ -58,7 +58,8 @@ npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
 | GET | `/api/alerts` | 提醒紀錄、提醒設定、風控鎖狀態 |
 | POST | `/api/alert-settings` | 更新提醒設定（需密碼） |
 | POST | `/api/test-alert` | 送一則 Telegram 測試訊息（需密碼） |
-| GET | `/api/stats` | 訊號成績單 |
+| GET | `/api/stats` | 訊號成績單（`?all=1` 全部） |
+| GET | `/api/history?sym=SOL&days=90` | 回測用歷史 1H / 4H K 線（分段抓，暫存 2 小時） |
 | GET / POST / DELETE | `/api/journal` | 交易紀錄（需密碼） |
 | POST | `/api/add` | 加入幣種 `{"sym":"PEPE"}` |
 | GET / POST | `/api/rules` | 讀取 / 更新推播用的策略參數 |
@@ -70,6 +71,7 @@ npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
 | 按鈕 | 做什麼 |
 |---|---|
 | 🔔 提醒中心 | 新訊號成立、價格接近進場區（或碰到進場位）、訊號結果、數據公布前、財報前一天。全部記在這裡並推 Telegram；可開瀏覽器通知 |
+| 回測 | 用過去 30–180 天的 1H / 4H K 線跑目前的策略參數（每根收盤只看當時已收盤的資料），算勝率、平均 R、獲利因子、最大回撤、資金曲線，可匯出明細。計算在瀏覽器跑，歷史資料由 `/api/history` 提供 |
 | 成績單 | 每個觸發的訊號都追蹤：先碰進場位 → 先打止損還是目標。統計勝率、平均 R、依方向/幣種 |
 | 交易紀錄 | 記每筆實際盈虧。今天（台灣時間）連虧 2 筆自動上鎖：進場提醒只記錄不推播，自檢區顯示休息 |
 | 數據日曆 | ForexFactory 週曆（中文、台灣時間）＋美股財報（Nasdaq；顯示 BingX 上架的美股，只推播 `EARNINGS_TICKERS` 裡的股票） |

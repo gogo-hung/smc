@@ -315,7 +315,7 @@ function renderCal(){
   $('calBody').innerHTML=html; renderCalWarn();
 }
 // ---- 上方按鈕開關面板（一次只開一個） ----
-const drawers={alertsBtn:'alertsPane',statsBtn:'statsPane',journalBtn:'journalPane',calBtn:'calPane',rulesBtn:'rulesPane'};
+const drawers={alertsBtn:'alertsPane',btBtn:'btPane',statsBtn:'statsPane',journalBtn:'journalPane',calBtn:'calPane',rulesBtn:'rulesPane'};
 const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal()};
 function openDrawer(id){ for(const [bt,pn] of Object.entries(drawers)){ const on=pn===id && $(pn).hidden; $(pn).hidden=!on; $(bt).setAttribute('aria-expanded',on); if(on&&onOpen[pn]) onOpen[pn](); } }
 for(const [bt,pn] of Object.entries(drawers)) $(bt).onclick=()=>openDrawer(pn);
@@ -398,6 +398,98 @@ async function exportJournal(){
   const j=await r.json();
   downloadCSV('交易紀錄',['時間','幣種','方向','盈虧 USDT','照訊號','備註'], j.trades.slice().reverse().map(t=>[tw(t.at),t.sym,t.dir>0?'多':'空',t.pnl,t.followedSignal?'是':'',t.note]));
 }
+
+// ================= 歷史回測 =================
+const BT={cache:{}, running:false, last:null};
+async function btData(sym, days){
+  const k=`${sym}|${days}`; if(BT.cache[k]) return BT.cache[k];
+  if(DataSource.mode!=='live'){ const l=DataSource.ltf(sym); return BT.cache[k]={ltf:l, htf:SMC.aggregate(l,4)}; }
+  const r=await fetch(`api/history?sym=${encodeURIComponent(sym)}&days=${days}`,{cache:'no-store'});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||`HTTP ${r.status}`);
+  return BT.cache[k]={ltf:unpack(j.ltf), htf:unpack(j.htf)};
+}
+function btProgress(p,txt){ $('btProg').hidden=false; $('btBar').style.width=`${Math.round(p*100)}%`; $('btTxt').textContent=txt; }
+$('btForm').addEventListener('submit',async e=>{ e.preventDefault(); if(BT.running) return;
+  BT.running=true; $('btRun').disabled=true; $('btRun').textContent='回測中…';
+  const days=+$('btDays').value, n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
+  const syms=[...new Set(['BTC',...DataSource.list])].slice(0,Math.max(n,1));
+  const data={}, failed=[];
+  try{
+    // 1. 下載歷史（同時 3 個）
+    let done=0, q=[...syms];
+    await Promise.all([0,1,2].map(async()=>{ while(q.length){ const sym=q.shift();
+      try{ data[sym]=await btData(sym,days); }catch(err){ failed.push(`${sym}：${err.message}`); }
+      done++; btProgress(done/syms.length*0.6, `下載歷史 K 線 ${done}/${syms.length}（${sym}）`); } }));
+    // 2. 逐幣回測
+    const ruleSnap={...rules};
+    const btcDirAt = data.BTC ? SMC.trendSeries(data.BTC.htf, ruleSnap) : null;
+    let trades=[], i=0;
+    for(const sym of syms){ i++; if(!data[sym]) continue;
+      btProgress(0.6+i/syms.length*0.4, `計算中 ${i}/${syms.length}（${sym}）`); await new Promise(r=>setTimeout(r));
+      const r=SMC.backtest(sym, data[sym].ltf, data[sym].htf, ruleSnap, {feePct:fee, maxWait:wait, btcDirAt});
+      trades=trades.concat(r.trades); }
+    const span = Object.values(data).reduce((a,d)=>{ const l=d.ltf; return l.length? [Math.min(a[0],l[Math.min(300,l.length-1)].t), Math.max(a[1],l[l.length-1].t)] : a; },[Infinity,0]);
+    BT.last={trades, rules:ruleSnap, days, syms:syms.filter(x=>data[x]), failed, fee, span};
+    btProgress(1, `完成：${BT.last.syms.length} 個幣、${trades.length} 個訊號`);
+    renderBT();
+  }catch(err){ showToast('回測失敗：'+err.message); }
+  finally{ BT.running=false; $('btRun').disabled=false; $('btRun').textContent='開始回測'; }
+});
+function btStats(trades){
+  const done=trades.filter(t=>t.R!=null), wins=done.filter(t=>t.R>0);
+  const sumW=wins.reduce((a,t)=>a+t.R,0), sumL=done.filter(t=>t.R<=0).reduce((a,t)=>a+t.R,0);
+  const seq=done.slice().sort((a,b)=>a.closedT-b.closedT);
+  let eq=0, peak=0, dd=0, streak=0, maxStreak=0; const curve=[];
+  for(const t of seq){ eq+=t.R; peak=Math.max(peak,eq); dd=Math.min(dd,eq-peak); streak= t.R<=0? streak+1 : 0; maxStreak=Math.max(maxStreak,streak); curve.push({t:t.closedT,eq}); }
+  return { n:trades.length, resolved:done.length, winRate: done.length? wins.length/done.length : null, avgR: done.length? (sumW+sumL)/done.length : null,
+    totalR: sumW+sumL, pf: sumL<0? sumW/-sumL : (sumW>0? Infinity : null), maxDD: dd, maxStreak, curve,
+    missed: trades.filter(t=>t.status==='missed').length, expired: trades.filter(t=>t.status==='expired').length, open: trades.filter(t=>t.status==='open').length };
+}
+function btGroup(trades, key){
+  const m={}; for(const t of trades){ if(t.R==null) continue; const g=key(t); (m[g] ||= []).push(t); }
+  return Object.entries(m).map(([g,a])=>({g, n:a.length, winRate:a.filter(t=>t.R>0).length/a.length, R:a.reduce((x,t)=>x+t.R,0)}));
+}
+function renderBT(){
+  const L=BT.last; if(!L) return;
+  const s=btStats(L.trades), f2=v=>v==null?'—':(v>0?'+':'')+v.toFixed(2);
+  const tile=(l,v,c='')=>`<div class="tile"><div class="label">${l}</div><div class="n ${c}">${v}</div></div>`;
+  const tbl=(t,a,sort)=>{ a.sort(sort||((x,y)=>y.n-x.n)); return `<div><h3>${t}</h3>${a.length?`<table class="mtable"><thead><tr><th></th><th class="num">筆數</th><th class="num">勝率</th><th class="num">累計 R</th></tr></thead><tbody>${a.map(x=>`<tr><td>${esc(x.g)}</td><td class="num">${x.n}</td><td class="num">${pct(x.winRate)}</td><td class="num" style="color:var(${x.R>0?'--long':x.R<0?'--short':'--muted'})">${f2(x.R)}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">沒有已結算的訊號</p>'}</div>`; };
+  const month=t=>new Date(t.t).toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,7);
+  const r=L.rules, cmp=[`斐波 ≥ ${r.fibMin}`, r.needEma?`EMA${r.emaLen}`:'不看 EMA', `吞沒 ${r.lookback}H 內`, r.entry==='close'?'吞沒收盤進場':'OB 邊緣進場', `RR ≥ ${r.minRR}`, r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 只標示',block:'逆 BTC 濾掉',off:'不管 BTC'}[r.btcFilter], `手續費 ${L.fee}%×2`];
+  const ST={win:'✅ 目標',loss:'❌ 止損',missed:'錯過',expired:'過期',open:'持倉中',pending:'等待'};
+  const rows=L.trades.slice().sort((a,b)=>b.t-a.t).slice(0,200).map(t=>`<tr><td class="num">${new Date(t.t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(t.sym)}</b>${t.againstBtc?' <span class="pill">逆BTC</span>':''}</td><td><span class="dir ${t.dir>0?'L':'S'}">${t.dir>0?'多':'空'}</span></td>
+    <td class="num">${fp(t.entry)}</td><td class="num">${fp(t.stop)}</td><td class="num">${fp(t.target)}</td><td class="num">${t.rr.toFixed(2)}</td><td>${t.R!=null?`<span class="pill ${t.R>0?'win':'loss'}">${f2(t.R)}R</span>`:`<span class="pill">${ST[t.status]}</span>`}</td></tr>`).join('');
+  const sp=L.span[0]<Infinity? `${new Date(L.span[0]).toLocaleDateString('zh-TW')} – ${new Date(L.span[1]).toLocaleDateString('zh-TW')}` : '';
+  $('btOut').innerHTML=`
+    <div class="bt-cmp">${cmp.map(x=>`<span>${x}</span>`).join('')}<span>${L.syms.length} 個幣 · ${sp}</span></div>
+    <div class="tiles">${tile('訊號數',s.n)}${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',f2(s.avgR),s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',f2(s.totalR),s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('獲利因子',s.pf==null?'—':s.pf===Infinity?'∞':s.pf.toFixed(2))}${tile('最大回撤',s.maxDD?f2(s.maxDD)+'R':'0R','neg')}${tile('最大連虧',s.maxStreak+' 筆')}</div>
+    <div><h3>資金曲線（累計 R，依出場時間）</h3><canvas id="btEq" aria-label="回測累計 R 曲線"></canvas></div>
+    <div class="split">${tbl('依方向',btGroup(L.trades,t=>t.dir>0?'做多':'做空'))}${tbl('順 / 逆 BTC 大盤',btGroup(L.trades,t=>t.againstBtc?'逆 BTC':'順 BTC'))}${tbl('依月份',btGroup(L.trades,month),(a,b)=>a.g.localeCompare(b.g))}</div>
+    <div class="split">${tbl('表現最好的幣',btGroup(L.trades,t=>t.sym),(a,b)=>b.R-a.R)}</div>
+    <div><h3>訊號明細（最新 200 筆）</h3><div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows||''}</tbody></table></div></div>
+    <div><button class="btn" type="button" id="btCsv">匯出全部回測明細（CSV）</button></div>
+    <p class="hint">錯過 ${s.missed}・過期 ${s.expired}・資料結束時仍持倉 ${s.open}（不計入勝率）。同一根 K 棒同時碰到止損與目標保守算止損；進場後下一根才可能打到目標。${L.failed.length?`<br>抓不到資料：${esc(L.failed.slice(0,5).join('；'))}`:''}${DataSource.mode!=='live'?'<br>示範模式：用的是程式產生的 K 線，只有約 20 天。':''}<br>過去表現不代表未來結果。</p>`;
+  $('btCsv').onclick=()=>downloadCSV('回測明細',['訊號時間','幣種','方向','進場','止損','目標','RR','結果','R','逆BTC','回撤位置'],
+    L.trades.slice().sort((a,b)=>a.t-b.t).map(t=>[tw(t.t),t.sym,t.dir>0?'多':'空',t.entry,t.stop,t.target,t.rr.toFixed(2),ST[t.status],t.R!=null?t.R.toFixed(3):'',t.againstBtc?'是':'',t.retr!=null?(t.retr*100).toFixed(0)+'%':'']));
+  drawEquity(s.curve);
+}
+function drawEquity(curve){
+  const cv=$('btEq'); if(!cv) return; const dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight; cv.width=W*dpr; cv.height=H*dpr;
+  const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  const css=getComputedStyle(document.documentElement), C=k=>css.getPropertyValue(k).trim();
+  if(!curve.length){ g.fillStyle=C('--muted'); g.font='13px "Noto Sans TC",sans-serif'; g.fillText('沒有已結算的訊號',16,30); return; }
+  const pts=[{eq:0},...curve], lo=Math.min(0,...pts.map(p=>p.eq)), hi=Math.max(0,...pts.map(p=>p.eq)), pad=(hi-lo||1)*0.1;
+  const L=44, R=12, T=12, B=18, x=i=>L+i/(pts.length-1||1)*(W-L-R), y=v=>T+(hi+pad-v)/((hi+pad)-(lo-pad))*(H-T-B);
+  g.font='11px "JetBrains Mono",monospace'; g.textBaseline='middle'; g.fillStyle=C('--muted'); g.strokeStyle=C('--line');
+  for(let k=0;k<=4;k++){ const v=lo-pad+((hi+pad)-(lo-pad))*k/4, yy=Math.round(y(v))+.5; g.beginPath(); g.moveTo(L,yy); g.lineTo(W-R,yy); g.stroke(); g.fillText(`${v>0?'+':''}${v.toFixed(1)}R`,4,yy); }
+  g.strokeStyle=C('--muted'); g.setLineDash([3,3]); g.beginPath(); g.moveTo(L,y(0)); g.lineTo(W-R,y(0)); g.stroke(); g.setLineDash([]);
+  const last=pts[pts.length-1].eq, col= last>=0? C('--long') : C('--short');
+  g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(x(i),y(p.eq)):g.moveTo(x(i),y(p.eq))); g.lineTo(x(pts.length-1),y(0)); g.lineTo(x(0),y(0)); g.closePath(); g.globalAlpha=.12; g.fillStyle=col; g.fill(); g.globalAlpha=1;
+  g.strokeStyle=col; g.lineWidth=2; g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(x(i),y(p.eq)):g.moveTo(x(i),y(p.eq))); g.stroke(); g.lineWidth=1;
+  g.fillStyle=col; g.beginPath(); g.arc(x(pts.length-1),y(last),3.5,0,7); g.fill();
+}
+window.addEventListener('resize',()=>{ if(!$('btPane').hidden && BT.last) drawEquity(btStats(BT.last.trades).curve); });
 
 // ================= 成績單 =================
 const ST_ZH={pending:'等待進場',filled:'已進場',win:'打到目標',loss:'打到止損',missed:'沒回進場就走了',expired:'24h 未成交'};

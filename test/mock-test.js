@@ -1,6 +1,6 @@
 // 離線測試：用假的 BingX / 日曆 / 財報回應跑完整流程（不需要網路）
 // npm test
-Object.assign(process.env, { TELEGRAM_BOT_TOKEN: '', TOP_N: '20', REQUEST_GAP_MS: '0', PORT: '0', ALERT_MAX_AGE_BARS: '0', ADMIN_TOKEN: 'pw', EARNINGS_TICKERS: 'NVDA' });
+Object.assign(process.env, { HISTORY_PAGE: '100', TELEGRAM_BOT_TOKEN: '', TOP_N: '20', REQUEST_GAP_MS: '0', PORT: '0', ALERT_MAX_AGE_BARS: '0', ADMIN_TOKEN: 'pw', EARNINGS_TICKERS: 'NVDA' });
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
@@ -45,6 +45,11 @@ global.fetch = async (url) => {
   if (u.pathname.endsWith('/quote/klines')) {
     const c = u.searchParams.get('symbol').replace('-USDT', '');
     const iv = u.searchParams.get('interval'), lim = +u.searchParams.get('limit');
+    const st = +u.searchParams.get('startTime'), en = +u.searchParams.get('endTime');
+    if (st) { // 分段抓歷史：只回這段時間內、最多 limit 根
+      const seg = (iv === '1h' ? fake[c].ltf : fake[c].htf).filter(b => b.t >= st && b.t <= en).slice(0, lim);
+      return json(seg.map(b => [b.t, b.o, b.h, b.l, b.c, b.v]));
+    }
     let bars = (iv === '1h' ? fake[c].ltf : fake[c].htf).slice(-lim);
     // 模擬 BingX：字串數值、新到舊排序、多一根尚未收盤的 K 棒
     const forming = { ...bars[bars.length - 1], t: Date.now() - 1000 };
@@ -180,6 +185,16 @@ global.fetch = async (url) => {
   await earnings.checkAlerts(tracker.emit); await earnings.checkAlerts(tracker.emit);
   assert.strictEqual(tracker.state.feed.filter(f => f.type === 'earnings').length, 1, '今天的財報提醒一次');
   console.log('財報：', (await req('GET', '/api/earnings')).json().events.map(e => `${e.sym} ${e.date} ${e.session}`).join('、'));
+
+  // 歷史資料（回測用）：分段抓、不重複、由舊到新
+  const callsBefore = calls;
+  const hist = (await req('GET', '/api/history?sym=SOL&days=15')).json();
+  assert(hist.ltf.length > 300 && hist.htf.length > 50, `歷史 K 線太少：${hist.ltf.length}/${hist.htf.length}`);
+  assert(hist.ltf.every((b, i) => !i || b[0] > hist.ltf[i - 1][0]), '歷史 K 線要由舊到新且不重複');
+  assert(calls - callsBefore > 3, '應該分好幾段抓');
+  assert.strictEqual((await req('GET', '/api/history?sym=NOPE&days=15')).status, 404);
+  const bt = SMC.backtest('SOL', hist.ltf.map(k => ({ t: k[0], o: k[1], h: k[2], l: k[3], c: k[4], v: k[5] })), hist.htf.map(k => ({ t: k[0], o: k[1], h: k[2], l: k[3], c: k[4], v: k[5] })), scanner.DEFAULT_RULES, { feePct: 0.06 });
+  console.log(`歷史：1H ${hist.ltf.length} 根、4H ${hist.htf.length} 根（${calls - callsBefore} 次請求）｜回測 SOL ${bt.trades.length} 個訊號`);
 
   const page = await req('GET', '/');
   assert(page.body.includes('SMC 掃幣台'));

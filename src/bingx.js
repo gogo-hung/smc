@@ -71,6 +71,24 @@ async function getKlines(symbol, interval, limit) {
   return bars;
 }
 
+// 歷史 K 線：一段一段往前抓（BingX 一次最多 1440 根），回傳由舊到新、已收盤
+async function getKlinesRange(symbol, interval, startTime, endTime = Date.now()) {
+  const span = INTERVAL_MS[interval], page = cfg.HISTORY_PAGE;
+  const out = new Map();
+  for (let from = startTime; from < endTime; from += span * page) {
+    const to = Math.min(endTime, from + span * page - 1);
+    const data = await get('/openApi/swap/v3/quote/klines', { symbol, interval, startTime: from, endTime: to, limit: page });
+    for (const k of data || []) {
+      const b = Array.isArray(k)
+        ? { t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }
+        : { t: +k.time, o: +k.open, h: +k.high, l: +k.low, c: +k.close, v: +k.volume };
+      if (isFinite(b.t) && isFinite(b.c) && b.t >= startTime && b.t + span <= Date.now()) out.set(b.t, b);
+    }
+    await sleep(cfg.REQUEST_GAP_MS);
+  }
+  return [...out.values()].sort((a, b) => a.t - b.t);
+}
+
 // 限制同時請求數，避免撞到頻率限制
 async function pool(items, worker, n = cfg.CONCURRENCY) {
   const out = new Array(items.length);
@@ -85,4 +103,4 @@ async function pool(items, worker, n = cfg.CONCURRENCY) {
   return out;
 }
 
-module.exports = { getContracts, getTickers, getKlines, getFunding, pool, INTERVAL_MS };
+module.exports = { getContracts, getTickers, getKlines, getKlinesRange, getFunding, pool, INTERVAL_MS };

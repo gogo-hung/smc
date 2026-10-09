@@ -169,6 +169,51 @@ const SMC = (() => {
     r.status = need.every(k=>st[k]) ? 'trigger' : (st.htf&&st.fib&&st.ob ? 'watch' : 'idle');
     return r;
   }
+  // ---- 歷史回測：逐根 1H 收盤往前走，每次只用「當時已收盤」的 K 棒判斷，不偷看未來 ----
+  // o: { window: 1H 視窗（跟實盤一樣 300）, htfWindow: 200, maxWait: 幾根內沒進場算過期, feePct: 單邊手續費+滑點 %, btcDirAt(t) }
+  function backtest(sym, ltf, htf, s, o={}){
+    const W=o.window||300, HW=o.htfWindow||200, maxWait=o.maxWait||24, fee=(o.feePct||0)/100;
+    if(ltf.length<W+10 || htf.length<60) return {trades:[], skipped:'資料不足'};
+    const bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t, trades=[];
+    let hj=0;
+    for(let i=W;i<ltf.length;i++){
+      if(!isEngulf(ltf,i,1) && !isEngulf(ltf,i,-1)) continue;   // 沒有吞沒就不可能觸發，先跳過省時間
+      const closeT=ltf[i].t+bar;
+      while(hj<htf.length && htf[hj].t+hbar<=closeT) hj++;      // 只用已收盤的 H4
+      if(hj<60) continue;
+      const L=ltf.slice(i+1-W,i+1), H=htf.slice(Math.max(0,hj-HW),hj);
+      const r=analyze(sym,L,s,H);
+      if(r.status!=='trigger' || r.sigIdx!==L.length-1) continue; // 這根收盤時才剛成立的訊號
+      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,retr:r.retr,status:'pending'};
+      if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(closeT); if(b && b!==r.dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
+      const up=t.dir>0;
+      for(let j=i+1;j<ltf.length;j++){
+        const b=ltf[j];
+        if(t.status==='pending'){
+          if(up? b.l<=t.entry : b.h>=t.entry){ t.status='filled'; t.filledT=b.t; }
+          else if(up? b.h>=t.target : b.l<=t.target){ t.status='missed'; t.closedT=b.t; break; }
+          else if(j-i>maxWait){ t.status='expired'; t.closedT=b.t; break; }
+        }
+        if(t.status==='filled'){
+          const hitS= up? b.l<=t.stop : b.h>=t.stop, hitT= up? b.h>=t.target : b.l<=t.target;
+          if(hitS){ t.status='loss'; t.R=-1; t.closedT=b.t+bar; }          // 同一根兩邊都碰到，保守算止損
+          else if(hitT && b.t>t.filledT){ t.status='win'; t.R=t.rr; t.closedT=b.t+bar; }
+          if(t.R!=null) break;
+        }
+      }
+      if(t.status==='filled') t.status='open';                        // 資料結束時還沒出結果
+      if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
+      trades.push(t);
+    }
+    return {trades};
+  }
+  // BTC H4 在某個時間點的方向（給回測的大盤濾網用）
+  function trendSeries(htf, s){
+    const H=structure(htf,{...s,swingLen:s.htfSwing}); const hbar=htf[1].t-htf[0].t;
+    const pts=H.events.map(e=>({t:htf[e.idx].t+hbar, dir:e.dir}));
+    return T=>{ let d=0; for(const p of pts){ if(p.t<=T) d=p.dir; else break; } return d; };
+  }
+
   // 大盤濾網：BTC H4 方向、資金費率（前後端共用）
   function applyContext(r, ctx, s){
     r.flags=[];
@@ -186,6 +231,6 @@ const SMC = (() => {
     }
     return r;
   }
-  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf};
+  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf,structure,backtest,trendSeries};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=SMC;
