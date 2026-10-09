@@ -44,7 +44,7 @@ async function adminFetch(url,opt={}){
 
 // ---- rules ----
 // 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
-const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05,side:'both',stopMode:'swing'};
+const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05,side:'both',stopMode:'ob'};
 let rules = {...DEFAULTS, ...(store.get('smc-rules-v2')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
