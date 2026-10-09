@@ -160,6 +160,11 @@ td.num,th.num{text-align:right}
 #btEq{width:100%;height:220px;display:block;background:var(--raise);border-radius:8px}
 .bt-cmp{display:flex;flex-wrap:wrap;gap:6px}
 .bt-cmp span{font-size:12px;background:var(--raise);border-radius:5px;padding:2px 8px;color:var(--muted)}
+.opt-ok{color:var(--long);font-weight:700}
+.opt-no{color:var(--muted)}
+.mtable tr.best td{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.mtable .chips{display:flex;flex-wrap:wrap;gap:4px;white-space:normal;min-width:220px}
+.mtable .chips span{font-size:11px;background:var(--raise);border-radius:4px;padding:1px 6px}
 /* journal */
 .j-body{border-top:1px solid var(--line);padding:14px 16px;display:grid;gap:14px}
 .j-sum{display:flex;flex-wrap:wrap;gap:22px}
@@ -329,6 +334,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="fld"><label class="label" for="btWait">幾小時內沒回到進場價算過期</label>
           <input type="number" id="btWait" value="24" step="1" min="1" max="168"></div>
         <button class="btn primary" type="submit" id="btRun">開始回測</button>
+        <button class="btn" type="button" id="btOpt">自動找最佳參數</button>
       </form>
       <p class="hint" id="btHint">使用「策略參數」裡目前的設定。歷史資料第一次要下載（約 1 分鐘），之後改參數再按一次幾秒就有結果。</p>
       <div class="bt-prog" id="btProg" hidden><div class="bar"><i id="btBar"></i></div><span id="btTxt"></span></div>
@@ -421,6 +427,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="group-t">大盤濾網</div>
         <div class="fld"><label class="label" for="btcFilter">逆 BTC H4 方向的訊號</label>
           <select id="btcFilter"><option value="warn">標示警告</option><option value="block">直接濾掉</option><option value="off">不管</option></select></div>
+        <div class="fld"><label class="label" for="side">交易方向</label>
+          <select id="side"><option value="both">多空都做</option><option value="long">只做多</option><option value="short">只做空</option></select></div>
         <div class="fld"><label class="label" for="fundingMax">資金費率擁擠門檻 %</label>
           <input type="number" id="fundingMax" min="0" max="1" step="0.01" value="0.05"><span class="hint">做多時費率 ≥ 這個值、做空時 ≤ 負值會標示（0 = 關閉）</span></div>
       </div>

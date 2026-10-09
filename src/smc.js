@@ -167,6 +167,8 @@ const SMC = (() => {
     const need=['htf','fib','ob','engulf','rr']; if(s.needEma!==false) need.splice(4,0,'ema');
     r.need=need; r.met=need.filter(k=>st[k]).length;
     r.status = need.every(k=>st[k]) ? 'trigger' : (st.htf&&st.fib&&st.ob ? 'watch' : 'idle');
+    // 只做多 / 只做空：反方向的訊號不觸發
+    if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
     return r;
   }
   // ---- 歷史回測：逐根 1H 收盤往前走，每次只用「當時已收盤」的 K 棒判斷，不偷看未來 ----

@@ -44,12 +44,12 @@ async function adminFetch(url,opt={}){
 
 // ---- rules ----
 // 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢
-const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05};
+const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.5,needEma:true,emaLen:50,lookback:12,entry:'close',minRR:2,stopBuf:0.1,target:'swing',btcFilter:'warn',fundingMax:0.05,side:'both'};
 let rules = {...DEFAULTS, ...(store.get('smc-rules-v2')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=[`斐波 ≥ ${rules.fibMin}`, rules.needEma?`EMA${rules.emaLen} 順勢`:'不看 EMA', `吞沒 ${rules.lookback}H 內`, rules.entry==='close'?'吞沒收盤進場':'OB 邊緣進場',
-    `RR ≥ ${rules.minRR}`, rules.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter]].filter(Boolean);
+    `RR ≥ ${rules.minRR}`, rules.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[rules.btcFilter], {long:'只做多',short:'只做空'}[rules.side], `止損緩衝 ${rules.stopBuf}%`].filter(Boolean);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
 function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v2',rules); renderSum(); }
@@ -410,17 +410,24 @@ async function btData(sym, days){
   return BT.cache[k]={ltf:unpack(j.ltf), htf:unpack(j.htf)};
 }
 function btProgress(p,txt){ $('btProg').hidden=false; $('btBar').style.width=`${Math.round(p*100)}%`; $('btTxt').textContent=txt; }
-$('btForm').addEventListener('submit',async e=>{ e.preventDefault(); if(BT.running) return;
-  BT.running=true; $('btRun').disabled=true; $('btRun').textContent='回測中…';
-  const days=+$('btDays').value, n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
+// 下載歷史（同時 3 個；下載過的直接用暫存）
+async function btLoad(days, n, share=0.6){
   const syms=[...new Set(['BTC',...DataSource.list])].slice(0,Math.max(n,1));
-  const data={}, failed=[];
+  const data={}, failed=[]; let done=0; const q=[...syms];
+  await Promise.all([0,1,2].map(async()=>{ while(q.length){ const sym=q.shift();
+    try{ data[sym]=await btData(sym,days); }catch(err){ failed.push(`${sym}：${err.message}`); }
+    done++; btProgress(done/syms.length*share, `下載歷史 K 線 ${done}/${syms.length}（${sym}）`); } }));
+  return {data, syms, failed};
+}
+function btSpan(data){ return Object.values(data).reduce((a,d)=>{ const l=d.ltf; return l.length>300? [Math.min(a[0],l[300].t), Math.max(a[1],l[l.length-1].t)] : a; },[Infinity,0]); }
+function btRunAll(syms, data, rule, opt){ let trades=[]; for(const sym of syms){ if(!data[sym]) continue; trades=trades.concat(SMC.backtest(sym,data[sym].ltf,data[sym].htf,rule,opt).trades); } return trades; }
+function btLock(on, label){ BT.running=on; $('btRun').disabled=on; $('btOpt').disabled=on; if(label) (label==='opt'?$('btOpt'):$('btRun')).textContent= on? '計算中…' : (label==='opt'?'自動找最佳參數':'開始回測'); }
+
+$('btForm').addEventListener('submit',async e=>{ e.preventDefault(); if(BT.running) return;
+  btLock(true,'run');
+  const days=+$('btDays').value, n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
   try{
-    // 1. 下載歷史（同時 3 個）
-    let done=0, q=[...syms];
-    await Promise.all([0,1,2].map(async()=>{ while(q.length){ const sym=q.shift();
-      try{ data[sym]=await btData(sym,days); }catch(err){ failed.push(`${sym}：${err.message}`); }
-      done++; btProgress(done/syms.length*0.6, `下載歷史 K 線 ${done}/${syms.length}（${sym}）`); } }));
+    const {data, syms, failed}=await btLoad(days,n);
     // 2. 逐幣回測
     const ruleSnap={...rules};
     const btcDirAt = data.BTC ? SMC.trendSeries(data.BTC.htf, ruleSnap) : null;
@@ -429,13 +436,58 @@ $('btForm').addEventListener('submit',async e=>{ e.preventDefault(); if(BT.runni
       btProgress(0.6+i/syms.length*0.4, `計算中 ${i}/${syms.length}（${sym}）`); await new Promise(r=>setTimeout(r));
       const r=SMC.backtest(sym, data[sym].ltf, data[sym].htf, ruleSnap, {feePct:fee, maxWait:wait, btcDirAt});
       trades=trades.concat(r.trades); }
-    const span = Object.values(data).reduce((a,d)=>{ const l=d.ltf; return l.length? [Math.min(a[0],l[Math.min(300,l.length-1)].t), Math.max(a[1],l[l.length-1].t)] : a; },[Infinity,0]);
+    const span = btSpan(data);
     BT.last={trades, rules:ruleSnap, days, syms:syms.filter(x=>data[x]), failed, fee, span};
     btProgress(1, `完成：${BT.last.syms.length} 個幣、${trades.length} 個訊號`);
     renderBT();
   }catch(err){ showToast('回測失敗：'+err.message); }
-  finally{ BT.running=false; $('btRun').disabled=false; $('btRun').textContent='開始回測'; }
+  finally{ btLock(false,'run'); }
 });
+
+// ---- 自動找最佳參數：跑一批組合，前後兩段都要賺才算穩 ----
+const OPT_GRID={ stopBuf:[0.1,0.3,0.5], fibMin:[0.5,0.618], entry:['close','ob'], side:['both','long'], needEma:[true,false] };
+const optLabel=g=>[`止損緩衝 ${g.stopBuf}%`, `斐波 ${g.fibMin}`, g.entry==='close'?'吞沒收盤進場':'OB 邊緣進場', g.side==='long'?'只做多':g.side==='short'?'只做空':'多空都做', g.needEma?`EMA${g.emaLen}`:'不看 EMA'];
+$('btOpt').onclick=async()=>{ if(BT.running) return; btLock(true,'opt');
+  const days=+$('btDays').value, n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
+  try{
+    const {data, syms, failed}=await btLoad(days,n,0.25);
+    const base={...rules}, combos=[];
+    for(const sb of OPT_GRID.stopBuf) for(const fm of OPT_GRID.fibMin) for(const en of OPT_GRID.entry) for(const sd of OPT_GRID.side) for(const em of OPT_GRID.needEma)
+      combos.push({...base, stopBuf:sb, fibMin:fm, entry:en, side:sd, needEma:em});
+    const span=btSpan(data), mid=(span[0]+span[1])/2, out=[];
+    for(let k=0;k<combos.length;k++){
+      btProgress(0.25+k/combos.length*0.75, `測試第 ${k+1}/${combos.length} 組：${optLabel(combos[k]).join('、')}`); await new Promise(r=>setTimeout(r));
+      const g=combos[k], btcDirAt= data.BTC? SMC.trendSeries(data.BTC.htf,g) : null;
+      const trades=btRunAll(syms,data,g,{feePct:fee,maxWait:wait,btcDirAt});
+      const st=btStats(trades), res=trades.filter(t=>t.R!=null);
+      const R1=res.filter(t=>t.t<mid).reduce((a,t)=>a+t.R,0), R2=res.filter(t=>t.t>=mid).reduce((a,t)=>a+t.R,0);
+      out.push({g, st, R1, R2, stable: R1>0 && R2>0 && st.resolved>=30});
+    }
+    out.sort((a,b)=> (b.stable-a.stable) || (b.st.totalR-a.st.totalR));
+    BT.opt={out, days, fee, syms:syms.filter(x=>data[x]), failed, span};
+    btProgress(1, `完成：測了 ${out.length} 組參數`);
+    renderOpt();
+  }catch(err){ showToast('最佳化失敗：'+err.message); }
+  finally{ btLock(false,'opt'); }
+};
+function renderOpt(){
+  const O=BT.opt; if(!O) return; const f2=v=>(v>0?'+':'')+v.toFixed(2);
+  const nStable=O.out.filter(x=>x.stable).length;
+  const rows=O.out.map((x,i)=>`<tr class="${i===0&&x.stable?'best':''}"><td class="num">${i+1}</td><td><div class="chips">${optLabel(x.g).map(c=>`<span>${c}</span>`).join('')}</div></td>
+    <td class="num">${x.st.resolved}</td><td class="num">${pct(x.st.winRate)}</td>
+    <td class="num" style="color:var(${x.st.totalR>0?'--long':'--short'})">${f2(x.st.totalR)}</td>
+    <td class="num">${x.st.pf==null?'—':x.st.pf===Infinity?'∞':x.st.pf.toFixed(2)}</td><td class="num">${f2(x.st.maxDD)}</td><td class="num">${x.st.maxStreak}</td>
+    <td class="num">${f2(x.R1)} / ${f2(x.R2)}</td><td>${x.stable?'<span class="opt-ok">✓ 穩</span>':`<span class="opt-no">${x.st.resolved<30?'樣本少':'不穩'}</span>`}</td>
+    <td><button class="btn" type="button" data-opt="${i}">套用並查看</button></td></tr>`).join('');
+  $('btOut').innerHTML=`<div><h3>參數排行（${O.out.length} 組・${O.syms.length} 個幣・最近 ${O.days} 天）</h3>
+    <p class="hint">「穩」= 前半段和後半段都賺錢、而且至少 30 筆已結算。只在某一段賺的組合，多半是剛好貼合那段行情，實盤容易失效。排序：先看穩不穩，再看累計 R。${nStable?'':'<br><b>這次沒有任何一組是穩的</b>：代表目前的策略在這段期間不夠可靠，建議換更長期間（180 天）再試，或回頭調整進場條件。'}</p>
+    <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
+    <p class="hint">其他參數沿用目前設定（逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
+  $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
+    rules={...DEFAULTS,...g}; store.set('smc-rules-v2',rules); syncForm(); scan();
+    showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
+    $('btForm').requestSubmit ? $('btForm').requestSubmit() : $('btForm').dispatchEvent(new Event('submit',{cancelable:true})); });
+}
 function btStats(trades){
   const done=trades.filter(t=>t.R!=null), wins=done.filter(t=>t.R>0);
   const sumW=wins.reduce((a,t)=>a+t.R,0), sumL=done.filter(t=>t.R<=0).reduce((a,t)=>a+t.R,0);
