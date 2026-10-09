@@ -26,6 +26,7 @@
   --long:#12876c; --short:#c64242; --watch:#94711f; color-scheme:light }
 
 *{box-sizing:border-box}
+[hidden]{display:none!important} /* 讓 hidden 屬性永遠優先，不被 display:grid/flex 蓋掉 */
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
 .wrap{padding-inline:16px;padding-block:16px 40px;max-width:1500px;margin:0 auto;display:grid;gap:16px}
 button,input,select{font:inherit;color:inherit}
