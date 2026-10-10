@@ -4,6 +4,7 @@ const SMC = require('../src/smc');
 const OLD = require('./smc_old');
 const { load, DAYS } = require('./hist');
 
+const f2 = v => (v > 0 ? '+' : '') + v.toFixed(1);
 function stats(trades) {
   const done = trades.filter(t => t.R != null).sort((a, b) => a.closedT - b.closedT);
   const wins = done.filter(t => t.R > 0), sw = wins.reduce((a, t) => a + t.R, 0), sl = done.filter(t => t.R <= 0).reduce((a, t) => a + t.R, 0);
@@ -31,12 +32,13 @@ function stats(trades) {
     }
     const all = stats(trades), h1 = stats(trades.filter(t => t.t < mid)), h2 = stats(trades.filter(t => t.t >= mid));
     const L = stats(trades.filter(t => t.dir > 0)), S = stats(trades.filter(t => t.dir < 0));
-    rows.push({ name: c.name, ...all, r1: h1.R, r2: h2.R, lR: L.R, sR: S.R });
+    const Z = stats(trades.filter(t => t.zone === 'fvg')), O = stats(trades.filter(t => t.zone !== 'fvg'));
+    rows.push({ name: c.name, ...all, r1: h1.R, r2: h2.R, lR: L.R, sR: S.R, zf: `${Z.n}筆 ${f2(Z.R)}`, zo: `${O.n}筆 ${f2(O.R)}` });
     console.log(`${c.name}: n=${all.n} wr=${(all.wr * 100).toFixed(0)}% R=${all.R.toFixed(1)} pf=${all.pf.toFixed(2)}`);
   }
   const f = v => (v > 0 ? '+' : '') + v.toFixed(1);
-  const md = ['| 設定 | 筆數 | 勝率 | 累計R | 平均R | PF | 回撤 | 連虧 | 保本 | 前半/後半 | 多/空 |', '|---|---|---|---|---|---|---|---|---|---|---|',
-    ...rows.map(r => `| ${r.name} | ${r.n} | ${(r.wr * 100).toFixed(0)}% | ${f(r.R)} | ${f(r.avg)} | ${r.pf.toFixed(2)} | ${r.dd.toFixed(1)} | ${r.ms} | ${r.be} | ${f(r.r1)} / ${f(r.r2)} | ${f(r.lR)} / ${f(r.sR)} |`)].join('\n');
+  const md = ['| 設定 | 筆數 | 勝率 | 累計R | 平均R | PF | 回撤 | 連虧 | 保本 | 前半/後半 | 多/空 | FVG進場 | OB進場 |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+    ...rows.map(r => `| ${r.name} | ${r.n} | ${(r.wr * 100).toFixed(0)}% | ${f(r.R)} | ${f(r.avg)} | ${r.pf.toFixed(2)} | ${r.dd.toFixed(1)} | ${r.ms} | ${r.be} | ${f(r.r1)} / ${f(r.r2)} | ${f(r.lR)} / ${f(r.sR)} | ${r.zf} | ${r.zo} |`)].join('\n');
   console.log('\n' + md);
   fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `result-${DAYS}.md`), md);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${new Date(t0).toISOString().slice(0, 10)} – ${new Date(t1).toISOString().slice(0, 10)}（${syms.length} 幣）\n\n${md}\n`);

@@ -48,7 +48,8 @@ const SMC = (() => {
     let k=m;
     for(let i=m;i>=Math.max(0,m-6);i--){ const opp = ev.dir>0 ? c[i].c<c[i].o : c[i].c>c[i].o; if(opp){k=i;break;} }
     const z={idx:k, hi:c[k].h, lo:c[k].l, dir:ev.dir, broken:false, touched:false, fvg:false};
-    for(let i=Math.max(k+2,2);i<=ev.idx;i++){ if(ev.dir>0? c[i].l>c[i-2].h : c[i].h<c[i-2].l){z.fvg=true;break;} }
+    for(let i=Math.max(k+2,2);i<=ev.idx;i++){ if(ev.dir>0? c[i].l>c[i-2].h : c[i].h<c[i-2].l){
+      z.fvg=true; z.fz= ev.dir>0? {lo:c[i-2].h, hi:c[i].l, idx:i} : {lo:c[i].h, hi:c[i-2].l, idx:i}; break; } }
     const mid=(z.hi+z.lo)/2;
     for(let i=ev.idx+1;i<c.length;i++){
       const b=c[i];
@@ -113,6 +114,21 @@ const SMC = (() => {
     return out;
   }
 
+  // 品質分數 0–100：用 1 年回測找出「跟賺錢真的有關」的特徵（前後半年都成立）
+  // 止損空間（OB 夠大，不容易被雜訊掃掉）35、吞沒實體 20、成交量放大 20、回撤沒太深 15、日線同向 10
+  const clamp=x=>Math.max(0,Math.min(1,x));
+  function quality(f){
+    if(!f) return null;
+    const parts=[
+      {k:'stop', n:'止損空間', w:35, v:clamp((f.stopAtr-0.8)/1.2), t:`${f.stopAtr.toFixed(2)} ATR`},
+      {k:'body', n:'吞沒實體', w:20, v:clamp((f.body-0.2)/0.6), t:`${f.body.toFixed(2)} ATR`},
+      {k:'vol',  n:'成交量',   w:20, v:clamp((f.vol-0.7)/0.6), t:`${f.vol.toFixed(2)} 倍均量`},
+      {k:'retr', n:'回撤深度', w:15, v:clamp((0.98-f.retr)/0.05), t:`${(f.retr*100).toFixed(0)}%`},
+      {k:'daily',n:'日線同向', w:10, v:f.daily?1:0, t:f.daily?'是':'否'},
+    ];
+    const score=Math.round(parts.reduce((a,p)=>a+p.w*p.v,0));
+    return {score, grade: score>=70?'S':score>=55?'A':score>=40?'B':'C', parts};
+  }
   // 加分條件：每項可以設成 need（必要）/ score（加分）/ off（不看）
   const BONUS=['fib','ema','fvg','sweep','daily'];
   const condMode=(s,k)=>{ const v=s['c'+k[0].toUpperCase()+k.slice(1)]; if(v) return v;
@@ -164,24 +180,36 @@ const SMC = (() => {
     st.ob=true;
     const pairLow = i=> Math.min(ltf[i].l,ltf[i-1].l), pairHigh = i=> Math.max(ltf[i].h,ltf[i-1].h);
 
-    // 回到 OB 後的 1H 型態（在有效範圍內，最新的那根；碰到哪個 OB 就用哪個）
-    let eng=-1, ob=obs[0];
+    // FVG 有沒有被收盤穿過（做多：收盤跌破 FVG 下緣）
+    const fvgOn = s.fvgEntry==='on';
+    const fvgBroken=(z,upto)=>{ for(let j=z.fz.idx+1;j<upto;j++){ if(dir>0? ltf[j].c<z.fz.lo : ltf[j].c>z.fz.hi) return true; } return false; };
+    // 回到 FVG / OB 後的 1H 型態（在有效範圍內，最新的那根）
+    // OB 帶 FVG 時先看 FVG：FVG 沒被收盤穿過、型態碰到 FVG → 從 FVG 進場；FVG 被穿過就改看 OB
+    let eng=-1, ob=obs[0], zone='ob';
     for(let i=n-1;i>=Math.max(start,1) && eng<0;i--){
       if(!isPattern(ltf,i,dir,s)) continue;
       for(const z of obs){ if(z.idx+2>i) continue;
+        if(fvgOn && z.fz && z.fz.idx+1<i && !fvgBroken(z,i)){
+          const f=z.fz, tf= dir>0 ? pairLow(i)<=f.hi*1.002 && ltf[i].c>f.lo : pairHigh(i)>=f.lo*0.998 && ltf[i].c<f.hi;
+          if(tf){ eng=i; ob=z; zone='fvg'; break; }
+        }
         const touch = dir>0 ? pairLow(i)<=z.hi*1.002 && ltf[i].c>z.lo : pairHigh(i)>=z.lo*0.998 && ltf[i].c<z.hi;
-        if(touch){ eng=i; ob=z; break; } }
+        if(touch){ eng=i; ob=z; zone='ob'; break; } }
     }
-    res.entryOB=ob;
+    res.entryOB=ob; res.zone=zone;
+    if(fvgOn && ob.fz){ res.fvgZone=ob.fz;
+      res.fvgState = eng>=0 && zone==='fvg' ? 'entry' : fvgBroken(ob,n) ? 'broken' : (dir>0? Math.min(...ltf.slice(ob.fz.idx+1).map(b=>b.l))<=ob.fz.hi : Math.max(...ltf.slice(ob.fz.idx+1).map(b=>b.h))>=ob.fz.lo) ? 'testing' : 'waiting'; }
     st.fvg=!!ob.fvg;
     let stopRaw = dir>0? ob.lo : ob.hi;
     if(eng>=0){
-      stopRaw = dir>0? Math.min(ob.lo,pairLow(eng)) : Math.max(ob.hi,pairHigh(eng));
+      stopRaw = zone==='fvg' && s.fvgStop!=='ob' ? (dir>0? Math.min(ob.fz.lo,pairLow(eng)) : Math.max(ob.fz.hi,pairHigh(eng)))
+                                                  : (dir>0? Math.min(ob.lo,pairLow(eng)) : Math.max(ob.hi,pairHigh(eng)));
       // 型態之後收盤跌破止損位 → 失效
       let dead=false; for(let i=eng+1;i<n;i++){ if(dir>0? ltf[i].c<stopRaw : ltf[i].c>stopRaw){dead=true;break;} }
       if(!dead){
         st.engulf=true; res.engulf={idx:eng, kind:isEngulf(ltf,eng,dir)?'吞沒':'Pin bar'}; res.sigIdx=eng; st.ema=emaOk(eng);
-        st.fib = retr(dir>0? pairLow(eng) : pairHigh(eng))>=s.fibMin; if(st.fib) res.fibIdx=eng;
+        const fibTh = zone==='fvg' && s.fvgFib!=null && s.fvgFib!=='' ? +s.fvgFib : s.fibMin;
+        st.fib = retr(dir>0? pairLow(eng) : pairHigh(eng))>=fibTh; if(st.fib) res.fibIdx=eng;
         // 掃流動性：回到 OB 的過程中，有 K 棒刺破前一個已確認的 1H 低點（做空看高點），型態 K 又收回來
         const pts=(dir>0? L.sw.lo : L.sw.hi);
         for(let j=Math.max(ob.idx+1,eng-W-2);j<=eng && !st.sweep;j++){
@@ -190,7 +218,7 @@ const SMC = (() => {
       }
     }
     // 止損位置：swing = OB 外面最近的 1H 波段高/低點（已確認的）；leg = 推動起點（斐波 1.0）；ob = OB / 型態 K 外側
-    const mode=s.stopMode||'swing';
+    const mode= zone==='fvg' && s.fvgStop!=='ob' ? 'fvg' : (s.stopMode||'swing');
     if(mode==='swing'){
       const pts=(dir>0? L.sw.lo : L.sw.hi).filter(p=>p.conf<n && (dir>0? p.price<=stopRaw : p.price>=stopRaw));
       const near=pts.sort((x,y)=> dir>0? y.price-x.price : x.price-y.price)[0];
@@ -198,8 +226,8 @@ const SMC = (() => {
     } else if(mode==='leg'){
       stopRaw = dir>0? Math.min(stopRaw,lo) : Math.max(stopRaw,hi);
     }
-    res.stopBasis={swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[mode];
-    const entry = st.engulf && s.entry!=='ob' ? ltf[eng].c : (dir>0? ob.hi : ob.lo);
+    res.stopBasis={swing:'1H 波段點',leg:'推動起點',ob:'OB 外側',fvg:'FVG 外側'}[mode];
+    const entry = st.engulf && s.entry!=='ob' ? ltf[eng].c : (zone==='fvg'? (dir>0? ob.fz.hi : ob.fz.lo) : (dir>0? ob.hi : ob.lo));
     const stop = dir>0? stopRaw*(1-s.stopBuf/100) : stopRaw*(1+s.stopBuf/100);
     const target = s.target==='htf' ? (dir>0? rHi : rLo) : (dir>0? hi : lo);
     const rr = Math.abs(target-entry)/Math.abs(entry-stop);
@@ -214,6 +242,7 @@ const SMC = (() => {
         obSize:(ob.hi-ob.lo)/atr, stopAtr:Math.abs(entry-stop)/atr, legAtr:span/atr, obAge: eng-ob.idx,
         htfPos: (dir>0? (entry-rLo)/((rHi-rLo)||1) : (rHi-entry)/((rHi-rLo)||1)) };
     }
+    res.quality=quality(res.feat);
     st.rr = rr>=s.minRR && (dir>0? target>entry && stop<entry : target<entry && stop>entry);
     return finish(res,s);
   }
@@ -226,6 +255,7 @@ const SMC = (() => {
     const minScore=Math.min(+s.minScore||0, bonus.length);
     r.status = need.every(k=>st[k]) && r.score>=minScore ? 'trigger' : (st.htf&&st.ob ? 'watch' : 'idle');
     if(r.status==='watch' && need.every(k=>st[k])) r.lowScore=true;   // 條件都到了，只是加分不夠
+    if(r.status==='trigger' && s.minQuality>0 && (!r.quality || r.quality.score<s.minQuality)){ r.status='watch'; r.lowQuality=true; }
     // 只做多 / 只做空：反方向的訊號不觸發
     if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
     return r;
@@ -245,7 +275,7 @@ const SMC = (() => {
       const L=ltf.slice(i+1-W,i+1), H=htf.slice(Math.max(0,hj-HW),hj);
       const r=analyze(sym,L,s,H);
       if(r.status!=='trigger' || r.sigIdx!==L.length-1) continue; // 這根收盤時才剛成立的訊號
-      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,feat:r.feat,retr:r.retr,status:'pending'};
+      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,zone:r.zone,feat:r.feat,q:r.quality&&r.quality.score,grade:r.quality&&r.quality.grade,retr:r.retr,status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(closeT); if(b && b!==r.dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=t.dir>0;
       for(let j=i+1;j<ltf.length;j++){
@@ -294,6 +324,6 @@ const SMC = (() => {
     }
     return r;
   }
-  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf,isPin,toDaily,structure,backtest,trendSeries,BONUS};
+  return {genSeries,addBar,aggregate,analyze,quality,applyContext,ema,isEngulf,isPin,toDaily,structure,backtest,trendSeries,BONUS};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=SMC;
