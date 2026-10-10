@@ -1,9 +1,6 @@
 [
- {"name":"M7 現行（只看OB）","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5}},
- {"name":"F1 先看FVG 止損FVG外","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on"}},
- {"name":"F2 先看FVG 止損OB外","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgStop":"ob"}},
- {"name":"F3 先看FVG 止損FVG外 FVG斐波0.5","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgFib":0.5}},
- {"name":"F4 先看FVG 止損OB外 FVG斐波0.5","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgStop":"ob","fvgFib":0.5}},
- {"name":"F5 先看FVG 止損FVG外 FVG不看斐波","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgFib":0}},
- {"name":"F6 先看FVG 止損OB外 FVG不看斐波","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgStop":"ob","fvgFib":0}}
+ {"name":"你的設定（RR3.5 只看OB）","rules":{"side":"both","cFvg":"need","minRR":3.5,"target":"htf","beAt":0.5}},
+ {"name":"你的設定 + 先看FVG","rules":{"side":"both","cFvg":"need","minRR":3.5,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgStop":"ob"}},
+ {"name":"RR3 只看OB","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5}},
+ {"name":"RR3 + 先看FVG（目前預設）","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5,"fvgEntry":"on","fvgStop":"ob"}}
 ]

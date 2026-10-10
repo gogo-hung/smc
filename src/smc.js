@@ -208,7 +208,7 @@ const SMC = (() => {
       let dead=false; for(let i=eng+1;i<n;i++){ if(dir>0? ltf[i].c<stopRaw : ltf[i].c>stopRaw){dead=true;break;} }
       if(!dead){
         st.engulf=true; res.engulf={idx:eng, kind:isEngulf(ltf,eng,dir)?'吞沒':'Pin bar'}; res.sigIdx=eng; st.ema=emaOk(eng);
-        const fibTh = zone==='fvg' && s.fvgFib!=null && s.fvgFib!=='' ? +s.fvgFib : s.fibMin;
+        const fibTh = zone==='fvg' && +s.fvgFib>0 ? +s.fvgFib : s.fibMin;   // fvgFib 0 = 跟 OB 用同一個斐波門檻
         st.fib = retr(dir>0? pairLow(eng) : pairHigh(eng))>=fibTh; if(st.fib) res.fibIdx=eng;
         // 掃流動性：回到 OB 的過程中，有 K 棒刺破前一個已確認的 1H 低點（做空看高點），型態 K 又收回來
         const pts=(dir>0? L.sw.lo : L.sw.hi);
