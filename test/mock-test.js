@@ -199,7 +199,7 @@ global.fetch = async (url) => {
   console.log(`歷史：1H ${hist.ltf.length} 根、4H ${hist.htf.length} 根（${calls - callsBefore} 次請求）｜回測 SOL ${bt.trades.length} 個訊號`);
 
   const page = await req('GET', '/');
-  assert(page.body.includes('SMC 掃幣台'));
+  assert(page.body.includes('聚寶盆'));
   assert((await req('GET', '/smc.js')).body.includes('function applyContext'));
 
   server.close();
