@@ -107,7 +107,7 @@ Render 免費方案每次重新部署都會清空檔案，交易紀錄和成績�
 ## 部署到 Render（免費方案）
 
 1. Render → New → **Blueprint** → 選這個 repo，會照 `render.yaml` 建立服務（新加坡機房、免費方案）。
-2. 填 `TELEGRAM_BOT_TOKEN`、`TELEGRAM_CHAT_ID`；`ADMIN_TOKEN` 會自動產生，到服務的 Environment 頁面複製下來。
+2. 推播到手機：填 `DISCORD_WEBHOOK_URL`（Discord 頻道 → 編輯頻道 → 整合 → Webhook → 新 Webhook → 複製網址），或 Telegram 的 `TELEGRAM_BOT_TOKEN`、`TELEGRAM_CHAT_ID`（兩個都可以同時用）；`ADMIN_TOKEN` 會自動產生，到服務的 Environment 頁面複製下來。
 3. 免費方案閒置 15 分鐘會休眠，所以到 [cron-job.org](https://cron-job.org) 建一個排程，每 10 分鐘打一次：
    `https://<你的服務>.onrender.com/api/cron?token=<ADMIN_TOKEN>`
    這會叫醒服務並掃描；服務醒著時，也會在每根 15M 收盤後自己掃描。

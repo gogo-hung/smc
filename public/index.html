@@ -322,7 +322,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 
   <!-- ALERT CENTER -->
   <section class="pane drawer" id="alertsPane" hidden aria-label="提醒中心">
-    <div class="drawer-hd"><span class="t">提醒中心</span><span class="next muted" id="alertsSub">新訊號、接近進場區、數據公布前，都會出現在這裡並推到 Telegram</span>
+    <div class="drawer-hd"><span class="t">提醒中心</span><span class="next muted" id="alertsSub">新訊號、接近進場區、數據公布前，都會出現在這裡並推到 Discord</span>
       <button class="x" type="button" data-close="alertsPane" aria-label="關閉">×</button></div>
     <div class="alerts-body">
       <form id="alertForm" class="alert-set">
@@ -331,7 +331,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <label class="chk"><input type="checkbox" id="as_near"> 價格接近進場區：距離 ≤ <input type="number" id="as_nearPct" class="mini" step="0.05" min="0.05" max="5" aria-label="接近進場區的距離百分比"> %，或碰到進場位</label>
         <label class="chk"><input type="checkbox" id="as_calendar"> 重要數據公布前、美股財報前一天</label>
         <label class="chk"><input type="checkbox" id="as_result"> 訊號結果（打到目標或止損）</label>
-        <div class="row"><button class="btn primary" type="submit">儲存設定</button><button class="btn" type="button" id="notifyBtn">開啟瀏覽器通知</button><button class="btn" type="button" id="tgTestBtn">測試 Telegram</button></div>
+        <div class="row"><button class="btn primary" type="submit">儲存設定</button><button class="btn" type="button" id="notifyBtn">開啟瀏覽器通知</button><button class="btn" type="button" id="tgTestBtn">測試推播</button></div>
         <p class="hint" id="alertStatus"></p>
       </form>
       <div class="feed" id="feed"></div>
@@ -521,7 +521,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </div>
 
 
-  <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Telegram。</p>
+  <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Discord。</p>
 </div>
 <div class="modal" id="detailModal" hidden role="dialog" aria-modal="true" aria-labelledby="detT">
   <section class="pane detail modal-card" aria-labelledby="detT">

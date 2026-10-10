@@ -272,7 +272,7 @@ $('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
-  if(r&&r.ok) showToast('Telegram 推播已改用這組參數'); else if(r&&r.status!==401) showToast('套用失敗，請確認伺服器狀態'); };
+  if(r&&r.ok) showToast('推播已改用這組參數'); else if(r&&r.status!==401) showToast('套用失敗，請確認伺服器狀態'); };
 ['equity','riskPct','margin'].forEach(id=>$(id).addEventListener('input',calc));
 const gate=()=>{ const v=$('verdict');
   if(Feed.locked){ $('g2').checked=false; v.className='verdict stop'; v.textContent=`今天已連虧 ${Feed.lossStreak} 筆，風控鎖啟動：休息，明天再來`; return; }
@@ -326,7 +326,7 @@ function renderCal(){
     const imp={3:'h',2:'m',1:'l'}[e.rank]||'';
     html+=`<div class="cal-row ${cls}"><span class="tm">${calFmt(e.ts,{hour:'2-digit',minute:'2-digit'})}</span><span class="cc">${e.countryZh}</span>
       <span class="imp ${imp}" title="${e.impact}"><i></i><i></i><i></i></span>
-      <span class="tt">${e.titleZh}${e.alert?'<span class="bell" title="會推播到 Telegram">● 推播</span>':''}${e.titleZh!==e.title?`<small>${e.title}</small>`:''}</span>
+      <span class="tt">${e.titleZh}${e.alert?'<span class="bell" title="會推播到手機">● 推播</span>':''}${e.titleZh!==e.title?`<small>${e.title}</small>`:''}</span>
       <span class="fv">預測 <b>${e.forecast||'—'}</b></span><span class="fv">前值 <b>${e.previous||'—'}</b></span></div>`;
   }
   $('calBody').innerHTML=html; renderCalWarn();
@@ -350,13 +350,13 @@ setInterval(renderCal,30000); setInterval(loadCal,15*60000);
 
 
 // ================= 提醒中心（鈴鐺） =================
-const Feed={ items:[], settings:null, locked:false, lossStreak:0, seen:+(store.get('smc-seen')||0), notified:store.get('smc-notified'), telegram:false, storage:'', persistent:false };
+const Feed={ items:[], settings:null, locked:false, lossStreak:0, seen:+(store.get('smc-seen')||0), notified:store.get('smc-notified'), telegram:false, discord:false, storage:'', persistent:false };
 const TYPE_ZH={signal:'訊號成立',near:'接近進場',result:'訊號結果',calendar:'數據',earnings:'財報'};
 const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function loadAlerts(poll){
   if(DataSource.mode!=='live'){ renderAlerts(); return; }
   try{ const r=await fetch('api/alerts',{cache:'no-store'}); if(!r.ok) return; const j=await r.json();
-    Object.assign(Feed,{items:j.feed||[], settings:j.settings, locked:j.locked, lossStreak:j.lossStreak, telegram:j.telegram, storage:j.storage, persistent:j.persistent});
+    Object.assign(Feed,{items:j.feed||[], settings:j.settings, locked:j.locked, lossStreak:j.lossStreak, telegram:j.telegram, discord:j.discord, storage:j.storage, persistent:j.persistent});
     browserNotify();
   }catch(e){}
   renderAlerts(); renderLock(); gate();
@@ -376,8 +376,8 @@ function renderAlerts(){
   if(st){ $('as_signal').checked=st.signal; $('as_near').checked=st.near; $('as_nearPct').value=st.nearPct; $('as_calendar').checked=st.calendar; $('as_result').checked=st.result; }
   const live=DataSource.mode==='live';
   $('alertForm').querySelectorAll('input,button').forEach(el=>{ if(el.id!=='notifyBtn') el.disabled=!live; });
-  $('alertStatus').innerHTML = !live ? '示範模式：提醒只顯示在這裡。用你的 Render 網站開啟才會推 Telegram。'
-    : [Feed.telegram?'Telegram：已設定':'Telegram：還沒設定（Render 加上 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID）',
+  $('alertStatus').innerHTML = !live ? '示範模式：提醒只顯示在這裡。用你的 Render 網站開啟才會推到手機。'
+    : [Feed.discord?'Discord：已設定':'Discord：還沒設定（Render 加上 DISCORD_WEBHOOK_URL）', ...(Feed.telegram?['Telegram：已設定']:[]),
        `資料儲存：${esc(Feed.storage)}`, 'Notification' in window ? `瀏覽器通知：${{granted:'已開啟',denied:'被封鎖（到瀏覽器網站設定開啟）',default:'未開啟'}[Notification.permission]}`:''].filter(Boolean).join('<br>');
   $('feed').innerHTML = Feed.items.length ? Feed.items.slice(0,100).map(i=>`<div class="feed-item ${i.t>Feed.seen?'unread':''}">
       <span class="tm">${hhmm(new Date(i.t))}<span class="tp">${new Date(i.t).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'})}</span></span>
@@ -391,7 +391,7 @@ $('alertForm').addEventListener('submit',async e=>{ e.preventDefault();
 $('notifyBtn').onclick=async()=>{ if(!('Notification' in window)) return showToast('這個瀏覽器不支援通知');
   const p=await Notification.requestPermission(); showToast(p==='granted'?'瀏覽器通知已開啟（網頁開著時會跳通知）':'瀏覽器通知沒有開啟'); renderAlerts(); };
 $('tgTestBtn').onclick=async()=>{ const r=await adminFetch('api/test-alert',{method:'POST'}); if(!r) return; const j=await r.json().catch(()=>({}));
-  showToast(r.ok? (j.ok?'測試訊息已送出，去 Telegram 看看':'送出失敗，檢查 token 和 chat id') : (j.error||'送出失敗')); };
+  showToast(r.ok? (j.ok?'測試訊息已送出，去 Discord 看看':'送出失敗，檢查 Webhook 網址') : (j.error||'送出失敗')); };
 function renderLock(){
   $('lockBar').hidden=!Feed.locked;
   if(Feed.locked) $('lockBar').textContent=`🔒 今天已連虧 ${Feed.lossStreak} 筆：風控鎖啟動，進場提醒暫停推播。休息，明天再來。`;
@@ -634,7 +634,7 @@ function renderEarn(){
   if(!e.events.length){ $('calBody').innerHTML=`<div class="cal-empty">未來兩週追蹤的股票沒有財報。${e.error&&!e.updatedAt?'':'要加股票，在 Render 的 EARNINGS_TICKERS 加上代號。'}</div>`; return; }
   const tw=s=>s==='盤前'?'約台灣晚上 8–9 點半':s==='盤後'?'約台灣隔天凌晨 4–5 點':'時間未定';
   $('calBody').innerHTML=e.events.map(x=>`<div class="cal-row"><span class="tm">${x.date.slice(5).replace('-','/')}</span><span class="cc">${x.session}</span><span class="imp h"><i></i><i></i><i></i></span>
-    <span class="tt"><b>${esc(x.sym)}</b> ${esc(x.name)}${x.alert?'<span class="bell" title="會推播到 Telegram">● 推播</span>':''}<small>${tw(x.session)}${x.quarter?'｜'+esc(x.quarter):''}</small></span><span class="fv">EPS 預估 <b>${esc(x.eps)||'—'}</b></span><span class="fv"></span></div>`).join('');
+    <span class="tt"><b>${esc(x.sym)}</b> ${esc(x.name)}${x.alert?'<span class="bell" title="會推播到手機">● 推播</span>':''}<small>${tw(x.session)}${x.quarter?'｜'+esc(x.quarter):''}</small></span><span class="fv">EPS 預估 <b>${esc(x.eps)||'—'}</b></span><span class="fv"></span></div>`).join('');
 }
 
 // ================= 貼文圖卡 =================
@@ -679,7 +679,7 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
     if(DataSource.serverRules) rules={...DEFAULTS,...DataSource.serverRules};
     $('srcChip').classList.add('live'); $('srcTxt').textContent='BingX 即時資料';
     $('autoLbl').textContent='每分鐘自動更新'; $('pushRules').hidden=false;
-    $('note').textContent='資料來自 BingX USDT 永續合約（已收盤的 1H / H4 K 棒）。後端每 15 分鐘掃描一次，新訊號、接近進場區、數據公布前都會推到 Telegram；策略參數改完按「套用到推播」，推播才會改用新規則。';
+    $('note').textContent='資料來自 BingX USDT 永續合約（已收盤的 1H / H4 K 棒）。後端每 15 分鐘掃描一次，新訊號、接近進場區、數據公布前都會推到 Discord；策略參數改完按「套用到推播」，推播才會改用新規則。';
     if(!DataSource.list.length){ $('note').textContent='伺服器第一次掃描中，完成後會自動顯示。';
       const wait=setInterval(async()=>{ await DataSource.refresh(); if(DataSource.list.length){ clearInterval(wait); scan(); } },8000); }
   }

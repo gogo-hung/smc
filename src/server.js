@@ -100,7 +100,7 @@ const server = http.createServer(async (req, res) => {
     }
     // 提醒中心（鈴鐺）
     if (url.pathname === '/api/alerts' && req.method === 'GET') {
-      return send(res, 200, { feed: tracker.state.feed.slice(0, 100), settings: tracker.state.settings, locked: journal.locked(), lossStreak: journal.lossStreak(), storage: store.kind, persistent: store.persistent, telegram: !!(cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) });
+      return send(res, 200, { feed: tracker.state.feed.slice(0, 100), settings: tracker.state.settings, locked: journal.locked(), lossStreak: journal.lossStreak(), storage: store.kind, persistent: store.persistent, telegram: notify.channels().telegram, discord: notify.channels().discord });
     }
     if (url.pathname === '/api/alert-settings' && req.method === 'POST') {
       if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
@@ -108,8 +108,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/test-alert' && req.method === 'POST') {
       if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
-      if (!cfg.TELEGRAM_BOT_TOKEN || !cfg.TELEGRAM_CHAT_ID) return send(res, 400, { error: 'Render 還沒設定 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID' });
-      return send(res, 200, { ok: await notify.send('✅ <b>SMC 掃幣台</b>\nTelegram 推播設定成功，之後訊號、接近進場區、數據公布前都會推到這裡。') });
+      const ch = notify.channels();
+      if (!ch.discord && !ch.telegram) return send(res, 400, { error: 'Render 還沒設定 DISCORD_WEBHOOK_URL（或 Telegram）' });
+      return send(res, 200, { ok: await notify.send('🔔 <b>SMC 掃幣台：推播測試</b>\n設定成功！之後新訊號、接近進場、移保本、止盈止損、數據公布前都會推到這裡。') });
     }
     // 訊號成績單
     if (url.pathname === '/api/stats' && req.method === 'GET') return send(res, 200, tracker.stats(url.searchParams.get('all') === '1'));
@@ -158,7 +159,8 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   server.listen(cfg.PORT, async () => {
     console.log(`SMC 掃幣台：http://localhost:${cfg.PORT}`);
-    console.log(`Telegram 推播：${cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID ? '已啟用' : '未設定（提醒只會印在終端機）'}`);
+    const ch = notify.channels();
+    console.log(`推播：Discord ${ch.discord ? '已啟用' : '未設定'}｜Telegram ${ch.telegram ? '已啟用' : '未設定'}`);
     console.log(`儲存：${store.kind}`);
     await scanner.init();
     calendar.start(tracker.emit);

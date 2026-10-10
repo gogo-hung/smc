@@ -1,5 +1,5 @@
 // 提醒中心 + 訊號成績單
-// - 新訊號可進場、價格接近進場區、數據公布前 → 進提醒紀錄（鈴鐺）並推 Telegram
+// - 新訊號可進場、價格接近進場區、數據公布前 → 進提醒紀錄（鈴鐺）並推 Discord / Telegram
 // - 每個觸發過的訊號都追蹤後續：先碰進場 → 再看先打止損還是目標
 const store = require('./store');
 const notify = require('./notify');
@@ -31,7 +31,7 @@ const fp = p => p == null || !isFinite(p) ? '—' : p >= 1000 ? p.toFixed(1) : p
 const side = d => (d > 0 ? '做多' : '做空');
 const BONUS_ZH = { fib: '斐波便宜區', ema: 'EMA 順勢', fvg: 'OB 帶 FVG', sweep: '掃流動性', daily: '日線同向' };
 
-// 寫進提醒紀錄；push=true 且該類型開啟時才推 Telegram。風控鎖住時，進場類提醒只記錄不推
+// 寫進提醒紀錄；push=true 且該類型開啟時才推 Discord / Telegram。風控鎖住時，進場類提醒只記錄不推
 async function emit(type, title, lines, extra = {}) {
   const muted = (type === 'signal' || type === 'near') && journal.locked();
   const item = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: Date.now(), type, title, body: lines.join('\n'), muted, ...extra };

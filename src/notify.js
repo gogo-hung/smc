@@ -1,4 +1,4 @@
-// Telegram 推播：沒設定 token 時只印在終端機
+// 推播：Discord（Webhook）/ Telegram，兩個都沒設定時只印在終端機
 const cfg = require('./config');
 
 const fp = p => p == null || !isFinite(p) ? '—'
@@ -18,11 +18,23 @@ function formatSignal(r) {
   return lines.join('\n');
 }
 
-async function send(text) {
-  if (!cfg.TELEGRAM_BOT_TOKEN || !cfg.TELEGRAM_CHAT_ID) {
-    console.log('[提醒]\n' + text.replace(/<\/?b>/g, ''));
-    return false;
-  }
+const channels = () => ({ discord: !!cfg.DISCORD_WEBHOOK_URL, telegram: !!(cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) });
+
+// Discord：第一行當標題，其餘當內容；依內容上色（多 / 目標 = 綠，空 / 止損 = 紅，保本 = 灰，其他 = 金）
+async function sendDiscord(text) {
+  const plain = text.replace(/<b>(.*?)<\/b>/g, '**$1**').replace(/<\/?[^>]+>/g, '');
+  const [first, ...rest] = plain.split('\n');
+  const title = first.replace(/\*\*/g, '').slice(0, 250);
+  const color = /❌|做空|止損/.test(title) ? 0xd9534f : /🛡/.test(title) ? 0x8a8f98 : /✅|做多/.test(title) ? 0x1f9d6b : 0xb7791f;
+  const res = await fetch(cfg.DISCORD_WEBHOOK_URL, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'SMC 掃幣台', embeds: [{ title, description: rest.join('\n').trim().slice(0, 4000) || undefined, color }] }),
+  });
+  if (!res.ok) console.error('Discord 推播失敗：', res.status, await res.text());
+  return res.ok;
+}
+
+async function sendTelegram(text) {
   const res = await fetch(`https://api.telegram.org/bot${cfg.TELEGRAM_BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,4 +44,12 @@ async function send(text) {
   return res.ok;
 }
 
-module.exports = { send, formatSignal };
+async function send(text) {
+  const ch = channels();
+  if (!ch.discord && !ch.telegram) { console.log('[提醒]\n' + text.replace(/<\/?b>/g, '')); return false; }
+  const out = await Promise.all([ch.discord ? sendDiscord(text).catch(e => (console.error('Discord：', e.message), false)) : null,
+    ch.telegram ? sendTelegram(text).catch(e => (console.error('Telegram：', e.message), false)) : null].filter(x => x));
+  return out.some(Boolean);
+}
+
+module.exports = { send, formatSignal, channels };
