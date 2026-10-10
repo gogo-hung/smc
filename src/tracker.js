@@ -63,7 +63,7 @@ async function onScan(results, market) {
     if (r.status !== 'trigger') continue;
     const k = keyOf(r);
     if (state.signals.some(s => s.k === k)) continue;
-    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, grade: r.quality ? r.quality.grade : null, createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
+    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, zone: r.zone || 'ob', grade: r.quality ? r.quality.grade : null, createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
     state.signals.push(sig); changed = true;
     const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS;
     if (fresh) {
@@ -72,6 +72,7 @@ async function onScan(results, market) {
       await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：訊號成立${r.quality ? `｜${r.quality.score} 分 ${r.quality.grade}` : ''}`, [
         `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
         `RR ${r.rr.toFixed(2)}　現價 ${fp(r.last)}（距進場 ${dist > 0 ? '+' : ''}${dist.toFixed(2)}%）`,
+        r.zone === 'fvg' ? `進場區：FVG 反應（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}），止損仍在 OB 外側` : `進場區：1H OB（${fp(r.entryOB.lo)}–${fp(r.entryOB.hi)}）`,
         ...(qline ? [qline] : []),
         `加分 ${r.score}/${r.scoreMax}${sig.bonus.length ? `：${sig.bonus.map(b => BONUS_ZH[b]).join('、')}` : ''}`,
         ...(r.be != null ? [`獲利到 ${fp(r.be)} 時，止損移到開倉價 ${fp(r.entry)}`] : []),
@@ -150,7 +151,7 @@ function stats(all = false) {
     winRate: done.length ? wins.length / done.length : null,
     avgR: done.length ? +(sumR(done) / done.length).toFixed(2) : null, totalR: sumR(done),
     pending: count('pending'), filled: count('filled'), be: count('be'), missed: count('missed'), expired: count('expired'),
-    byDir: group(s => (s.dir > 0 ? '做多' : '做空')), byGrade: group(s => s.grade ? `${s.grade}（${{ S: '70+', A: '55–69', B: '40–54', C: '<40' }[s.grade]} 分）` : '舊訊號（無分數）'), bySym: group(s => s.sym).slice(0, 10),
+    byDir: group(s => (s.dir > 0 ? '做多' : '做空')), byZone: group(s => (s.zone === 'fvg' ? 'FVG 進場' : 'OB 進場')), byGrade: group(s => s.grade ? `${s.grade}（${{ S: '70+', A: '55–69', B: '40–54', C: '<40' }[s.grade]} 分）` : '舊訊號（無分數）'), bySym: group(s => s.sym).slice(0, 10),
     recent: (all ? state.signals : state.signals.slice(-60)).slice().reverse(),
   };
 }

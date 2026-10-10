@@ -45,21 +45,22 @@ async function adminFetch(url,opt={}){
 // ---- rules ----
 // 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態；斐波、EMA、FVG、掃流動性、日線同向 = 加分
 const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,emaLen:50,lookback:10,entry:'close',minRR:3,stopBuf:0.2,target:'htf',btcFilter:'block',fundingMax:0.05,side:'both',stopMode:'ob',
-  pattern:'engulf',cFib:'need',cEma:'need',cFvg:'need',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5,minQuality:0};
+  pattern:'engulf',cFib:'need',cEma:'need',cFvg:'need',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5,minQuality:0,fvgEntry:'on',fvgStop:'ob',fvgFib:0};
+const FVG_ZH={waiting:'等價格回到 FVG',testing:'價格在 FVG 裡，觀察反應',broken:'FVG 已被收盤穿過 → 改看 OB',entry:'FVG 反應確認'};
 const BONUS_ZH={fib:'斐波便宜區',ema:'EMA 順勢',fvg:'OB 帶 FVG',sweep:'掃流動性',daily:'日線同向'};
 const condKey=k=>'c'+k[0].toUpperCase()+k.slice(1);
 function ruleChips(r){
   const req=[],bon=[]; for(const k of ['fib','ema','fvg','sweep','daily']){ const m=r[condKey(k)]; const n=k==='fib'?`斐波 ≥ ${r.fibMin}`:k==='ema'?`EMA${r.emaLen}`:BONUS_ZH[k]; if(m==='need') req.push(n+'（必要）'); else if(m==='score') bon.push(n); }
-  return [r.pattern==='both'?'吞沒或 Pin bar':'吞沒', ...req, bon.length?`加分 ≥ ${Math.min(r.minScore,bon.length)}/${bon.length}：${bon.join('、')}`:'', `型態 ${r.lookback}H 內`, r.entry==='close'?'型態收盤進場':'OB 邊緣進場',
+  return [r.fvgEntry==='on'?`先看 FVG（止損放${r.fvgStop==='ob'?' OB':' FVG'} 外）`:'只看 OB', r.pattern==='both'?'吞沒或 Pin bar':'吞沒', ...req, bon.length?`加分 ≥ ${Math.min(r.minScore,bon.length)}/${bon.length}：${bon.join('、')}`:'', `型態 ${r.lookback}H 內`, r.entry==='close'?'型態收盤進場':'OB 邊緣進場',
     r.minQuality>0?`品質 ≥ ${r.minQuality} 分`:'', `RR ≥ ${r.minRR}`, r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不移保本', r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做', `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[r.stopMode||'swing']} + ${r.stopBuf}%`].filter(Boolean);
 }
-let rules = {...DEFAULTS, ...(store.get('smc-rules-v9')||{})};
+let rules = {...DEFAULTS, ...(store.get('smc-rules-v10')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=ruleChips(rules);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v9',rules); renderSum(); }
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v10',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
@@ -126,7 +127,7 @@ function renderRows(){
     return `<div class="card ${r.status}" data-s="${r.sym}" role="option" tabindex="0" aria-selected="${r.sym===selected}">
       <div class="hd"><b>${r.sym}</b>${dir}${r.quality&&r.engulf?`<span class="qs g${r.quality.grade}" title="品質分數（越高越好）">${r.quality.score}<i>${r.quality.grade}</i></span>`:''}<span class="status ${r.status}">${stTxt}</span></div>
       ${(s=>s? `<div class="age ${Date.now()-s.ts<3600e3?'fresh':''}" data-ts="${s.ts}" title="${s.what}：${fullTime(s.ts)}"><span class="tf">${s.tf}</span>${s.what} <b>${ago(s.ts)}</b></div>` : '')(since(r))}
-      ${(r.flags&&r.flags.length)||r.blocked? `<div class="tags">${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
+      ${(r.flags&&r.flags.length)||r.blocked||(r.fvgState&&r.status!=='idle')? `<div class="tags">${r.status==='trigger'&&r.zone==='fvg'?'<span class="z">FVG 進場</span>':''}${r.status==='watch'&&r.fvgState&&r.fvgState!=='entry'?`<span class="z">${{waiting:'等 FVG',testing:'FVG 觀察中',broken:'FVG 破 → 看 OB'}[r.fvgState]}</span>`:''}${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
       <div class="px"><span class="p">${fp(r.last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
       ${spark(r)}
       <div class="prog"><span class="stages">${stages}</span><span>${r.met}/${r.need.length}${r.scoreMax?` · 加分 ${r.score}/${r.scoreMax}`:''}</span></div>
@@ -156,9 +157,9 @@ function renderDetail(){
     htf: r.dir? `H4 ${D?'多頭':'空頭'}（最後 ${[...r.H.events].reverse().find(e=>e.dir===r.dir).type}）` : '沒有明確結構',
     fib: r.fib? `${D?'推動':'下跌'} ${fp(D?r.fib.lo:r.fib.hi)} → ${fp(D?r.fib.hi:r.fib.lo)}，目前回撤 ${(r.retr*100).toFixed(0)}%（要 ≥ ${(rules.fibMin*100).toFixed(1).replace('.0','')}%）` : '1H 還沒有順勢推動',
     ob: r.entryOB? `${fp(r.entryOB.lo)} – ${fp(r.entryOB.hi)}` : (r.fib?'這段推動裡沒有未失效的 OB':'—'),
-    engulf: r.engulf? `${r.engulf.kind}・${new Date(r.ltf[r.engulf.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤 ${fp(r.ltf[r.engulf.idx].c)}` : (r.entryOB?`回到 OB 後還沒出現${rules.pattern==='both'?'吞沒或 Pin bar':'吞沒'}`:'—'),
+    engulf: r.engulf? `${r.zone==='fvg'?'FVG 上的':'OB 上的'}${r.engulf.kind}・${new Date(r.ltf[r.engulf.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤 ${fp(r.ltf[r.engulf.idx].c)}` : (r.entryOB?`回到 OB 後還沒出現${rules.pattern==='both'?'吞沒或 Pin bar':'吞沒'}`:'—'),
     ema: (()=>{ const i=r.engulf? r.engulf.idx : n-1, e=eAt(i); return e==null?'資料不足':`${r.engulf?'型態收盤':'現價'}在 EMA${rules.emaLen} ${r.ltf[i].c>e?'上方':'下方'}（${fp(e)}）`; })(),
-    fvg: r.entryOB? (r.entryOB.fvg?'OB 之後有留下缺口（強力推動）':'OB 之後沒有缺口') : '—',
+    fvg: r.entryOB? (r.entryOB.fvg?`FVG ${fp(r.entryOB.fz.lo)}–${fp(r.entryOB.fz.hi)}${r.fvgState?`・${FVG_ZH[r.fvgState]}`:''}`:'OB 之後沒有缺口') : '—',
     sweep: r.sweep? `刺破前${r.dir>0?"低":"高"} ${fp(r.sweep.price)} 後收回` : (r.engulf?'回到 OB 前沒有掃過前高 / 前低':'—'),
     daily: r.dailyDir==null? '日線資料不足' : `日線${r.dailyDir>0?'多頭':r.dailyDir<0?'空頭':'盤整'}`,
     rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）・止損在${r.stopBasis||''}外` : '—'
@@ -223,6 +224,7 @@ function drawChart(g,W,H,r,tf,C){
     const z1=r.fib.levels.find(L=>L.r===1).p, zc=r.dir>0? r.fib.hi-(r.fib.hi-r.fib.lo)*rules.fibMin : r.fib.lo+(r.fib.hi-r.fib.lo)*rules.fibMin;
     g.globalAlpha=.07; g.fillStyle=dirCol; g.fillRect(x0,y(Math.max(z1,zc)),W-R-x0,Math.abs(y(z1)-y(zc))); g.globalAlpha=1; }
   if(tf==='ltf' && r.entryOB && r.entryOB.idx>=off){ const x1=x(r.entryOB.idx)-cw/2; box(x1,r.entryOB.lo,r.entryOB.hi,dirCol,.28); tag('1H OB',x1+3,y(r.entryOB.lo)+ (r.dir>0?9:-9),dirCol); }
+  if(tf==='ltf' && r.entryOB && r.entryOB.fz && r.entryOB.fz.idx>=off){ const f=r.entryOB.fz, x1=x(f.idx)-cw/2, col=r.fvgState==='broken'?C('--muted'):C('--watch'); box(x1,f.lo,f.hi,col,r.fvgState==='broken'?.12:.22); tag(r.fvgState==='broken'?'FVG（已破）':'FVG',x1+3,y(r.dir>0?f.hi:f.lo)+(r.dir>0?-9:9),col); }
   // candles
   bars.forEach((b,j)=>{ const i=j+off, up=b.c>=b.o, col=up?C('--long'):C('--short'); g.strokeStyle=col; g.fillStyle=col;
     const xx=Math.round(x(i))+.5; g.beginPath(); g.moveTo(xx,y(b.h)); g.lineTo(xx,y(b.l)); g.stroke();
@@ -266,7 +268,7 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v9',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v10',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
@@ -499,7 +501,7 @@ function renderOpt(){
     <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
     <p class="hint">其他參數沿用目前設定（${{long:'只做多',short:'只做空'}[rules.side]||'多空都做'}、逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、止損緩衝 ${rules.stopBuf}%、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
   $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
-    rules={...DEFAULTS,...g}; store.set('smc-rules-v9',rules); syncForm(); scan();
+    rules={...DEFAULTS,...g}; store.set('smc-rules-v10',rules); syncForm(); scan();
     showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
     $('btForm').requestSubmit ? $('btForm').requestSubmit() : $('btForm').dispatchEvent(new Event('submit',{cancelable:true})); });
 }
@@ -533,7 +535,7 @@ function renderBT(){
     <div class="tiles">${tile('訊號數',s.n)}${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',f2(s.avgR),s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',f2(s.totalR),s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('獲利因子',s.pf==null?'—':s.pf===Infinity?'∞':s.pf.toFixed(2))}${tile('最大回撤',s.maxDD?f2(s.maxDD)+'R':'0R','neg')}${tile('最大連虧',s.maxStreak+' 筆')}${r.beAt>0?tile('保本出場',s.be+' 筆'):''}</div>
     <div><h3>資金曲線（累計 R，依出場時間）</h3><canvas id="btEq" aria-label="回測累計 R 曲線"></canvas></div>
     <div class="split">${tbl('依方向',btGroup(L.trades,t=>t.dir>0?'做多':'做空'))}${tbl('順 / 逆 BTC 大盤',btGroup(L.trades,t=>t.againstBtc?'逆 BTC':'順 BTC'))}${tbl('依月份',btGroup(L.trades,month),(a,b)=>a.g.localeCompare(b.g))}</div>
-    <div class="split">${tbl('依品質分數',btGroup(L.trades,t=>t.grade?`${t.grade}（${{S:'70+',A:'55–69',B:'40–54',C:'<40'}[t.grade]} 分）`:'—'),(a,b)=>a.g.localeCompare(b.g))}</div>
+    <div class="split">${tbl('依進場區',btGroup(L.trades,t=>t.zone==='fvg'?'FVG 進場':'OB 進場'))}${tbl('依品質分數',btGroup(L.trades,t=>t.grade?`${t.grade}（${{S:'70+',A:'55–69',B:'40–54',C:'<40'}[t.grade]} 分）`:'—'),(a,b)=>a.g.localeCompare(b.g))}</div>
     <div class="split">${tbl('表現最好的幣',btGroup(L.trades,t=>t.sym),(a,b)=>b.R-a.R)}</div>
     <div><h3>訊號明細（最新 200 筆）</h3><div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">分數</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows||''}</tbody></table></div></div>
     <div><button class="btn" type="button" id="btCsv">匯出全部回測明細（CSV）</button></div>
@@ -574,7 +576,7 @@ async function loadStats(){
       <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${fp(x.target)}</td><td class="num">${x.rr.toFixed(2)}</td><td>${res}</td></tr>`; }).join('');
   setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });
   box.innerHTML=`<div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
-    <div class="split">${grp('依品質分數',s.byGrade||[])}${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
+    <div class="split">${grp('依品質分數',s.byGrade||[])}${grp('依進場區',s.byZone||[])}${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
     <div><h3>最近的訊號</h3>${s.recent.length?`<div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="hint">還沒有訊號。之後每個觸發都會記在這裡。</p>'}</div>
     <div><button class="btn" type="button" id="exportSig">匯出全部訊號紀錄（CSV）</button></div>
     <p class="hint">贏輸都會保留（最近 5000 筆）。統計的是「推播用參數」下的訊號。同一根 K 棒同時碰到止損和目標，保守算止損；24 小時沒回到進場位算過期。</p>`;

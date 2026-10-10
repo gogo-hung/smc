@@ -10,7 +10,8 @@ const journal = require('./journal');
 // 加分條件（need 必要 / score 加分 / off 不看）：斐波便宜區、EMA50 順勢、OB 帶 FVG、掃流動性、日線同向；加分 ≥ minScore 才推
 // beAt：獲利走到目標的幾成時，止損移到開倉價（0 = 不用）
 const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: 'close', fibMin: 0.618, emaLen: 50, lookback: 10, entry: 'close', minRR: 3, stopBuf: 0.2, target: 'htf', btcFilter: 'block', fundingMax: 0.05, side: 'both', stopMode: 'ob',
-  pattern: 'engulf', cFib: 'need', cEma: 'need', cFvg: 'need', cSweep: 'score', cDaily: 'score', minScore: 0, beAt: 0.5, minQuality: 0 };
+  pattern: 'engulf', cFib: 'need', cEma: 'need', cFvg: 'need', cSweep: 'score', cDaily: 'score', minScore: 0, beAt: 0.5, minQuality: 0,
+  fvgEntry: 'on', fvgStop: 'ob', fvgFib: 0 };   // OB 帶 FVG 時先看 FVG 反應；FVG 被收盤穿過再看 OB；止損一律放 OB 外側
 
 const state = {
   rules: { ...DEFAULT_RULES },
@@ -22,7 +23,7 @@ const state = {
 };
 
 async function init() {
-  state.rules = { ...DEFAULT_RULES, ...(await store.load('rules_v9', {})) };
+  state.rules = { ...DEFAULT_RULES, ...(await store.load('rules_v10', {})) };
   state.extras = await store.load('extras', []);
   await journal.init();
   await tracker.init();
@@ -35,7 +36,7 @@ async function setRules(next) {
     clean[k] = typeof DEFAULT_RULES[k] === 'number' ? +next[k] : typeof DEFAULT_RULES[k] === 'boolean' ? !!next[k] : String(next[k]);
   }
   state.rules = { ...DEFAULT_RULES, ...clean };
-  await store.save('rules_v9', state.rules);
+  await store.save('rules_v10', state.rules);
   rerun();
   return state.rules;
 }

@@ -231,6 +231,7 @@ td.num,th.num{text-align:right}
 .card.trigger{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .card.idle{opacity:.72}
 .card .hd{display:flex;align-items:center;gap:6px;min-width:0}
+.card .tags span.z{background:color-mix(in srgb,var(--watch) 18%,transparent);color:var(--watch);border-color:transparent}
 .qs{display:inline-flex;align-items:baseline;gap:2px;font:700 12px/1 "JetBrains Mono",monospace;padding:3px 6px;border-radius:6px;background:var(--raise);color:var(--fg)}
 .qs i{font-style:normal;font-size:10px;opacity:.8}
 .qs.gS{background:color-mix(in srgb,var(--long) 22%,transparent);color:var(--long)}
@@ -425,7 +426,13 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="group-t">1H 結構 × OB</div>
         <div class="fld"><label class="label" for="swingLen">1H swing 長度</label>
           <input type="number" id="swingLen" min="2" max="8" value="3"></div>
-        <div class="fld"><label class="label" for="pattern">進場型態（回到 OB 後）</label>
+        <div class="fld"><label class="label" for="fvgEntry">OB 帶 FVG 時</label>
+          <select id="fvgEntry"><option value="on">先看 FVG 反應，FVG 被穿過再看 OB</option><option value="off">只看 OB</option></select></div>
+        <div class="fld"><label class="label" for="fvgStop">從 FVG 進場時的止損</label>
+          <select id="fvgStop"><option value="ob">放 OB 外側（建議）</option><option value="fvg">放 FVG 外側（較緊）</option></select>
+          <span class="hint">回測：止損放 FVG 外側常被掃掉，平均約 0R；放 OB 外側每筆約 +0.5R</span></div>
+        <input type="hidden" id="fvgFib" value="0">
+        <div class="fld"><label class="label" for="pattern">進場型態（回到 FVG / OB 後）</label>
           <select id="pattern"><option value="engulf">吞沒 K</option><option value="both">吞沒 K 或 Pin bar（錘子 / 流星）</option></select></div>
         <div class="fld"><label class="label" for="obInvalid">OB 失效條件</label>
           <select id="obInvalid"><option value="close">收盤穿過 OB</option><option value="wick">影線穿過 OB</option><option value="half">碰到 50% 即失效</option></select></div>

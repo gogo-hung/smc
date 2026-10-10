@@ -24,7 +24,7 @@ const STATIC = {
 const pack = bars => bars.map(b => [b.t, b.o, b.h, b.l, b.c, b.v]);
 const brief = r => ({
   sym: r.sym, dir: r.dir, status: r.status, last: r.last, met: r.met, need: r.need, st: r.st,
-  entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, quality: r.quality || null, bonus: r.bonus, dist: r.dist ?? null, flags: r.flags || [],
+  entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, quality: r.quality || null, zone: r.zone || null, fvgState: r.fvgState || null, bonus: r.bonus, dist: r.dist ?? null, flags: r.flags || [],
 });
 // 回測用的歷史資料（暫存 2 小時，避免重複抓）
 const histCache = new Map();
