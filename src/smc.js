@@ -113,6 +113,21 @@ const SMC = (() => {
     return out;
   }
 
+  // 品質分數 0–100：用 1 年回測找出「跟賺錢真的有關」的特徵（前後半年都成立）
+  // 止損空間（OB 夠大，不容易被雜訊掃掉）35、吞沒實體 20、成交量放大 20、回撤沒太深 15、日線同向 10
+  const clamp=x=>Math.max(0,Math.min(1,x));
+  function quality(f){
+    if(!f) return null;
+    const parts=[
+      {k:'stop', n:'止損空間', w:35, v:clamp((f.stopAtr-0.8)/1.2), t:`${f.stopAtr.toFixed(2)} ATR`},
+      {k:'body', n:'吞沒實體', w:20, v:clamp((f.body-0.2)/0.6), t:`${f.body.toFixed(2)} ATR`},
+      {k:'vol',  n:'成交量',   w:20, v:clamp((f.vol-0.7)/0.6), t:`${f.vol.toFixed(2)} 倍均量`},
+      {k:'retr', n:'回撤深度', w:15, v:clamp((0.98-f.retr)/0.05), t:`${(f.retr*100).toFixed(0)}%`},
+      {k:'daily',n:'日線同向', w:10, v:f.daily?1:0, t:f.daily?'是':'否'},
+    ];
+    const score=Math.round(parts.reduce((a,p)=>a+p.w*p.v,0));
+    return {score, grade: score>=70?'S':score>=55?'A':score>=40?'B':'C', parts};
+  }
   // 加分條件：每項可以設成 need（必要）/ score（加分）/ off（不看）
   const BONUS=['fib','ema','fvg','sweep','daily'];
   const condMode=(s,k)=>{ const v=s['c'+k[0].toUpperCase()+k.slice(1)]; if(v) return v;
@@ -214,6 +229,7 @@ const SMC = (() => {
         obSize:(ob.hi-ob.lo)/atr, stopAtr:Math.abs(entry-stop)/atr, legAtr:span/atr, obAge: eng-ob.idx,
         htfPos: (dir>0? (entry-rLo)/((rHi-rLo)||1) : (rHi-entry)/((rHi-rLo)||1)) };
     }
+    res.quality=quality(res.feat);
     st.rr = rr>=s.minRR && (dir>0? target>entry && stop<entry : target<entry && stop>entry);
     return finish(res,s);
   }
@@ -226,6 +242,7 @@ const SMC = (() => {
     const minScore=Math.min(+s.minScore||0, bonus.length);
     r.status = need.every(k=>st[k]) && r.score>=minScore ? 'trigger' : (st.htf&&st.ob ? 'watch' : 'idle');
     if(r.status==='watch' && need.every(k=>st[k])) r.lowScore=true;   // 條件都到了，只是加分不夠
+    if(r.status==='trigger' && s.minQuality>0 && (!r.quality || r.quality.score<s.minQuality)){ r.status='watch'; r.lowQuality=true; }
     // 只做多 / 只做空：反方向的訊號不觸發
     if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
     return r;
@@ -245,7 +262,7 @@ const SMC = (() => {
       const L=ltf.slice(i+1-W,i+1), H=htf.slice(Math.max(0,hj-HW),hj);
       const r=analyze(sym,L,s,H);
       if(r.status!=='trigger' || r.sigIdx!==L.length-1) continue; // 這根收盤時才剛成立的訊號
-      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,feat:r.feat,retr:r.retr,status:'pending'};
+      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,feat:r.feat,q:r.quality&&r.quality.score,grade:r.quality&&r.quality.grade,retr:r.retr,status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(closeT); if(b && b!==r.dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=t.dir>0;
       for(let j=i+1;j<ltf.length;j++){
@@ -294,6 +311,6 @@ const SMC = (() => {
     }
     return r;
   }
-  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf,isPin,toDaily,structure,backtest,trendSeries,BONUS};
+  return {genSeries,addBar,aggregate,analyze,quality,applyContext,ema,isEngulf,isPin,toDaily,structure,backtest,trendSeries,BONUS};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=SMC;

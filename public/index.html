@@ -231,6 +231,24 @@ td.num,th.num{text-align:right}
 .card.trigger{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
 .card.idle{opacity:.72}
 .card .hd{display:flex;align-items:center;gap:6px;min-width:0}
+.qs{display:inline-flex;align-items:baseline;gap:2px;font:700 12px/1 "JetBrains Mono",monospace;padding:3px 6px;border-radius:6px;background:var(--raise);color:var(--fg)}
+.qs i{font-style:normal;font-size:10px;opacity:.8}
+.qs.gS{background:color-mix(in srgb,var(--long) 22%,transparent);color:var(--long)}
+.qs.gA{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}
+.qs.gB{background:color-mix(in srgb,var(--watch) 18%,transparent);color:var(--watch)}
+.qs.gC{color:var(--muted)}
+.qs.big{font-size:26px;padding:8px 12px;border-radius:10px}
+.qs.big i{font-size:14px}
+.card .hd .qs{margin-left:auto}
+.card .hd .qs + .status{margin-left:6px}
+.qual{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:10px}
+.qhd{display:flex;gap:12px;align-items:center}
+.qhd .muted{font-size:12px;margin-top:2px}
+.qbars{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.qbars li{display:grid;grid-template-columns:64px 1fr 44px 92px;gap:8px;align-items:center;font-size:12px}
+.qbars .bar{height:6px;border-radius:3px;background:var(--raise);overflow:hidden}
+.qbars .bar i{display:block;height:100%;background:var(--accent)}
+@media (max-width:480px){.qbars li{grid-template-columns:56px 1fr 40px}.qbars li>span:last-child{display:none}}
 .card .hd b{font-family:var(--f-display);font-size:17px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .card .hd .status{margin-left:auto;flex:none}
 .card .px{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
@@ -420,6 +438,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       </div>
       <div class="col">
         <div class="group-t">加分條件</div>
+        <div class="fld"><label class="label" for="minQuality">品質分數至少幾分才推</label>
+          <input type="number" id="minQuality" min="0" max="100" step="5" value="0"><span class="hint">0 = 全部都推（卡片上照樣顯示分數）。設 55 = 只推 A、S 級</span></div>
         <div class="fld"><label class="label" for="minScore">加分至少幾項才推</label>
           <input type="number" id="minScore" min="0" max="5" step="1" value="0"><span class="hint">只算設成「加分」的項目；設成「必要」的一定要成立</span></div>
         <div class="fld"><label class="label" for="cFib">斐波便宜區</label>
@@ -513,6 +533,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="flags" id="dFlags" hidden></div>
         <div class="d-actions"><button class="btn" type="button" id="logTradeBtn">記一筆交易</button><button class="btn" type="button" id="postBtn">產生貼文圖卡</button></div>
 
+        <div class="qual" id="qualBox" hidden></div>
         <div><h3>SMC 條件</h3><ul class="checklist" id="checks"></ul></div>
 
         <div>
