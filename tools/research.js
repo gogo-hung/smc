@@ -44,10 +44,13 @@ function stats(trades) {
   const configs = JSON.parse(fs.readFileSync(path.join(__dirname, 'configs.json'), 'utf8'));
   const rows = [];
   for (const c of configs) {
-    const E = c.engine === 'old' ? OLD : SMC, rules = { ...base, ...c.rules };
-    const btc = data.BTC ? E.trendSeries(data.BTC.htf, rules) : null;
+    const E = c.engine === 'old' ? OLD : SMC;
     let trades = [];
-    for (const s of syms) trades = trades.concat(E.backtest(s, data[s].ltf, data[s].htf, rules, { feePct: 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades);
+    for (const part of (c.parts || [c.rules])) {   // parts：多單、空單用不同設定，合併成一個帳戶
+      const rules = { ...base, ...part };
+      const btc = data.BTC ? E.trendSeries(data.BTC.htf, rules) : null;
+      for (const s of syms) trades = trades.concat(E.backtest(s, data[s].ltf, data[s].htf, rules, { feePct: 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades);
+    }
     const all = stats(trades), h1 = stats(trades.filter(t => t.t < mid)), h2 = stats(trades.filter(t => t.t >= mid));
     const L = stats(trades.filter(t => t.dir > 0)), S = stats(trades.filter(t => t.dir < 0));
     rows.push({ name: c.name, ...all, r1: h1.R, r2: h2.R, lR: L.R, sR: S.R });
