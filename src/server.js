@@ -110,7 +110,7 @@ const server = http.createServer(async (req, res) => {
       if (!authorized(req)) return send(res, 401, { error: '需要管理員密碼' });
       const ch = notify.channels();
       if (!ch.discord && !ch.telegram) return send(res, 400, { error: 'Render 還沒設定 DISCORD_WEBHOOK_URL（或 Telegram）' });
-      return send(res, 200, { ok: await notify.send('🔔 <b>SMC 掃幣台：推播測試</b>\n設定成功！之後新訊號、接近進場、移保本、止盈止損、數據公布前都會推到這裡。') });
+      return send(res, 200, { ok: await notify.send('🔔 <b>聚寶盆：推播測試</b>\n設定成功！之後新訊號、接近進場、移保本、止盈止損、數據公布前都會推到這裡。') });
     }
     // 訊號成績單
     if (url.pathname === '/api/stats' && req.method === 'GET') return send(res, 200, tracker.stats(url.searchParams.get('all') === '1'));
@@ -158,7 +158,7 @@ const server = http.createServer(async (req, res) => {
 
 if (require.main === module) {
   server.listen(cfg.PORT, async () => {
-    console.log(`SMC 掃幣台：http://localhost:${cfg.PORT}`);
+    console.log(`聚寶盆：http://localhost:${cfg.PORT}`);
     const ch = notify.channels();
     console.log(`推播：Discord ${ch.discord ? '已啟用' : '未設定'}｜Telegram ${ch.telegram ? '已啟用' : '未設定'}`);
     console.log(`儲存：${store.kind}`);

@@ -28,7 +28,7 @@ async function sendDiscord(text) {
   const color = /❌|做空|止損/.test(title) ? 0xd9534f : /🛡/.test(title) ? 0x8a8f98 : /✅|做多/.test(title) ? 0x1f9d6b : 0xb7791f;
   const res = await fetch(cfg.DISCORD_WEBHOOK_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: 'SMC 掃幣台', embeds: [{ title, description: rest.join('\n').trim().slice(0, 4000) || undefined, color }] }),
+    body: JSON.stringify({ username: '聚寶盆', embeds: [{ title, description: rest.join('\n').trim().slice(0, 4000) || undefined, color }] }),
   });
   if (!res.ok) console.error('Discord 推播失敗：', res.status, await res.text());
   return res.ok;

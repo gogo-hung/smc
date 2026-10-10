@@ -1,4 +1,4 @@
-# SMC 掃幣台（crypto-scanner）
+# 聚寶盆（SMC 掃幣台・crypto-scanner）
 
 掃描 BingX USDT 永續合約，策略條件全部成立時推播到 Telegram。**只提醒，不下單**，也不需要 BingX API Key。
 

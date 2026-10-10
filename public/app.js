@@ -645,7 +645,7 @@ function drawPost(){
   const cv=$('postCanvas'), g=cv.getContext('2d'), W=1080, H=1350, C=k=>POST_C[k];
   g.setTransform(1,0,0,1,0,0); g.fillStyle=C('--bg'); g.fillRect(0,0,W,H);
   g.textBaseline='alphabetic'; const D=r.dir>0, dc=r.dir? (D?C('--long'):C('--short')) : C('--muted');
-  g.fillStyle=C('--accent'); g.font='700 30px "Chakra Petch","Noto Sans TC",sans-serif'; g.fillText('SMC 訊號',64,96);
+  g.fillStyle=C('--accent'); g.font='700 30px "Chakra Petch","Noto Sans TC",sans-serif'; g.fillText('聚寶盆・SMC 訊號',64,96);
   g.fillStyle=C('--muted'); g.font='400 26px "Noto Sans TC",sans-serif'; const ts=new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
   g.textAlign='right'; g.fillText(`${ts}（台灣）`,W-64,96); g.textAlign='left';
   g.fillStyle=C('--fg'); g.font='700 104px "Chakra Petch","Noto Sans TC",sans-serif'; g.fillText(r.sym,64,214);
