@@ -17,10 +17,13 @@ jobs:
       - id: d
         run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v4
-        with: { path: research-cache, key: "hist-${{ steps.d.outputs.day }}-v1" }
+        with: { path: research-cache, key: "hist-${{ steps.d.outputs.day }}-v2"
+          restore-keys: "hist-${{ steps.d.outputs.day }}-" }
       - run: node tools/research.js
-        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4" }
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "180" }
+      - run: node tools/research.js
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365" }
       - run: |
-          mkdir -p results && cp research-cache/result.md results/result.md
+          mkdir -p results && cp research-cache/result-*.md results/
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
           git add results && git commit -m "research result" && git push

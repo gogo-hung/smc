@@ -57,6 +57,6 @@ function stats(trades) {
   const md = ['| 設定 | 筆數 | 勝率 | 累計R | 平均R | PF | 回撤 | 連虧 | 保本 | 前半/後半 | 多/空 |', '|---|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map(r => `| ${r.name} | ${r.n} | ${(r.wr * 100).toFixed(0)}% | ${f(r.R)} | ${f(r.avg)} | ${r.pf.toFixed(2)} | ${r.dd.toFixed(1)} | ${r.ms} | ${r.be} | ${f(r.r1)} / ${f(r.r2)} | ${f(r.lR)} / ${f(r.sR)} |`)].join('\n');
   console.log('\n' + md);
-  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', 'result.md'), md);
+  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `result-${DAYS}.md`), md);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${new Date(t0).toISOString().slice(0, 10)} – ${new Date(t1).toISOString().slice(0, 10)}（${syms.length} 幣）\n\n${md}\n`);
 })().catch(e => { console.error(e); process.exit(1); });

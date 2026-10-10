@@ -1,15 +1,14 @@
 [
- {"name":"舊版（基準 +26R）","engine":"old","rules":{}},
- {"name":"新版 同設定","rules":{}},
- {"name":"+保本 50%","rules":{"beAt":0.5}},
- {"name":"+FVG 必要","rules":{"cFvg":"need"}},
- {"name":"+掃流動性 必要","rules":{"cSweep":"need"}},
- {"name":"+日線 必要","rules":{"cDaily":"need"}},
- {"name":"+Pin bar","rules":{"pattern":"both"}},
- {"name":"FVG/掃/日線 加分≥1","rules":{"cFvg":"score","cSweep":"score","cDaily":"score","minScore":1}},
- {"name":"FVG/掃/日線 加分≥2","rules":{"cFvg":"score","cSweep":"score","cDaily":"score","minScore":2}},
- {"name":"EMA 不看","rules":{"cEma":"off"}},
- {"name":"多空都做","rules":{"side":"both"}},
- {"name":"保本 40%","rules":{"beAt":0.4}},
- {"name":"保本 60%","rules":{"beAt":0.6}}
+ {"name":"A 基準（斐波+EMA+吞沒）","rules":{}},
+ {"name":"B A+保本50%","rules":{"beAt":0.5}},
+ {"name":"C A+FVG必要","rules":{"cFvg":"need"}},
+ {"name":"D C+保本50%","rules":{"cFvg":"need","beAt":0.5}},
+ {"name":"E A+FVG/掃/日線≥1","rules":{"cFvg":"score","cSweep":"score","cDaily":"score","minScore":1}},
+ {"name":"F A RR2","rules":{"minRR":2}},
+ {"name":"G A RR3","rules":{"minRR":3}},
+ {"name":"H C RR2","rules":{"cFvg":"need","minRR":2}},
+ {"name":"I A 多空都做","rules":{"side":"both"}},
+ {"name":"J C 多空都做","rules":{"cFvg":"need","side":"both"}},
+ {"name":"K A 斐波0.5","rules":{"fibMin":0.5}},
+ {"name":"L A 止損1H波段","rules":{"stopMode":"swing"}}
 ]
