@@ -45,7 +45,7 @@ async function adminFetch(url,opt={}){
 // ---- rules ----
 // 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態；斐波、EMA、FVG、掃流動性、日線同向 = 加分
 const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,emaLen:50,lookback:10,entry:'close',minRR:2.5,stopBuf:0.2,target:'swing',btcFilter:'block',fundingMax:0.05,side:'long',stopMode:'ob',
-  pattern:'engulf',cFib:'score',cEma:'score',cFvg:'score',cSweep:'score',cDaily:'score',minScore:2,beAt:0.5};
+  pattern:'engulf',cFib:'need',cEma:'need',cFvg:'score',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5};
 const BONUS_ZH={fib:'斐波便宜區',ema:'EMA 順勢',fvg:'OB 帶 FVG',sweep:'掃流動性',daily:'日線同向'};
 const condKey=k=>'c'+k[0].toUpperCase()+k.slice(1);
 function ruleChips(r){
@@ -53,13 +53,13 @@ function ruleChips(r){
   return [r.pattern==='both'?'吞沒或 Pin bar':'吞沒', ...req, bon.length?`加分 ≥ ${Math.min(r.minScore,bon.length)}/${bon.length}：${bon.join('、')}`:'', `型態 ${r.lookback}H 內`, r.entry==='close'?'型態收盤進場':'OB 邊緣進場',
     `RR ≥ ${r.minRR}`, r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不移保本', r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做', `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[r.stopMode||'swing']} + ${r.stopBuf}%`].filter(Boolean);
 }
-let rules = {...DEFAULTS, ...(store.get('smc-rules-v5')||{})};
+let rules = {...DEFAULTS, ...(store.get('smc-rules-v6')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=ruleChips(rules);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v5',rules); renderSum(); }
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v6',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
@@ -262,7 +262,7 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v5',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v6',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
@@ -495,7 +495,7 @@ function renderOpt(){
     <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
     <p class="hint">其他參數沿用目前設定（${{long:'只做多',short:'只做空'}[rules.side]||'多空都做'}、逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、止損緩衝 ${rules.stopBuf}%、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
   $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
-    rules={...DEFAULTS,...g}; store.set('smc-rules-v5',rules); syncForm(); scan();
+    rules={...DEFAULTS,...g}; store.set('smc-rules-v6',rules); syncForm(); scan();
     showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
     $('btForm').requestSubmit ? $('btForm').requestSubmit() : $('btForm').dispatchEvent(new Event('submit',{cancelable:true})); });
 }
