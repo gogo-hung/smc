@@ -1,13 +1,9 @@
 [
- {"name":"S11 空 目標H4 (FVG,RR2)","rules":{"side":"short","cFvg":"need","minRR":2,"target":"htf"}},
- {"name":"S13 空 目標H4 +日線必要","rules":{"side":"short","cFvg":"need","minRR":2,"target":"htf","cDaily":"need"}},
- {"name":"S14 空 目標H4 不要FVG","rules":{"side":"short","minRR":2,"target":"htf"}},
- {"name":"S15 空 目標H4 RR3","rules":{"side":"short","cFvg":"need","minRR":3,"target":"htf"}},
- {"name":"S16 空 目標H4 +保本","rules":{"side":"short","cFvg":"need","minRR":2,"target":"htf","beAt":0.5}},
- {"name":"L3 多 目標H4","rules":{"side":"long","cFvg":"need","minRR":2,"target":"htf"}},
- {"name":"L2 多 +日線必要","rules":{"side":"long","cFvg":"need","minRR":2,"cDaily":"need"}},
- {"name":"M1 多(L1)+空(S11)","parts":[{"side":"long","cFvg":"need","minRR":2},{"side":"short","cFvg":"need","minRR":2,"target":"htf"}]},
- {"name":"M2 多(L2 日線)+空(S11)","parts":[{"side":"long","cFvg":"need","minRR":2,"cDaily":"need"},{"side":"short","cFvg":"need","minRR":2,"target":"htf"}]},
- {"name":"M3 多(L2)+空(S13) 都要日線","parts":[{"side":"long","cFvg":"need","minRR":2,"cDaily":"need"},{"side":"short","cFvg":"need","minRR":2,"target":"htf","cDaily":"need"}]},
- {"name":"M4 多空都目標H4","rules":{"side":"both","cFvg":"need","minRR":2,"target":"htf"}}
+ {"name":"M4 多空 目標H4 RR2","rules":{"side":"both","cFvg":"need","minRR":2,"target":"htf"}},
+ {"name":"M5 多空 目標H4 RR2.5","rules":{"side":"both","cFvg":"need","minRR":2.5,"target":"htf"}},
+ {"name":"M6 多空 目標H4 RR3","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf"}},
+ {"name":"M7 多空 目標H4 RR3 +保本","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","beAt":0.5}},
+ {"name":"M8 多空 目標H4 RR2 +保本","rules":{"side":"both","cFvg":"need","minRR":2,"target":"htf","beAt":0.5}},
+ {"name":"M9 多空 目標H4 RR3 +日線","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","cDaily":"need"}},
+ {"name":"M10 多空 目標H4 RR3 止損1H波段","rules":{"side":"both","cFvg":"need","minRR":3,"target":"htf","stopMode":"swing"}}
 ]
