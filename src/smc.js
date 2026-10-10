@@ -205,6 +205,15 @@ const SMC = (() => {
     const rr = Math.abs(target-entry)/Math.abs(entry-stop);
     const be = s.beAt>0 ? entry+(target-entry)*s.beAt : null;   // 獲利到這裡 → 止損移到開倉價
     Object.assign(res,{entry,stop,target,rr,be,dist:(last-entry)/entry*100});
+    if(eng>=0){   // 訊號特徵（算品質分數用）
+      const atr=(()=>{ let a=0,k=0; for(let i=Math.max(1,eng-13);i<=eng;i++){ a+=Math.max(ltf[i].h-ltf[i].l,Math.abs(ltf[i].h-ltf[i-1].c),Math.abs(ltf[i].l-ltf[i-1].c)); k++; } return a/k||1; })();
+      let v=0,vk=0; for(let i=Math.max(0,eng-20);i<eng;i++){ v+=ltf[i].v; vk++; }
+      const e=emaAt(eng);
+      res.feat={ rr, retr: retr(dir>0? pairLow(eng) : pairHigh(eng)), sweep:st.sweep?1:0, daily:st.daily?1:0,
+        vol: vk&&v? ltf[eng].v/(v/vk) : 1, body: Math.abs(ltf[eng].c-ltf[eng].o)/atr, emaDist: e? Math.abs(ltf[eng].c-e)/atr : 0,
+        obSize:(ob.hi-ob.lo)/atr, stopAtr:Math.abs(entry-stop)/atr, legAtr:span/atr, obAge: eng-ob.idx,
+        htfPos: (dir>0? (entry-rLo)/((rHi-rLo)||1) : (rHi-entry)/((rHi-rLo)||1)) };
+    }
     st.rr = rr>=s.minRR && (dir>0? target>entry && stop<entry : target<entry && stop>entry);
     return finish(res,s);
   }
@@ -236,7 +245,7 @@ const SMC = (() => {
       const L=ltf.slice(i+1-W,i+1), H=htf.slice(Math.max(0,hj-HW),hj);
       const r=analyze(sym,L,s,H);
       if(r.status!=='trigger' || r.sigIdx!==L.length-1) continue; // 這根收盤時才剛成立的訊號
-      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,retr:r.retr,status:'pending'};
+      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,feat:r.feat,retr:r.retr,status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(closeT); if(b && b!==r.dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=t.dir>0;
       for(let j=i+1;j<ltf.length;j++){
