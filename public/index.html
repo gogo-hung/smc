@@ -404,24 +404,38 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <select id="breakBy"><option value="close">收盤突破</option><option value="wick">影線穿過即算</option></select></div>
       </div>
       <div class="col">
-        <div class="group-t">1H OB × 斐波</div>
+        <div class="group-t">1H 結構 × OB</div>
         <div class="fld"><label class="label" for="swingLen">1H swing 長度</label>
           <input type="number" id="swingLen" min="2" max="8" value="3"></div>
-        <div class="fld"><label class="label" for="fibMin">便宜區：回撤至少</label>
-          <select id="fibMin"><option value="0.5">0.5（折價區）</option><option value="0.618">0.618</option><option value="0.705">0.705</option><option value="0.786">0.786</option></select>
-          <span class="hint">OB 要在最近一段 1H 推動的這個回撤位以下（做空則以上）</span></div>
+        <div class="fld"><label class="label" for="pattern">進場型態（回到 OB 後）</label>
+          <select id="pattern"><option value="engulf">吞沒 K</option><option value="both">吞沒 K 或 Pin bar（錘子 / 流星）</option></select></div>
         <div class="fld"><label class="label" for="obInvalid">OB 失效條件</label>
           <select id="obInvalid"><option value="close">收盤穿過 OB</option><option value="wick">影線穿過 OB</option><option value="half">碰到 50% 即失效</option></select></div>
       </div>
       <div class="col">
-        <div class="group-t">吞沒 + EMA</div>
-        <label class="chk"><input type="checkbox" id="needEma" checked> 吞沒 K 收盤要在 EMA 順勢一側</label>
+        <div class="fld"><label class="label" for="lookback">型態有效範圍（1H 根數）</label>
+          <input type="number" id="lookback" min="2" max="72" value="10"><span class="hint">10 根 = 最近 10 小時內出現的型態才算</span></div>
+        <div class="fld"><label class="label" for="entry">進場價</label>
+          <select id="entry"><option value="close">型態 K 收盤價</option><option value="ob">OB 邊緣掛單</option></select></div>
+      </div>
+      <div class="col">
+        <div class="group-t">加分條件</div>
+        <div class="fld"><label class="label" for="minScore">加分至少幾項才推</label>
+          <input type="number" id="minScore" min="0" max="5" step="1" value="2"><span class="hint">只算設成「加分」的項目；設成「必要」的一定要成立</span></div>
+        <div class="fld"><label class="label" for="cFib">斐波便宜區</label>
+          <select id="cFib"><option value="score">加分</option><option value="need">必要</option><option value="off">不看</option></select></div>
+        <div class="fld"><label class="label" for="fibMin">斐波：回撤至少</label>
+          <select id="fibMin"><option value="0.5">0.5（折價區）</option><option value="0.618">0.618</option><option value="0.705">0.705</option><option value="0.786">0.786</option></select></div>
+        <div class="fld"><label class="label" for="cEma">EMA 順勢（型態收在 EMA 順勢一側）</label>
+          <select id="cEma"><option value="score">加分</option><option value="need">必要</option><option value="off">不看</option></select></div>
         <div class="fld"><label class="label" for="emaLen">EMA 週期（1H）</label>
           <input type="number" id="emaLen" min="5" max="200" value="50"></div>
-        <div class="fld"><label class="label" for="lookback">吞沒有效範圍（1H 根數）</label>
-          <input type="number" id="lookback" min="2" max="72" value="12"><span class="hint">12 根 = 最近 12 小時內的吞沒才算</span></div>
-        <div class="fld"><label class="label" for="entry">進場價</label>
-          <select id="entry"><option value="close">吞沒 K 收盤價</option><option value="ob">OB 邊緣掛單</option></select></div>
+        <div class="fld"><label class="label" for="cFvg">OB 帶 FVG（OB 後有缺口）</label>
+          <select id="cFvg"><option value="score">加分</option><option value="need">必要</option><option value="off">不看</option></select></div>
+        <div class="fld"><label class="label" for="cSweep">掃流動性（先刺破前低再收回）</label>
+          <select id="cSweep"><option value="score">加分</option><option value="need">必要</option><option value="off">不看</option></select></div>
+        <div class="fld"><label class="label" for="cDaily">日線趨勢同向</label>
+          <select id="cDaily"><option value="score">加分</option><option value="need">必要</option><option value="off">不看</option></select></div>
       </div>
       <div class="col">
         <div class="group-t">大盤濾網</div>
@@ -437,9 +451,12 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="fld"><label class="label" for="target">目標</label>
           <select id="target"><option value="swing">這段 1H 推動的前高 / 前低</option><option value="htf">H4 區間極值</option></select></div>
         <div class="fld"><label class="label" for="minRR">最低 RR</label>
-          <input type="number" id="minRR" min="0.5" max="10" step="0.5" value="2"></div>
+          <input type="number" id="minRR" min="0.5" max="10" step="0.1" value="2.5"></div>
+        <div class="fld"><label class="label" for="beAt">獲利到目標幾成時移保本</label>
+          <select id="beAt"><option value="0.5">5 成（一半）</option><option value="0.4">4 成</option><option value="0.6">6 成</option><option value="0">不移</option></select>
+          <span class="hint">走到這裡後，止損改到開倉價</span></div>
         <div class="fld"><label class="label" for="stopMode">止損位置</label>
-          <select id="stopMode"><option value="ob">OB / 吞沒 K 外側</option><option value="swing">前一個 1H 波段高 / 低點（結構止損）</option><option value="leg">推動起點（斐波 1.0）</option></select>
+          <select id="stopMode"><option value="ob">OB / 型態 K 外側</option><option value="swing">前一個 1H 波段高 / 低點（結構止損）</option><option value="leg">推動起點（斐波 1.0）</option></select>
           <span class="hint">做多放在低點下方、做空放在高點上方</span></div>
         <div class="fld"><label class="label" for="stopBuf">止損緩衝 %（結構點外再多留）</label>
           <input type="number" id="stopBuf" min="0" max="2" step="0.05" value="0.1"><span class="hint">價格的百分比，例：低點 100、緩衝 0.1% → 止損 99.9</span></div>
@@ -490,7 +507,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
             <button class="seg" type="button" data-tf="htf" aria-pressed="false">H4</button>
           </div>
         </div>
-        <canvas id="chart" aria-label="K 線圖，標示斐波、EMA50、OB、吞沒 K 與進出場位"></canvas>
+        <canvas id="chart" aria-label="K 線圖，標示斐波、EMA50、OB、進場型態與進出場位"></canvas>
 
         <div class="levels" id="levels"></div>
         <div class="flags" id="dFlags" hidden></div>

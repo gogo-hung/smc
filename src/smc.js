@@ -96,18 +96,41 @@ const SMC = (() => {
     if(bT-bB<=aT-aB) return false;
     return (dir>0? b.c>b.o : b.c<b.o) && bT>=aT && bB<=aB;
   }
+  // 錘子 / 流星（Pin bar）：順勢那側的影線 ≥ 實體 2 倍、佔整根 6 成以上，收在 K 棒的順勢那一半
+  function isPin(c,i,dir){
+    const b=c[i]; if(!b) return false; const rg=b.h-b.l; if(rg<=0) return false;
+    const body=Math.abs(b.c-b.o), wick= dir>0? Math.min(b.o,b.c)-b.l : b.h-Math.max(b.o,b.c);
+    return wick>=2*body && wick>=0.6*rg && (dir>0? b.c>=b.l+rg*0.5 : b.c<=b.h-rg*0.5);
+  }
+  const isPattern=(c,i,dir,s)=> isEngulf(c,i,dir) || (s.pattern==='both' && isPin(c,i,dir));
+  // 4H → 日線（UTC 0 點切日；最後一天沒走完就不算）
+  function toDaily(htf){
+    const D=864e5, out=[]; let cur=null;
+    for(const b of htf){ const d=Math.floor(b.t/D)*D;
+      if(!cur || cur.t!==d){ if(cur) out.push(cur); cur={t:d,o:b.o,h:b.h,l:b.l,c:b.c,v:b.v,n:1}; }
+      else { cur.h=Math.max(cur.h,b.h); cur.l=Math.min(cur.l,b.l); cur.c=b.c; cur.v+=b.v; cur.n++; } }
+    if(cur && cur.n>=6) out.push(cur);
+    return out;
+  }
 
-  // ---- 策略：H4 找趨勢 → 1H 斐波便宜區裡的 OB → 1H 吞沒 K + EMA50 順勢 ----
+  // 加分條件：每項可以設成 need（必要）/ score（加分）/ off（不看）
+  const BONUS=['fib','ema','fvg','sweep','daily'];
+  const condMode=(s,k)=>{ const v=s['c'+k[0].toUpperCase()+k.slice(1)]; if(v) return v;
+    if(k==='fib') return 'need'; if(k==='ema') return s.needEma===false?'off':'need'; return 'off'; }; // 舊設定相容
+
+  // ---- 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態（吞沒 / Pin bar）；斐波、EMA、FVG、掃流動性、日線同向 = 加分 ----
   // ltf = 1H K 線；htfIn = H4 K 線（沒給就用 1H 合成）
   function analyze(sym, ltf, s, htfIn){
     const htf = htfIn && htfIn.length ? htfIn : aggregate(ltf,4);
     const H=structure(htf,{...s,swingLen:s.htfSwing});
     const L=structure(ltf,s);
     const dir=H.trend; const n=ltf.length, last=ltf[n-1].c;
-    const st={htf:false,fib:false,ob:false,engulf:false,ema:false,rr:false};
+    const st={htf:false,ob:false,engulf:false,rr:false,fib:false,ema:false,fvg:false,sweep:false,daily:false};
     const res={sym,dir,last,st,htf,ltf,H,L,emaLine:ema(ltf,s.emaLen||50)};
     if(!dir) return finish(res,s);
     st.htf=true;
+    const daily=toDaily(htf);
+    if(daily.length>=12){ res.dailyDir=structure(daily,{...s,swingLen:Math.min(s.htfSwing||3,3)}).trend; st.daily=res.dailyDir===dir; }
     // H4 區間（圖表用）
     const lastEv=[...H.events].reverse().find(e=>e.dir===dir);
     let rHi=-Infinity,rLo=Infinity;
@@ -128,33 +151,45 @@ const SMC = (() => {
     const W=Math.min(s.lookback||12, n-2), start=n-W;
     for(let i=Math.max(start,b);i<n;i++){ if(retr(dir>0? ltf[i].l : ltf[i].h)>=s.fibMin){ st.fib=true; res.fibIdx=i; break; } }
 
-    // 便宜區裡、未失效的順勢 1H OB（取最近的）
+    // 這段推動裡、未失效的順勢 1H OB（斐波設成必要時，OB 要在便宜區裡）
+    const fibNeed=condMode(s,'fib')==='need';
     const obs=L.events.filter(e=>e.dir===dir && !e.ob.broken).map(e=>e.ob)
-      .filter(ob=> dir>0 ? (ob.lo>=lo*0.998 && retr(ob.hi)>=s.fibMin) : (ob.hi<=hi*1.002 && retr(ob.lo)>=s.fibMin));
-    const ob=obs.sort((x,y)=>y.idx-x.idx)[0];
+      .filter(ob=> dir>0 ? (ob.lo>=lo*0.998 && ob.hi<=hi && (!fibNeed || retr(ob.hi)>=s.fibMin))
+                         : (ob.hi<=hi*1.002 && ob.lo>=lo && (!fibNeed || retr(ob.lo)>=s.fibMin)))
+      .sort((x,y)=>y.idx-x.idx);
     const emaAt=i=>res.emaLine[i];
     const emaOk=i=> emaAt(i)!=null && (dir>0? ltf[i].c>emaAt(i) : ltf[i].c<emaAt(i));
     st.ema=emaOk(n-1);
-    if(!ob) return finish(res,s);
-    st.ob=true; res.entryOB=ob;
-
-    // 回到 OB 後的 1H 吞沒（在有效範圍內，最新的那根）
-    let eng=-1;
-    for(let i=n-1;i>=Math.max(start,ob.idx+2);i--){
-      if(!isEngulf(ltf,i,dir)) continue;
-      const touch = dir>0 ? Math.min(ltf[i].l,ltf[i-1].l)<=ob.hi*1.002 && ltf[i].c>ob.lo
-                          : Math.max(ltf[i].h,ltf[i-1].h)>=ob.lo*0.998 && ltf[i].c<ob.hi;
-      if(touch){ eng=i; break; }
-    }
+    if(!obs.length) return finish(res,s);
+    st.ob=true;
     const pairLow = i=> Math.min(ltf[i].l,ltf[i-1].l), pairHigh = i=> Math.max(ltf[i].h,ltf[i-1].h);
+
+    // 回到 OB 後的 1H 型態（在有效範圍內，最新的那根；碰到哪個 OB 就用哪個）
+    let eng=-1, ob=obs[0];
+    for(let i=n-1;i>=Math.max(start,1) && eng<0;i--){
+      if(!isPattern(ltf,i,dir,s)) continue;
+      for(const z of obs){ if(z.idx+2>i) continue;
+        const touch = dir>0 ? pairLow(i)<=z.hi*1.002 && ltf[i].c>z.lo : pairHigh(i)>=z.lo*0.998 && ltf[i].c<z.hi;
+        if(touch){ eng=i; ob=z; break; } }
+    }
+    res.entryOB=ob;
+    st.fvg=!!ob.fvg;
     let stopRaw = dir>0? ob.lo : ob.hi;
     if(eng>=0){
       stopRaw = dir>0? Math.min(ob.lo,pairLow(eng)) : Math.max(ob.hi,pairHigh(eng));
-      // 吞沒之後收盤跌破止損位 → 這個吞沒失效
+      // 型態之後收盤跌破止損位 → 失效
       let dead=false; for(let i=eng+1;i<n;i++){ if(dir>0? ltf[i].c<stopRaw : ltf[i].c>stopRaw){dead=true;break;} }
-      if(!dead){ st.engulf=true; res.engulf={idx:eng}; res.sigIdx=eng; st.ema=emaOk(eng); }
+      if(!dead){
+        st.engulf=true; res.engulf={idx:eng, kind:isEngulf(ltf,eng,dir)?'吞沒':'Pin bar'}; res.sigIdx=eng; st.ema=emaOk(eng);
+        st.fib = retr(dir>0? pairLow(eng) : pairHigh(eng))>=s.fibMin; if(st.fib) res.fibIdx=eng;
+        // 掃流動性：回到 OB 的過程中，有 K 棒刺破前一個已確認的 1H 低點（做空看高點），型態 K 又收回來
+        const pts=(dir>0? L.sw.lo : L.sw.hi);
+        for(let j=Math.max(ob.idx+1,eng-W-2);j<=eng && !st.sweep;j++){
+          for(const p of pts){ if(p.conf>=j || p.i<j-72) continue;
+            if(dir>0? ltf[j].l<p.price && ltf[eng].c>p.price : ltf[j].h>p.price && ltf[eng].c<p.price){ st.sweep=true; res.sweep={idx:j,price:p.price}; break; } } }
+      }
     }
-    // 止損位置：swing = OB 外面最近的 1H 波段高/低點（已確認的）；leg = 推動起點（斐波 1.0）；ob = OB / 吞沒 K 外側
+    // 止損位置：swing = OB 外面最近的 1H 波段高/低點（已確認的）；leg = 推動起點（斐波 1.0）；ob = OB / 型態 K 外側
     const mode=s.stopMode||'swing';
     if(mode==='swing'){
       const pts=(dir>0? L.sw.lo : L.sw.hi).filter(p=>p.conf<n && (dir>0? p.price<=stopRaw : p.price>=stopRaw));
@@ -168,15 +203,20 @@ const SMC = (() => {
     const stop = dir>0? stopRaw*(1-s.stopBuf/100) : stopRaw*(1+s.stopBuf/100);
     const target = s.target==='htf' ? (dir>0? rHi : rLo) : (dir>0? hi : lo);
     const rr = Math.abs(target-entry)/Math.abs(entry-stop);
-    Object.assign(res,{entry,stop,target,rr,dist:(last-entry)/entry*100});
+    const be = s.beAt>0 ? entry+(target-entry)*s.beAt : null;   // 獲利到這裡 → 止損移到開倉價
+    Object.assign(res,{entry,stop,target,rr,be,dist:(last-entry)/entry*100});
     st.rr = rr>=s.minRR && (dir>0? target>entry && stop<entry : target<entry && stop>entry);
     return finish(res,s);
   }
   function finish(r,s){
     const st=r.st;
-    const need=['htf','fib','ob','engulf','rr']; if(s.needEma!==false) need.splice(4,0,'ema');
-    r.need=need; r.met=need.filter(k=>st[k]).length;
-    r.status = need.every(k=>st[k]) ? 'trigger' : (st.htf&&st.fib&&st.ob ? 'watch' : 'idle');
+    const need=['htf','ob','engulf','rr'], bonus=[];
+    for(const k of BONUS){ const m=condMode(s,k); if(m==='need') need.push(k); else if(m==='score') bonus.push(k); }
+    r.need=need; r.bonus=bonus; r.met=need.filter(k=>st[k]).length;
+    r.score=bonus.filter(k=>st[k]).length; r.scoreMax=bonus.length;
+    const minScore=Math.min(+s.minScore||0, bonus.length);
+    r.status = need.every(k=>st[k]) && r.score>=minScore ? 'trigger' : (st.htf&&st.ob ? 'watch' : 'idle');
+    if(r.status==='watch' && need.every(k=>st[k])) r.lowScore=true;   // 條件都到了，只是加分不夠
     // 只做多 / 只做空：反方向的訊號不觸發
     if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
     return r;
@@ -184,19 +224,19 @@ const SMC = (() => {
   // ---- 歷史回測：逐根 1H 收盤往前走，每次只用「當時已收盤」的 K 棒判斷，不偷看未來 ----
   // o: { window: 1H 視窗（跟實盤一樣 300）, htfWindow: 200, maxWait: 幾根內沒進場算過期, feePct: 單邊手續費+滑點 %, btcDirAt(t) }
   function backtest(sym, ltf, htf, s, o={}){
-    const W=o.window||300, HW=o.htfWindow||200, maxWait=o.maxWait||24, fee=(o.feePct||0)/100;
+    const W=o.window||300, HW=o.htfWindow||500, maxWait=o.maxWait||24, fee=(o.feePct||0)/100;
     if(ltf.length<W+10 || htf.length<60) return {trades:[], skipped:'資料不足'};
     const bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t, trades=[];
     let hj=0;
     for(let i=W;i<ltf.length;i++){
-      if(!isEngulf(ltf,i,1) && !isEngulf(ltf,i,-1)) continue;   // 沒有吞沒就不可能觸發，先跳過省時間
+      if(!isPattern(ltf,i,1,s) && !isPattern(ltf,i,-1,s)) continue;   // 沒有型態就不可能觸發，先跳過省時間
       const closeT=ltf[i].t+bar;
       while(hj<htf.length && htf[hj].t+hbar<=closeT) hj++;      // 只用已收盤的 H4
       if(hj<60) continue;
       const L=ltf.slice(i+1-W,i+1), H=htf.slice(Math.max(0,hj-HW),hj);
       const r=analyze(sym,L,s,H);
       if(r.status!=='trigger' || r.sigIdx!==L.length-1) continue; // 這根收盤時才剛成立的訊號
-      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,retr:r.retr,status:'pending'};
+      const t={sym,dir:r.dir,t:closeT,entry:r.entry,stop:r.stop,target:r.target,rr:r.rr,be:r.be,score:r.score,retr:r.retr,status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(closeT); if(b && b!==r.dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=t.dir>0;
       for(let j=i+1;j<ltf.length;j++){
@@ -207,10 +247,12 @@ const SMC = (() => {
           else if(j-i>maxWait){ t.status='expired'; t.closedT=b.t; break; }
         }
         if(t.status==='filled'){
-          const hitS= up? b.l<=t.stop : b.h>=t.stop, hitT= up? b.h>=t.target : b.l<=t.target;
-          if(hitS){ t.status='loss'; t.R=-1; t.closedT=b.t+bar; }          // 同一根兩邊都碰到，保守算止損
+          const sl=t.beHit? t.entry : t.stop;
+          const hitS= up? b.l<=sl : b.h>=sl, hitT= up? b.h>=t.target : b.l<=t.target;
+          if(hitS){ t.status=t.beHit?'be':'loss'; t.R=t.beHit?0:-1; t.closedT=b.t+bar; }   // 同一根兩邊都碰到，保守算先打止損
           else if(hitT && b.t>t.filledT){ t.status='win'; t.R=t.rr; t.closedT=b.t+bar; }
           if(t.R!=null) break;
+          if(t.be!=null && !t.beHit && b.t>t.filledT && (up? b.h>=t.be : b.l<=t.be)) t.beHit=true;   // 這根收盤後才把止損移到開倉價
         }
       }
       if(t.status==='filled') t.status='open';                        // 資料結束時還沒出結果
@@ -243,6 +285,6 @@ const SMC = (() => {
     }
     return r;
   }
-  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf,structure,backtest,trendSeries};
+  return {genSeries,addBar,aggregate,analyze,applyContext,ema,isEngulf,isPin,toDaily,structure,backtest,trendSeries,BONUS};
 })();
 if(typeof module!=='undefined' && module.exports) module.exports=SMC;

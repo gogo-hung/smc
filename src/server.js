@@ -24,7 +24,7 @@ const STATIC = {
 const pack = bars => bars.map(b => [b.t, b.o, b.h, b.l, b.c, b.v]);
 const brief = r => ({
   sym: r.sym, dir: r.dir, status: r.status, last: r.last, met: r.met, need: r.need, st: r.st,
-  entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, dist: r.dist ?? null, flags: r.flags || [],
+  entry: r.entry ?? null, stop: r.stop ?? null, target: r.target ?? null, rr: r.rr ?? null, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: r.bonus, dist: r.dist ?? null, flags: r.flags || [],
 });
 // 回測用的歷史資料（暫存 2 小時，避免重複抓）
 const histCache = new Map();
@@ -35,7 +35,7 @@ async function history(sym, days) {
   if (!(await bingx.getContracts()).includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });
   const now = Date.now(), warm = 300 * 3600e3;            // 前面多抓 300 根 1H 當暖機
   const ltf = await bingx.getKlinesRange(symbol, '1h', now - days * 86400e3 - warm, now);
-  const htf = await bingx.getKlinesRange(symbol, '4h', now - days * 86400e3 - 200 * 4 * 3600e3, now);
+  const htf = await bingx.getKlinesRange(symbol, '4h', now - days * 86400e3 - 500 * 4 * 3600e3, now); // 多抓 500 根 4H（也用來合成日線）
   const data = { sym, days, ltf: pack(ltf), htf: pack(htf) };
   histCache.set(key, { at: Date.now(), data });
   if (histCache.size > 80) histCache.delete(histCache.keys().next().value);

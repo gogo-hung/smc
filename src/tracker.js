@@ -29,6 +29,7 @@ async function setSettings(s) {
 
 const fp = p => p == null || !isFinite(p) ? '—' : p >= 1000 ? p.toFixed(1) : p >= 10 ? p.toFixed(2) : p >= 1 ? p.toFixed(3) : p >= 0.01 ? p.toFixed(4) : p.toPrecision(4);
 const side = d => (d > 0 ? '做多' : '做空');
+const BONUS_ZH = { fib: '斐波便宜區', ema: 'EMA 順勢', fvg: 'OB 帶 FVG', sweep: '掃流動性', daily: '日線同向' };
 
 // 寫進提醒紀錄；push=true 且該類型開啟時才推 Telegram。風控鎖住時，進場類提醒只記錄不推
 async function emit(type, title, lines, extra = {}) {
@@ -62,7 +63,7 @@ async function onScan(results, market) {
     if (r.status !== 'trigger') continue;
     const k = keyOf(r);
     if (state.signals.some(s => s.k === k)) continue;
-    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
+    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
     state.signals.push(sig); changed = true;
     const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS;
     if (fresh) {
@@ -70,6 +71,8 @@ async function onScan(results, market) {
       await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：訊號成立`, [
         `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
         `RR ${r.rr.toFixed(2)}　現價 ${fp(r.last)}（距進場 ${dist > 0 ? '+' : ''}${dist.toFixed(2)}%）`,
+        `加分 ${r.score}/${r.scoreMax}${sig.bonus.length ? `：${sig.bonus.map(b => BONUS_ZH[b]).join('、')}` : ''}`,
+        ...(r.be != null ? [`獲利到 ${fp(r.be)} 時，止損移到開倉價 ${fp(r.entry)}`] : []),
         ...(sig.flags.length ? [`⚠ ${sig.flags.join('；')}`] : []),
         '下單前：這是訊號不是情緒？今天沒連虧兩筆？止損先掛。',
       ], { sym: r.sym });
@@ -94,14 +97,19 @@ async function onScan(results, market) {
         else if (b.t - s.createdAt > 24 * 3600e3) { s.status = 'expired'; s.closedAt = b.t; break; }
       }
       if (s.status === 'filled') {
-        const hitStop = L ? b.l <= s.stop : b.h >= s.stop;
+        const sl = s.beHit ? s.entry : s.stop;
+        const hitStop = L ? b.l <= sl : b.h >= sl;
         const hitTarget = L ? b.h >= s.target : b.l <= s.target;
-        if (hitStop) { s.status = 'loss'; s.R = -1; s.closedAt = b.t; }          // 同一根同時碰到止損和目標，保守算止損
+        if (hitStop) { s.status = s.beHit ? 'be' : 'loss'; s.R = s.beHit ? 0 : -1; s.closedAt = b.t; }   // 同一根同時碰到止損和目標，保守算止損
         else if (hitTarget && b.t > s.filledAt) { s.status = 'win'; s.R = +s.rr.toFixed(2); s.closedAt = b.t; }
-        if (s.status === 'win' || s.status === 'loss') {
-          await emit('result', s.status === 'win' ? `✅ ${s.sym} ${side(s.dir)} 打到目標 +${s.R}R` : `❌ ${s.sym} ${side(s.dir)} 打到止損 -1R`,
-            [`進場 ${fp(s.entry)}　止損 ${fp(s.stop)}　目標 ${fp(s.target)}`], { sym: s.sym });
+        if (s.status === 'win' || s.status === 'loss' || s.status === 'be') {
+          const title = { win: `✅ ${s.sym} ${side(s.dir)} 打到目標 +${s.R}R`, loss: `❌ ${s.sym} ${side(s.dir)} 打到止損 -1R`, be: `🛡 ${s.sym} ${side(s.dir)} 保本出場 0R` }[s.status];
+          await emit('result', title, [`進場 ${fp(s.entry)}　止損 ${fp(s.stop)}　目標 ${fp(s.target)}`], { sym: s.sym });
           break;
+        }
+        if (s.be != null && !s.beHit && b.t > s.filledAt && (L ? b.h >= s.be : b.l <= s.be)) {
+          s.beHit = true; s.beAt = b.t;
+          await emit('result', `🛡 ${s.sym} ${side(s.dir)} 已到一半目標：止損移到開倉價`, [`把止損改到 ${fp(s.entry)}（開倉價），目標 ${fp(s.target)} 不變`], { sym: s.sym });
         }
       }
     }
@@ -126,7 +134,7 @@ async function onScan(results, market) {
 const openSymbols = () => [...new Set(state.signals.filter(s => s.status === 'pending' || s.status === 'filled').map(s => s.sym))];
 
 function stats(all = false) {
-  const done = state.signals.filter(s => s.status === 'win' || s.status === 'loss');
+  const done = state.signals.filter(s => s.status === 'win' || s.status === 'loss' || s.status === 'be');
   const wins = done.filter(s => s.status === 'win');
   const sumR = a => +a.reduce((x, s) => x + s.R, 0).toFixed(2);
   const group = (key) => {
@@ -139,7 +147,7 @@ function stats(all = false) {
     total: state.signals.length, resolved: done.length,
     winRate: done.length ? wins.length / done.length : null,
     avgR: done.length ? +(sumR(done) / done.length).toFixed(2) : null, totalR: sumR(done),
-    pending: count('pending'), filled: count('filled'), missed: count('missed'), expired: count('expired'),
+    pending: count('pending'), filled: count('filled'), be: count('be'), missed: count('missed'), expired: count('expired'),
     byDir: group(s => (s.dir > 0 ? '做多' : '做空')), bySym: group(s => s.sym).slice(0, 10),
     recent: (all ? state.signals : state.signals.slice(-60)).slice().reverse(),
   };
