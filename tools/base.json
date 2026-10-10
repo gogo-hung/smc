@@ -1,0 +1,2 @@
+{"swingLen":3,"htfSwing":3,"breakBy":"close","obInvalid":"close","fibMin":0.618,"emaLen":50,"lookback":10,"entry":"close","minRR":2.5,"stopBuf":0.2,"target":"swing","btcFilter":"block","fundingMax":0.05,"side":"long","stopMode":"ob","needEma":true,
+ "pattern":"engulf","cFib":"need","cEma":"need","cFvg":"off","cSweep":"off","cDaily":"off","minScore":0,"beAt":0}

@@ -1,0 +1,19 @@
+name: research
+on:
+  push:
+    branches: [research]
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - id: d
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with: { path: research-cache, key: "hist-${{ steps.d.outputs.day }}-v1" }
+      - run: node tools/research.js
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4" }
