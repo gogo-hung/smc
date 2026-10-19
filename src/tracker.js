@@ -7,7 +7,7 @@ const journal = require('./journal');
 const cfg = require('./config');
 
 const Q = 60 * 60e3; // 1H
-const DEFAULT_SETTINGS = { signal: true, near: true, nearPct: 0.3, calendar: true, result: true };
+const DEFAULT_SETTINGS = { signal: true, near: true, nearPct: 0.3, calendar: true, result: true, brief: true };
 const state = { signals: [], feed: [], settings: { ...DEFAULT_SETTINGS } };
 
 async function init() {
@@ -34,11 +34,12 @@ const BONUS_ZH = { fib: '斐波便宜區', ema: 'EMA 順勢', fvg: 'OB 帶 FVG',
 // 寫進提醒紀錄；push=true 且該類型開啟時才推 Discord / Telegram。風控鎖住時，進場類提醒只記錄不推
 async function emit(type, title, lines, extra = {}) {
   const muted = (type === 'signal' || type === 'near') && journal.locked();
-  const item = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: Date.now(), type, title, body: lines.join('\n'), muted, ...extra };
+  const plain = lines.join('\n').replace(/<\/?[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'); // 提醒中心顯示純文字
+  const item = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: Date.now(), type, title, body: plain, muted, ...extra };
   state.feed.unshift(item);
   state.feed = state.feed.slice(0, 300);
   await store.save('feed', state.feed);
-  const on = { signal: state.settings.signal, near: state.settings.near, calendar: state.settings.calendar, earnings: state.settings.calendar, result: state.settings.result }[type];
+  const on = { signal: state.settings.signal, near: state.settings.near, calendar: state.settings.calendar, earnings: state.settings.calendar, result: state.settings.result, brief: state.settings.brief }[type];
   if (on && !muted) await notify.send([`<b>${title}</b>`, ...lines, cfg.PUBLIC_URL].filter(Boolean).join('\n'));
   return item;
 }

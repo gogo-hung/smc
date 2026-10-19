@@ -351,7 +351,7 @@ setInterval(renderCal,30000); setInterval(loadCal,15*60000);
 
 // ================= 提醒中心（鈴鐺） =================
 const Feed={ items:[], settings:null, locked:false, lossStreak:0, seen:+(store.get('smc-seen')||0), notified:store.get('smc-notified'), telegram:false, discord:false, storage:'', persistent:false };
-const TYPE_ZH={signal:'訊號成立',near:'接近進場',result:'訊號結果',calendar:'數據',earnings:'財報'};
+const TYPE_ZH={signal:'訊號成立',near:'接近進場',result:'訊號結果',calendar:'數據',earnings:'財報',brief:'早報'};
 const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function loadAlerts(poll){
   if(DataSource.mode!=='live'){ renderAlerts(); return; }
@@ -373,7 +373,7 @@ function renderAlerts(){
   const unread=Feed.items.filter(i=>i.t>Feed.seen).length;
   $('alertBadge').hidden=!unread; $('alertBadge').textContent=unread>99?'99+':unread;
   const st=Feed.settings;
-  if(st){ $('as_signal').checked=st.signal; $('as_near').checked=st.near; $('as_nearPct').value=st.nearPct; $('as_calendar').checked=st.calendar; $('as_result').checked=st.result; }
+  if(st){ $('as_signal').checked=st.signal; $('as_near').checked=st.near; $('as_nearPct').value=st.nearPct; $('as_calendar').checked=st.calendar; $('as_result').checked=st.result; $('as_brief').checked=st.brief!==false; }
   const live=DataSource.mode==='live';
   $('alertForm').querySelectorAll('input,button').forEach(el=>{ if(el.id!=='notifyBtn') el.disabled=!live; });
   $('alertStatus').innerHTML = !live ? '示範模式：提醒只顯示在這裡。用你的 Render 網站開啟才會推到手機。'
@@ -385,7 +385,7 @@ function renderAlerts(){
     : '<div class="cal-empty">還沒有提醒。有新訊號、價格接近進場區、或重要數據快公布時，會出現在這裡。</div>';
 }
 $('alertForm').addEventListener('submit',async e=>{ e.preventDefault();
-  const body={signal:$('as_signal').checked, near:$('as_near').checked, nearPct:+$('as_nearPct').value||0.3, calendar:$('as_calendar').checked, result:$('as_result').checked};
+  const body={signal:$('as_signal').checked, near:$('as_near').checked, nearPct:+$('as_nearPct').value||0.3, calendar:$('as_calendar').checked, result:$('as_result').checked, brief:$('as_brief').checked};
   const r=await adminFetch('api/alert-settings',{method:'POST',body:JSON.stringify(body)});
   if(r&&r.ok){ Feed.settings=await r.json(); showToast('提醒設定已儲存'); renderAlerts(); } });
 $('notifyBtn').onclick=async()=>{ if(!('Notification' in window)) return showToast('這個瀏覽器不支援通知');

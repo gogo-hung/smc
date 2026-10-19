@@ -11,6 +11,9 @@ const journal = require('./journal');
 const earnings = require('./earnings');
 const store = require('./store');
 const notify = require('./notify');
+const morning = require('./brief');
+const deep = require('./deep');
+const telegram = require('./telegram');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 const PUBLIC_DIR = path.join(cfg.ROOT, 'public');
@@ -79,6 +82,7 @@ const server = http.createServer(async (req, res) => {
     // 給外部排程（cron-job.org）用：GET /api/cron?token=ADMIN_TOKEN，順便叫醒休眠中的服務
     if (url.pathname === '/api/cron') {
       if (ADMIN_TOKEN && url.searchParams.get('token') !== ADMIN_TOKEN && req.headers['x-admin-token'] !== ADMIN_TOKEN) return send(res, 401, { error: 'token 錯誤' });
+      morning.check().catch(e => console.error('[早報]', e.message)); // 叫醒時順便看早報時間到了沒
       const fresh = s.lastScan && Date.now() - s.lastScan < 5 * 60e3;
       return send(res, 200, fresh ? { skipped: '5 分鐘內已掃描過', lastScan: s.lastScan } : await scanner.scanOnce());
     }
@@ -111,6 +115,26 @@ const server = http.createServer(async (req, res) => {
       const ch = notify.channels();
       if (!ch.discord && !ch.telegram) return send(res, 400, { error: 'Render 還沒設定 DISCORD_WEBHOOK_URL（或 Telegram）' });
       return send(res, 200, { ok: await notify.send('🔔 <b>聚寶盆：推播測試</b>\n設定成功！之後新訊號、接近進場、移保本、止盈止損、數據公布前都會推到這裡。') });
+    }
+    // Telegram 指令 webhook：先回 200（Telegram 不用等），再慢慢分析、回覆
+    if (url.pathname === '/api/telegram' && req.method === 'POST') {
+      if (!telegram.enabled() || req.headers['x-telegram-bot-api-secret-token'] !== telegram.secret()) return send(res, 401, { error: 'unauthorized' });
+      const update = await readBody(req);
+      send(res, 200, { ok: true });
+      telegram.handle(update).catch(e => console.error('[Telegram]', e.message));
+      return;
+    }
+    // 早報：GET 預覽（不推播）、POST 立刻推一次（都要密碼）
+    if (url.pathname === '/api/brief') {
+      if (!authorized(req) && url.searchParams.get('token') !== ADMIN_TOKEN) return send(res, 401, { error: '需要管理員密碼' });
+      if (req.method === 'GET') { const b = await morning.build(); return send(res, 200, { title: b.title, text: b.lines.join('\n'), ai: b.ai, data: b.data }); }
+      if (req.method === 'POST') { const b = await morning.send(); return send(res, 200, { ok: true, title: b.title, ai: b.ai }); }
+    }
+    // 深度分析（跟 /deep 指令同一份內容；有設 AI 時會花 API 費用，所以要密碼）
+    if (url.pathname === '/api/deep' && req.method === 'GET') {
+      if (!authorized(req) && url.searchParams.get('token') !== ADMIN_TOKEN) return send(res, 401, { error: '需要管理員密碼' });
+      try { const d = await deep.run(url.searchParams.get('sym')); return send(res, 200, { title: d.title, text: d.lines.join('\n'), data: d.data }); }
+      catch (e) { return fail(res, e); }
     }
     // 訊號成績單
     if (url.pathname === '/api/stats' && req.method === 'GET') return send(res, 200, tracker.stats(url.searchParams.get('all') === '1'));
@@ -165,7 +189,8 @@ if (require.main === module) {
     await scanner.init();
     calendar.start(tracker.emit);
     earnings.start(tracker.emit);
-    scanner.scanOnce().then(() => scanner.startSchedule());
+    scanner.scanOnce().then(() => { scanner.startSchedule(); morning.start(); });
+    telegram.start();
   });
 }
 
