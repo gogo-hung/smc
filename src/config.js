@@ -52,4 +52,17 @@ module.exports = {
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || '',
   PUBLIC_URL: process.env.PUBLIC_URL || '',      // 有填的話，推播會附上看板連結
+
+  // Telegram 指令（/deep、/brief）
+  TELEGRAM_ALLOWED_CHATS: list(process.env.TELEGRAM_ALLOWED_CHATS), // 除了 TELEGRAM_CHAT_ID 之外，還能用指令的聊天室
+  TELEGRAM_WEBHOOK_SECRET: process.env.TELEGRAM_WEBHOOK_SECRET || '', // 不填會用 bot token 自動產生
+  TELEGRAM_POLLING: /^(1|true|yes)$/i.test(process.env.TELEGRAM_POLLING || ''), // 本機開發用輪詢收指令
+
+  // 每日早報：台灣時間 HH:MM，填 off 關閉
+  BRIEF_TIME: /^off$/i.test(process.env.BRIEF_TIME || '') ? '' : (process.env.BRIEF_TIME || '08:30'),
+  RISK_PCT: num(process.env.RISK_PCT, 1),        // /deep 算倉位用：每筆最多虧本金幾 %
+
+  // AI 解讀（可選，不填就沒有 AI 段落）
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
+  AI_MODEL: process.env.AI_MODEL || 'claude-haiku-5-5',
 };

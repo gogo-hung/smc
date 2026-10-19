@@ -19,6 +19,10 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      - key: ANTHROPIC_API_KEY          # 可選：早報「今日重點」、/deep「AI 解讀」
+        sync: false
+      - key: BRIEF_TIME                 # 每日早報時間（台灣），off = 關閉
+        value: "08:30"
       - key: UPSTASH_REDIS_REST_URL     # 永久儲存（交易紀錄、成績單），見 README
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN

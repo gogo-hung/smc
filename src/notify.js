@@ -22,7 +22,7 @@ const channels = () => ({ discord: !!cfg.DISCORD_WEBHOOK_URL, telegram: !!(cfg.T
 
 // Discord：第一行當標題，其餘當內容；依內容上色（多 / 目標 = 綠，空 / 止損 = 紅，保本 = 灰，其他 = 金）
 async function sendDiscord(text) {
-  const plain = text.replace(/<b>(.*?)<\/b>/g, '**$1**').replace(/<\/?[^>]+>/g, '');
+  const plain = text.replace(/<b>(.*?)<\/b>/g, '**$1**').replace(/<\/?[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   const [first, ...rest] = plain.split('\n');
   const title = first.replace(/\*\*/g, '').slice(0, 250);
   const color = /❌|做空|止損/.test(title) ? 0xd9534f : /🛡/.test(title) ? 0x8a8f98 : /✅|做多/.test(title) ? 0x1f9d6b : 0xb7791f;

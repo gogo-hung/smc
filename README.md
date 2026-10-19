@@ -72,6 +72,9 @@ npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
 | GET / POST / DELETE | `/api/journal` | 交易紀錄（需密碼） |
 | POST | `/api/add` | 加入幣種 `{"sym":"PEPE"}` |
 | GET / POST | `/api/rules` | 讀取 / 更新推播用的策略參數 |
+| GET / POST | `/api/brief` | 預覽 / 立刻推送每日早報（需密碼） |
+| GET | `/api/deep?sym=SOL` | 深度分析（需密碼） |
+| POST | `/api/telegram` | Telegram 指令 webhook（自動設定） |
 
 `POST /api/scan` 不需要密碼（1 分鐘內只會掃一次）。設了 `ADMIN_TOKEN` 時，`POST /api/rules` 需要帶 `x-admin-token` header（看板會跳出輸入框，輸入一次後會記住）。
 
@@ -88,6 +91,32 @@ npm start                # 啟動看板 + 自動掃描 → http://localhost:8787
 | 卡片 → 產生貼文圖卡 | 1080×1350 圖片，含圖表、進出場位、推薦碼，下載或複製後直接發 IG / Threads |
 
 看板上方的搜尋框可以篩選卡片；搜尋不在名單裡的幣，按「加入掃描」就會立刻抓資料，之後每輪都會掃（最多 20 個）。
+
+## 每日早報 + Telegram 指令
+
+**每日早報**：每天台灣時間 08:30（`BRIEF_TIME`）推到 Discord / Telegram，也會出現在提醒中心。內容：
+
+- BTC、ETH 價格、24h 漲跌、日線 / H4 方向、資金費率；恐慌貪婪指數（含昨天）
+- 掃描範圍內的領漲、領跌，資金費率超過擁擠門檻的幣
+- 目前條件到齊的 SMC 訊號（附進場、止損、目標）＋最接近成立的觀察名單（列出還缺哪個條件）
+- 過去 24 小時結算的訊號成績、接下來 24 小時的重要數據與財報
+- 風控鎖住時直接寫「今天休息」
+
+服務睡著的話，cron-job.org 叫醒時會補推（3 小時內），同一天只推一次。
+
+**Telegram 指令**（只回應 `TELEGRAM_CHAT_ID`）：
+
+| 指令 | 做什麼 |
+|---|---|
+| `/deep SOL` | 深度分析：日線 / H4 / 1H 結構、H4 區間位置、EMA50、斐波回撤、OB / FVG、每個條件 ✅❌、結論；有計畫時附止損距離與倉位倍數（`RISK_PCT`）。也能查 BingX 上架的美股，例 `/deep TSLA` |
+| `/brief` | 現在產生一份早報，只回給你 |
+| `/help` | 指令說明 |
+
+設定：Render 有填 `TELEGRAM_BOT_TOKEN`、`TELEGRAM_CHAT_ID`、`PUBLIC_URL` 就好，啟動時會自動向 Telegram 註冊 webhook（`/api/telegram`）。陌生人對機器人打 `/start` 會看到自己的 chat id，但不能用指令。本機測試指令：`.env` 加 `TELEGRAM_POLLING=true`。
+
+**AI 解讀（可選）**：填 `ANTHROPIC_API_KEY` 後，早報多一段「今日重點」，`/deep` 多一段「AI 解讀」。AI 只拿到程式算好的數字；它寫出資料裡沒有的數字（例如把 29 人寫成 48 人），那段就整個丟掉不推。沒填 key 時其他內容照常。
+
+網頁 API：`GET /api/brief?token=ADMIN_TOKEN` 預覽早報、`POST /api/brief` 立刻推一次、`GET /api/deep?sym=SOL&token=ADMIN_TOKEN` 看深度分析。
 
 ## 永久儲存（建議設定）
 
