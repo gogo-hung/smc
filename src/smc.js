@@ -137,6 +137,7 @@ const SMC = (() => {
   // ---- 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態（吞沒 / Pin bar）；斐波、EMA、FVG、掃流動性、日線同向 = 加分 ----
   // ltf = 1H K 線；htfIn = H4 K 線（沒給就用 1H 合成）
   function analyze(sym, ltf, s, htfIn){
+    if(s.model==='bf') return analyzeBF(sym, ltf, s, htfIn);
     const htf = htfIn && htfIn.length ? htfIn : aggregate(ltf,4);
     const H=structure(htf,{...s,swingLen:s.htfSwing});
     const L=structure(ltf,s);
@@ -260,9 +261,102 @@ const SMC = (() => {
     if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
     return r;
   }
+  // ==== 策略 BF：H4 趨勢 → 1H 順勢 BOS（推動留下 FVG）→ 價格在折價區回到 FVG 中間掛單；止損 OB 外；固定 R 目標 ====
+  // 1 年回測（BingX 前 60 名、同一幣一次一單）：勝率約 45%、每筆 +0.27R、最大回撤 −8R、多空都賺
+  function htfRange(H, htf, dir){
+    const ev=[...H.events].reverse().find(e=>e.dir===dir); if(!ev) return null;
+    let hi=-Infinity, lo=Infinity; for(let i=ev.from;i<htf.length;i++){ hi=Math.max(hi,htf[i].h); lo=Math.min(lo,htf[i].l); }
+    return {hi,lo,eq:(hi+lo)/2};
+  }
+  function bfLevels(ev, dir, rg, s){
+    const f=ev.ob.fz, entry= s.bfEntry==='edge'? (dir>0? f.hi : f.lo) : (f.lo+f.hi)/2;
+    const stop=(dir>0? ev.ob.lo : ev.ob.hi)*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100);
+    const risk=Math.abs(entry-stop);
+    const target= s.bfTarget==='htf' ? (dir>0? rg.hi : rg.lo) : entry+dir*risk*(+s.tpR||2);
+    return {entry, stop, target, risk, rr: risk>0? Math.abs(target-entry)/risk : 0};
+  }
+  function analyzeBF(sym, ltf, s, htfIn){
+    const htf = htfIn && htfIn.length ? htfIn : aggregate(ltf,4);
+    const H=structure(htf,{...s,swingLen:s.htfSwing}), L=structure(ltf,s);
+    const dir=H.trend, n=ltf.length, last=ltf[n-1].c;
+    const st={htf:false,bos:false,fvg:false,pd:false,ema:false,rr:false,live:false};
+    const res={sym,dir,last,st,htf,ltf,H,L,emaLine:ema(ltf,s.emaLen||50),model:'bf',bonus:[],score:0,scoreMax:0};
+    if(!dir) return finishBF(res,s);
+    st.htf=true;
+    const rg=htfRange(H,htf,dir); res.range=rg;
+    const ev=[...L.events].reverse().find(e=>e.dir===dir && e.type==='BOS');
+    if(!ev) return finishBF(res,s);
+    st.bos=true; res.bos={idx:ev.idx, level:ev.level, age:n-1-ev.idx}; res.entryOB=ev.ob; res.sigIdx=ev.idx;
+    if(!ev.ob.fz) return finishBF(res,s);
+    st.fvg=true; res.fvgZone=ev.ob.fz; res.zone='fvg';
+    const lv=bfLevels(ev,dir,rg,s), e=res.emaLine[ev.idx];
+    st.pd = dir>0? lv.entry<=rg.eq : lv.entry>=rg.eq;
+    st.ema = e!=null && (dir>0? ltf[ev.idx].c>e : ltf[ev.idx].c<e);
+    st.rr = lv.risk>0 && (dir>0? lv.stop<lv.entry && lv.target>lv.entry : lv.stop>lv.entry && lv.target<lv.entry) && (s.bfTarget!=='htf' || lv.rr>=s.minRR);
+    // BOS 之後：有沒有成交、打到止損 / 目標、或沒成交就先跑到目標（錯過）
+    let filled=-1, gone=null;
+    for(let j=ev.idx+1;j<n;j++){ const b=ltf[j];
+      if(filled<0){ if(dir>0? b.l<=lv.entry : b.h>=lv.entry) filled=j; else if(dir>0? b.h>=lv.target : b.l<=lv.target){ gone='missed'; break; } else if(j-ev.idx>(s.bfWait||24)){ gone='expired'; break; } }
+      if(filled>=0){ if(dir>0? b.l<=lv.stop : b.h>=lv.stop){ gone='stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; } }
+    }
+    if(filled<0 && !gone && n-1-ev.idx>(s.bfWait||24)) gone='expired';
+    res.filledIdx=filled; res.gone=gone; st.live=!gone;
+    Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null,
+      p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null, dist:(last-lv.entry)/lv.entry*100});
+    return finishBF(res,s);
+  }
+  function finishBF(r,s){
+    const need=['htf','bos','fvg','pd','ema','rr','live'].filter(k=>!(k==='ema'&&s.bfEma==='off') && !(k==='pd'&&s.bfPd==='off'));
+    r.need=need; r.met=need.filter(k=>r.st[k]).length;
+    r.status = need.every(k=>r.st[k]) ? 'trigger' : (r.st.htf && r.st.bos && r.st.fvg ? 'watch' : 'idle');
+    if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
+    return r;
+  }
+  // BF 回測：結構一次算好（逐根都只看已收盤的資料），同一幣一次只做一單
+  function backtestBF(sym, ltf, htf, s, o={}){
+    if(ltf.length<350 || htf.length<60) return {trades:[], skipped:'資料不足'};
+    const fee=(o.feePct||0)/100, bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t;
+    const L=structure(ltf,s), Hs=structure(htf,{...s,swingLen:s.htfSwing}), em=ema(ltf,s.emaLen||50);
+    const hev=Hs.events.map(e=>({T:htf[e.idx].t+hbar, dir:e.dir, from:e.from, idx:e.idx}));
+    const trades=[]; let busy=-1;
+    for(const ev of L.events){
+      const i=ev.idx; if(i<300 || ev.type!=='BOS' || !ev.ob.fz || i<=busy) continue;
+      const T=ltf[i].t+bar; let k=-1; for(let a=0;a<hev.length && hev[a].T<=T;a++) k=a; if(k<0 || hev[k].dir!==ev.dir) continue;
+      const dir=ev.dir, he=hev[k]; let lastH=he.idx; while(lastH+1<htf.length && htf[lastH+1].t+hbar<=T) lastH++;
+      let hi=-Infinity, lo=Infinity; for(let j=he.from;j<=lastH;j++){ hi=Math.max(hi,htf[j].h); lo=Math.min(lo,htf[j].l); }
+      const rg={hi,lo,eq:(hi+lo)/2}, lv=bfLevels(ev,dir,rg,s);
+      if(s.bfPd!=='off' && !(dir>0? lv.entry<=rg.eq : lv.entry>=rg.eq)) continue;
+      if(s.bfEma!=='off' && !(em[i]!=null && (dir>0? ltf[i].c>em[i] : ltf[i].c<em[i]))) continue;
+      if(!(lv.risk>0) || (dir>0? lv.stop>=lv.entry : lv.stop<=lv.entry) || (s.bfTarget==='htf' && lv.rr<s.minRR)) continue;
+      if((s.side==='long'&&dir<0)||(s.side==='short'&&dir>0)) continue;
+      const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fvg',status:'pending'};
+      const p1=+s.p1>0? +s.p1 : 0; let got=0, size=1, p1Hit=false;
+      if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(T); if(b && b!==dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
+      const up=dir>0; let fill=-1, sl=t.stop, beHit=false, end=ltf.length;
+      for(let j=i+1;j<ltf.length;j++){ const b=ltf[j];
+        if(fill<0){
+          if(j-i>(s.bfWait||24)){ t.status='expired'; end=j; break; }
+          if(up? b.l<=t.entry : b.h>=t.entry){ fill=j; t.status='filled'; t.filledT=b.t; }
+          else if(up? b.h>=t.target : b.l<=t.target){ t.status='missed'; end=j; break; }
+        }
+        if(fill>=0){
+          if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
+          if(p1 && !p1Hit && j>fill && (up? b.h>=t.entry+(t.entry-t.stop)*p1 : b.l<=t.entry-(t.stop-t.entry)*p1)){ p1Hit=true; got=0.5*p1; size=0.5; sl=t.entry; }
+          if(j>fill && (up? b.h>=t.target : b.l<=t.target)){ t.status='win'; t.R=got+size*t.rr; t.closedT=b.t+bar; end=j; break; }
+          if(!p1 && s.beAt>0 && !beHit && j>fill && (up? b.h>=t.entry+(t.target-t.entry)*s.beAt : b.l<=t.entry-(t.entry-t.target)*s.beAt)){ beHit=true; sl=t.entry; }
+        }
+      }
+      if(t.status==='filled'){ t.status='open'; }
+      busy=end;
+      if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
+      trades.push(t);
+    }
+    return {trades};
+  }
   // ---- 歷史回測：逐根 1H 收盤往前走，每次只用「當時已收盤」的 K 棒判斷，不偷看未來 ----
   // o: { window: 1H 視窗（跟實盤一樣 300）, htfWindow: 200, maxWait: 幾根內沒進場算過期, feePct: 單邊手續費+滑點 %, btcDirAt(t) }
   function backtest(sym, ltf, htf, s, o={}){
+    if(s.model==='bf') return backtestBF(sym, ltf, htf, s, o);
     const W=o.window||300, HW=o.htfWindow||500, maxWait=o.maxWait||24, fee=(o.feePct||0)/100;
     if(ltf.length<W+10 || htf.length<60) return {trades:[], skipped:'資料不足'};
     const bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t, trades=[];
