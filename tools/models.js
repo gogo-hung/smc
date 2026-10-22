@@ -4,7 +4,7 @@
 // OB = 現行策略（回到 OB / FVG 出吞沒 + EMA + 斐波）
 const fs = require('fs'), path = require('path');
 const SMC = require('../src/smc');
-const { load, DAYS } = require('./hist');
+const { load, DAYS, SOURCE, EXCHANGE } = require('./hist');
 const H = 3600e3, H4 = 4 * H, FEE = 0.0006;
 
 function prep(d) {
@@ -150,9 +150,9 @@ function stats(tr) {
     console.log(c.name, a.n, (a.wr * 100).toFixed(0) + '%', a.R.toFixed(1));
   }
   const f = v => (v > 0 ? '+' : '') + v.toFixed(1), p = v => (v * 100).toFixed(0) + '%';
-  const md = [`# 模型比較（${DAYS} 天，${Object.keys(data).length} 幣，手續費 0.06%×2）`, '',
+  const md = [`# 模型比較（${DAYS} 天，資料：${SOURCE === "ccxt" ? "ccxt / " + EXCHANGE : "BingX REST"}，${Object.keys(data).length} 幣，手續費 0.06%×2）`, '',
     '| 設定 | 筆數 | 勝率 | 平均R | 累計R | PF | 回撤 | 連虧 | 前半 R / 勝率 | 後半 R / 勝率 | 多 R / 勝率 | 空 R / 勝率 |', '|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map(r => `| ${r.name} | ${r.n} | ${p(r.wr)} | ${(r.avg > 0 ? '+' : '') + r.avg.toFixed(2)} | ${f(r.R)} | ${r.pf.toFixed(2)} | ${r.dd.toFixed(1)} | ${r.ms} | ${f(r.h1.R)} / ${p(r.h1.wr)} | ${f(r.h2.R)} / ${p(r.h2.wr)} | ${f(r.lR)} / ${p(r.lw)} | ${f(r.sR)} / ${p(r.sw)} |`)].join('\n');
   console.log('\n' + md);
-  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `models-${DAYS}.md`), md);
+  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `models-${SOURCE}-${DAYS}.md`), md);
 })().catch(e => { console.error(e); process.exit(1); });

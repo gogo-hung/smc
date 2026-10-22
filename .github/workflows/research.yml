@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+concurrency:
+  group: research
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -19,11 +22,12 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: research-cache
-          key: hist-${{ steps.d.outputs.day }}-v2
+          key: hist-${{ steps.d.outputs.day }}-v3
           restore-keys: hist-${{ steps.d.outputs.day }}-
+      - run: npm i --no-save ccxt@4.5.84
       - run: node tools/models.js
-        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365" }
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "bingx" }
       - run: |
           mkdir -p results && cp research-cache/*.md results/ && cp research-cache/trades-*.json results/ 2>/dev/null || true
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
-          git add results && git commit -m "research result" && git push
+          git add results && git commit -m "research result" && git pull --rebase && git push
