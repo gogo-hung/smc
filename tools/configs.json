@@ -1,122 +1,149 @@
 [
 {
-"name": "BOS+FVG 2R、1R 平一半（網站預設）",
+"name": "你的版本：0.715 對到 FVG/OB、止損剛好斐波 1、止盈前高",
 "rules": {
-"model": "bf",
+"model": "mtf",
 "side": "both",
-"tpR": 2,
-"p1": 1,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
 "beAt": 0,
-"btcFilter": "block"
-}
-},
-{
-"name": "同上，掛單手續費 0.035%",
-"rules": {
-"model": "bf",
-"side": "both",
-"tpR": 2,
-"p1": 1,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
-"beAt": 0,
-"btcFilter": "block"
+"stopBuf": 0,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
 },
 "fee": 0.035
 },
 {
-"name": "2R 不分批",
+"name": "同上，0.715 不要求對到 FVG/OB",
 "rules": {
-"model": "bf",
+"model": "mtf",
 "side": "both",
-"tpR": 2,
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
 "p1": 0,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
 "beAt": 0,
-"btcFilter": "block"
-}
+"stopBuf": 0,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "off"
+},
+"fee": 0.035
 },
 {
-"name": "1.5R 不分批",
+"name": "同上＋止損多留 0.1%",
 "rules": {
-"model": "bf",
+"model": "mtf",
 "side": "both",
-"tpR": 1.5,
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
 "p1": 0,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
 "beAt": 0,
-"btcFilter": "block"
-}
+"stopBuf": 0.1,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
 },
 {
-"name": "3R 不分批",
+"name": "同上＋止損多留 0.2%（目前）",
 "rules": {
-"model": "bf",
+"model": "mtf",
 "side": "both",
-"tpR": 3,
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
 "p1": 0,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
 "beAt": 0,
-"btcFilter": "block"
-}
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
 },
 {
-"name": "3R、1R 平一半",
+"name": "止損斐波 1、止盈前高、不看 BTC",
 "rules": {
-"model": "bf",
+"model": "mtf",
 "side": "both",
-"tpR": 3,
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0,
+"btcFilter": "off",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
+},
+{
+"name": "止損斐波 1、1R 平一半",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
 "p1": 1,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
 "beAt": 0,
-"btcFilter": "block"
-}
+"stopBuf": 0,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
 },
 {
-"name": "2R、1R 平一半、不看 BTC",
+"name": "止損斐波 1、等 24H",
 "rules": {
-"model": "bf",
+"model": "mtf",
 "side": "both",
-"tpR": 2,
-"p1": 1,
-"bfEntry": "mid",
-"bfTarget": "fixed",
-"bfEma": "on",
-"bfPd": "on",
-"bfWait": 24,
-"stopBuf": 0.2,
+"mtfFib": 0.715,
+"mtfWait": 96,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
 "beAt": 0,
-"btcFilter": "off"
-}
+"stopBuf": 0,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
 }
 ]
