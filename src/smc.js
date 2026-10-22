@@ -380,17 +380,21 @@ const SMC = (() => {
     const risk=Math.abs(entry-stop);
     return {entry, stop, target, risk, rr: risk>0? Math.abs(target-entry)/risk : 0};
   }
+  // 0.715 有沒有落在 15M 這段推動的 OB / FVG 裡（「FVG、OB 搭配斐波」）
+  const confAt=(e,p)=>{ const zs=[e.ob, e.ob.fz].filter(Boolean); return zs.some(z=>p>=z.lo*(1-0.001) && p<=z.hi*(1+0.001)); };
+  // 破位夠不夠明顯：CHoCH 那根實體 ≥ k 倍 ATR14
+  const dispOk=(c,i,k)=>{ if(!(k>0)) return true; let a=0,n=0; for(let j=Math.max(1,i-14);j<i;j++){ a+=Math.max(c[j].h-c[j].l,Math.abs(c[j].h-c[j-1].c),Math.abs(c[j].l-c[j-1].c)); n++; } return n && Math.abs(c[i].c-c[i].o)>=k*(a/n); };
   function analyzeMTF(sym, ltf, s, htfIn){
     const htf=htfIn||[], H=structure(htf,{...s,swingLen:s.htfSwing}), L=structure(ltf,{...s,swingLen:s.mtfSwing||3});
     const dir=H.trend, n=ltf.length, last=ltf[n-1].c;
-    const st={htf:false,poi:false,choch:false,fvg15:false,rr:false,live:false};
+    const st={htf:false,poi:false,choch:false,fvg15:false,conf:false,rr:false,live:false};
     const res={sym,dir,last,st,htf,ltf,H,L,emaLine:ema(ltf,s.emaLen||50),model:'mtf',bonus:[],score:0,scoreMax:0,tf:'15M'};
     if(!dir || htf.length<30) return finishMTF(res,s);
     st.htf=true;
     const pois=poisAt(H,htf,dir,htf.length-1,s); res.pois=pois; const rg=htfRange(H,htf,dir); res.range=rg;
     const e=[...L.events].reverse().find(x=>x.dir===dir && x.type==='CHoCH');
     if(!e) { res.inPoi=pois.find(z=>inZone(z,dir,dir>0? Math.min(...ltf.slice(-16).map(b=>b.l)) : Math.max(...ltf.slice(-16).map(b=>b.h)))); return finishMTF(res,s); }
-    st.choch=true; res.choch={idx:e.idx, level:e.level, age:n-1-e.idx}; res.sigIdx=e.idx; res.entryOB=e.ob;
+    st.choch=dispOk(ltf,e.idx,+s.mtfDisp||0); res.choch={idx:e.idx, level:e.level, age:n-1-e.idx}; res.sigIdx=e.idx; res.entryOB=e.ob;
     const {m, lo}=mtfSetup(ltf,e,n,s);
     const poi=pois.find(z=>inZone(z,dir,lo)); st.poi=!!poi; res.poi=poi||null;
     st.fvg15=!!e.ob.fz || s.mtfFvg==='off'; if(e.ob.fz) res.fvgZone=e.ob.fz;
@@ -409,6 +413,7 @@ const SMC = (() => {
     if(filled<0 && !gone && n-1-e.idx>(s.mtfWait||48)) gone='expired';
     res.filledIdx=filled; res.gone=gone; st.live=!gone;
     st.rr= lv.risk>0 && lv.rr>=(+s.mtfMinRR||1.5) && Math.abs(lv.entry-lv.stop)/lv.entry*100>=(+s.mtfMinStop||0);
+    st.conf= s.mtfConf!=='on' || confAt(e,lv.entry);
     res.fib={lo: dir>0? lo:hi, hi: dir>0? hi:lo, from:m, to:n-1, levels:[0,0.5,+s.mtfFib||0.715,1].map(r=>({r, p: dir>0? hi-(hi-lo)*r : hi+(lo-hi)*r}))};
     Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null,
       be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null, dist:(last-lv.entry)/lv.entry*100, stopBasis:'前低', zone:'fib',
@@ -416,7 +421,7 @@ const SMC = (() => {
     return finishMTF(res,s);
   }
   function finishMTF(r,s){
-    const need=['htf','poi','choch','fvg15','rr','live'];
+    const need=['htf','poi','choch','fvg15','conf','rr','live'];
     r.need=need; r.met=need.filter(k=>r.st[k]).length;
     r.status = need.every(k=>r.st[k]) ? 'trigger' : (r.st.htf && (r.st.poi || r.inPoi) ? 'watch' : 'idle');
     if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
@@ -431,6 +436,7 @@ const SMC = (() => {
     for(const e of L.events){
       const i=e.idx; if(i<300 || e.type!=='CHoCH' || i<=busy) continue;
       if(s.mtfFvg!=='off' && !e.ob.fz) continue;
+      if(!dispOk(ltf,i,+s.mtfDisp||0)) continue;
       const T=ltf[i].t+bar; while(hk+1<htf.length && htf[hk+1].t+hbar<=T) hk++; if(hk<30) continue;
       let hd=0; for(const he of Hs.events){ if(he.idx>hk) break; hd=he.dir; } if(hd!==e.dir) continue;
       const dir=e.dir; if((s.side==='long'&&dir<0)||(s.side==='short'&&dir>0)) continue;
@@ -457,7 +463,7 @@ const SMC = (() => {
         }
       }
       if(t.status==='filled') t.status='open';
-      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5) || Math.abs(t.entry-t.stop)/t.entry*100<(+s.mtfMinStop||0)){ continue; } }
+      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5) || Math.abs(t.entry-t.stop)/t.entry*100<(+s.mtfMinStop||0) || (s.mtfConf==='on' && !confAt(e,t.entry))){ continue; } }
       busy=end;
       if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
       trades.push(t);
