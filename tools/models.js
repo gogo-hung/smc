@@ -116,7 +116,7 @@ function run(data, P, btc, cfg) {
     else { setups = []; const fn = cfg.model === 'SC' ? modelSC : modelBF; for (let i = 300; i < p.L.length; i++) { const s = fn(p, i, cfg.m); if (s) setups.push(s); } }
     let busy = -1;
     for (const s of setups) {
-      if (s.i <= busy) continue;
+      if (!cfg.overlap && s.i <= busy) continue;
       const T = p.L[s.i].t + H;
       if (cfg.btc !== false && sym !== 'BTC') { const b = htfAt(btc, T); if (!b || b.dir !== s.dir) continue; }
       const r = sim(p.L, s, cfg.s); if (!r) continue;
