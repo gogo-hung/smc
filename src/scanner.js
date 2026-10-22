@@ -66,8 +66,9 @@ async function pickUniverse() {
 function rerun() {
   const out = [];
   for (const [sym, m] of Object.entries(state.market)) {
-    if (!m.ltf || m.ltf.length < 50) continue;
-    try { out.push(SMC.analyze(sym, m.ltf, state.rules, m.htf)); }
+    const bars = state.rules.model === 'mtf' ? m.m15 : m.ltf;   // MTF 模型用 15M 找進場
+    if (!bars || bars.length < 50) continue;
+    try { out.push(SMC.analyze(sym, bars, state.rules, m.htf)); }
     catch (e) { state.errors.push(`${sym} 判斷失敗：${e.message}`); }
   }
   // BTC 的 H4 方向 = 大盤方向，再套到每個幣
@@ -92,11 +93,12 @@ async function scanOnce() {
       const prev = state.market[sym];
       // 4H 只在有新 K 棒收盤時才重抓
       const htfStale = !prev || !prev.htf || !prev.htf.length || now >= prev.htf[prev.htf.length - 1].t + 2 * bingx.INTERVAL_MS['4h'];
-      const [ltf, htf] = await Promise.all([
+      const [ltf, htf, m15] = await Promise.all([
         bingx.getKlines(symbol, cfg.LTF_INTERVAL, cfg.LTF_LIMIT),
         htfStale ? bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT) : Promise.resolve(prev.htf),
+        state.rules.model === 'mtf' ? bingx.getKlines(symbol, '15m', cfg.M15_LIMIT) : Promise.resolve(undefined),
       ]);
-      return { sym, symbol, ltf, htf, quoteVolume: vol.get(symbol) || 0, price: price.get(symbol) };
+      return { sym, symbol, ltf, htf, m15, quoteVolume: vol.get(symbol) || 0, price: price.get(symbol) };
     });
     const market = {};
     for (const f of fetched) {
@@ -129,9 +131,10 @@ async function addSymbol(raw) {
   const symbol = `${sym}-USDT`;
   const contracts = await bingx.getContracts();
   if (!contracts.includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });
-  const [ltf, htf] = await Promise.all([bingx.getKlines(symbol, cfg.LTF_INTERVAL, cfg.LTF_LIMIT), bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT)]);
+  const [ltf, htf, m15] = await Promise.all([bingx.getKlines(symbol, cfg.LTF_INTERVAL, cfg.LTF_LIMIT), bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT),
+    state.rules.model === 'mtf' ? bingx.getKlines(symbol, '15m', cfg.M15_LIMIT) : Promise.resolve(undefined)]);
   if (ltf.length < 50) throw Object.assign(new Error(`${sym} 上市時間太短，K 線不足`), { code: 422 });
-  state.market[sym] = { sym, symbol, ltf, htf, quoteVolume: 0 };
+  state.market[sym] = { sym, symbol, ltf, htf, m15, quoteVolume: 0 };
   state.extras = [...state.extras.filter(s => s !== sym), sym].slice(-cfg.EXTRA_MAX);
   await store.save('extras', state.extras);
   rerun();

@@ -28,8 +28,8 @@ const brief = r => ({
 });
 // 回測用的歷史資料（暫存 2 小時，避免重複抓）
 const histCache = new Map();
-async function history(sym, days) {
-  const key = `${sym}|${days}`, hit = histCache.get(key);
+async function history(sym, days, withM15 = false) {
+  const key = `${sym}|${days}|${withM15 ? 'm15' : ''}`, hit = histCache.get(key);
   if (hit && Date.now() - hit.at < 2 * 3600e3) return hit.data;
   const symbol = `${sym}-USDT`;
   if (!(await bingx.getContracts()).includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });
@@ -37,6 +37,7 @@ async function history(sym, days) {
   const ltf = await bingx.getKlinesRange(symbol, '1h', now - days * 86400e3 - warm, now);
   const htf = await bingx.getKlinesRange(symbol, '4h', now - days * 86400e3 - 500 * 4 * 3600e3, now); // 多抓 500 根 4H（也用來合成日線）
   const data = { sym, days, ltf: pack(ltf), htf: pack(htf) };
+  if (withM15) data.m15 = pack(await bingx.getKlinesRange(symbol, '15m', now - Math.min(days, 90) * 86400e3 - 300 * 900e3, now)); // 15M 最多 90 天
   histCache.set(key, { at: Date.now(), data });
   if (histCache.size > 80) histCache.delete(histCache.keys().next().value);
   return data;
@@ -69,7 +70,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/market' && req.method === 'GET') {
       return send(res, 200, {
         updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx,
-        symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf) })),
+        symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf), ...(m.m15 ? { m15: pack(m.m15) } : {}) })),
       });
     }
     if (url.pathname === '/api/signals' && req.method === 'GET') {
@@ -129,7 +130,7 @@ const server = http.createServer(async (req, res) => {
       const days = Math.min(180, Math.max(7, +url.searchParams.get('days') || 90));
       if (!sym) return send(res, 400, { error: '缺少 sym' });
       try {
-        const data = await history(sym, days);
+        const data = await history(sym, days, url.searchParams.get('m15') === '1');
         if (url.searchParams.get('meta') === '1') { // 檢查用：只回根數、起訖、缺口
           const info = arr => { const step = arr.length > 1 ? Math.min(...arr.slice(1, 50).map((b, i) => b[0] - arr[i][0])) : 0;
             const gaps = []; for (let i = 1; i < arr.length; i++) if (arr[i][0] - arr[i - 1][0] !== step) gaps.push({ after: new Date(arr[i - 1][0]).toISOString(), missing: (arr[i][0] - arr[i - 1][0]) / step - 1 });

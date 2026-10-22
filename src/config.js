@@ -33,6 +33,7 @@ module.exports = {
 
   LTF_INTERVAL: '1h',                            // 找 OB、吞沒、EMA50 的時框
   LTF_LIMIT: num(process.env.LTF_LIMIT, 300),    // 1H 根數（約 12 天）
+  M15_LIMIT: num(process.env.M15_LIMIT, 300),    // 15M 根數（MTF 模型用，約 3 天）
   HTF_LIMIT: num(process.env.HTF_LIMIT, 500),    // 4H 根數（約 83 天，也拿來合成日線）
   CONCURRENCY: num(process.env.CONCURRENCY, 4),
   REQUEST_GAP_MS: num(process.env.REQUEST_GAP_MS, 120),

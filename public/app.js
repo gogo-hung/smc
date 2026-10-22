@@ -8,7 +8,7 @@ const BASE = {BTC:98000,ETH:3600,SOL:180,XRP:2.4,DOGE:0.21,BNB:640,ADA:0.7,AVAX:
 const SEED = {SOL:87,SUI:107,INJ:10,AVAX:290};
 const unpack = a => a.map(k=>({t:k[0],o:k[1],h:k[2],l:k[3],c:k[4],v:k[5]}));
 const DataSource = {
-  mode:'demo', list:Object.keys(BASE), series:{}, htfs:{}, tick:0, updatedAt:null, serverRules:null, ctx:{btcDir:0,funding:{}},
+  mode:'demo', list:Object.keys(BASE), series:{}, htfs:{}, m15s:{}, tick:0, updatedAt:null, serverRules:null, ctx:{btcDir:0,funding:{}},
   async init(){
     let r;
     try{ r=await fetch('api/market',{cache:'no-store'}); }catch(e){ return; }
@@ -19,11 +19,12 @@ const DataSource = {
   async apply(j){
     this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx;
     this.list=(j.symbols||[]).map(x=>x.sym);
-    for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); }
+    for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); if(x.m15) this.m15s[x.sym]=unpack(x.m15); }
   },
   async refresh(){ const r=await fetch('api/market',{cache:'no-store'}); if(r.ok) await this.apply(await r.json()); },
   ltf(sym){ if(this.mode==='demo'){ if(!this.series[sym]) this.series[sym]=SMC.genSeries(sym,BASE[sym],1920,SEED[sym]||1); return SMC.aggregate(this.series[sym],4); } return this.series[sym]; }, // 示範：15M 合成 1H
   htf(sym){ return this.mode==='live'? this.htfs[sym] : undefined; },
+  m15(sym){ if(this.mode==='demo'){ this.ltf(sym); return this.series[sym]; } return this.m15s[sym]; },
   async advance(){
     if(this.mode==='demo'){ this.tick++; for(const s in this.series) SMC.addBar(this.series[s], s, this.tick); return; }
     const r=await fetch('api/scan',{method:'POST'}); if(r && r.ok){ const j=await r.json().catch(()=>({})); if(j.skipped) showToast('1 分鐘內剛掃描過，已顯示最新結果'); await this.refresh(); }
@@ -46,11 +47,13 @@ async function adminFetch(url,opt={}){
 // 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態；斐波、EMA、FVG、掃流動性、日線同向 = 加分
 const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,emaLen:50,lookback:10,entry:'close',minRR:3,stopBuf:0.2,target:'htf',btcFilter:'block',fundingMax:0.05,side:'both',stopMode:'ob',
   pattern:'engulf',cFib:'need',cEma:'need',cFvg:'need',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5,minQuality:0,fvgEntry:'on',fvgStop:'ob',fvgFib:0,
-  model:'bf',tpR:2,p1:1,bfEntry:'mid',bfTarget:'fixed',bfEma:'on',bfPd:'on',bfWait:24};
+  model:'bf',tpR:2,p1:1,mtfFib:0.715,mtfWait:48,mtfFvg:'on',mtfMinRR:1.5,mtfReanchor:'on',mtfSwing:3,mtfPois:6,bfEntry:'mid',bfTarget:'fixed',bfEma:'on',bfPd:'on',bfWait:24};
 const FVG_ZH={waiting:'等價格回到 FVG',testing:'價格在 FVG 裡，觀察反應',broken:'FVG 已被收盤穿過 → 改看 OB',entry:'FVG 反應確認'};
 const BONUS_ZH={fib:'斐波便宜區',ema:'EMA 順勢',fvg:'OB 帶 FVG',sweep:'掃流動性',daily:'日線同向'};
 const condKey=k=>'c'+k[0].toUpperCase()+k.slice(1);
 function ruleChips(r){
+  if(r.model==='mtf') return ['4H OB / FVG → 15M CHoCH', r.mtfFvg!=='off'?'15M 推動要有 FVG':'', `斐波 ${r.mtfFib} 掛單`, '止損前低・止盈前高（做空相反）', `RR ≥ ${r.mtfMinRR}`, `${Math.round(r.mtfWait/4)}H 沒成交取消`,
+    r.mtfReanchor!=='off'?'成交前斐波跟著新高更新':'', r.p1>0?`${r.p1}R 平一半＋保本`:'不分批', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做'].filter(Boolean);
   if(r.model==='bf') return ['BOS + FVG 回踩', `FVG ${r.bfEntry==='edge'?'邊緣':'中間'}掛限價單`, `止損 OB 外 + ${r.stopBuf}%`, r.bfTarget==='htf'?`目標 H4 極值（RR ≥ ${r.minRR}）`:`目標 ${r.tpR}R`,
     r.bfEma!=='off'?`EMA${r.emaLen} 順勢`:'', r.bfPd!=='off'?'折價 / 溢價區':'', `${r.bfWait}H 沒成交取消`, r.p1>0?`${r.p1}R 平一半＋保本`: r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不分批',
     {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做'].filter(Boolean);
@@ -68,14 +71,16 @@ function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type
 
 // ---- state ----
 let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
-const STAGES=[['htf','H4 趨勢'],['bos','1H 順勢 BOS'],['pd','折價 / 溢價區'],['live','掛單有效'],['ob','1H OB'],['engulf','1H 型態'],['rr','RR 達標'],['fib','斐波便宜區'],['ema','EMA 順勢'],['fvg','OB 帶 FVG'],['sweep','掃流動性'],['daily','日線同向']];
+const STAGES=[['htf','H4 趨勢'],['poi','回到 4H OB / FVG'],['choch','15M CHoCH 換方向'],['fvg15','15M 推動有 FVG'],['bos','1H 順勢 BOS'],['pd','折價 / 溢價區'],['live','掛單有效'],['ob','1H OB'],['engulf','1H 型態'],['rr','RR 達標'],['fib','斐波便宜區'],['ema','EMA 順勢'],['fvg','OB 帶 FVG'],['sweep','掃流動性'],['daily','日線同向']];
 const stagesOf=r=>STAGES.filter(([k])=>r.need.includes(k)||(r.bonus||[]).includes(k));
 
 const fp = p => p==null||!isFinite(p) ? '—' : p>=1000? p.toLocaleString('en-US',{maximumFractionDigits:1}) : p>=10? p.toFixed(2) : p>=1? p.toFixed(3) : p>=0.01? p.toFixed(4) : p.toPrecision(4);
 const hhmm = d => d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});
 
 function scan(){
-  results = DataSource.list.filter(s=>(DataSource.ltf(s)||[]).length>=50).map(s=>SMC.analyze(s, DataSource.ltf(s), rules, DataSource.htf(s)));
+  const barsOf=s=> rules.model==='mtf'? DataSource.m15(s) : DataSource.ltf(s), htfOf=s=> DataSource.htf(s) || (rules.model==='mtf'? SMC.aggregate(DataSource.m15(s)||[],16) : undefined);
+  results = DataSource.list.filter(s=>(barsOf(s)||[]).length>=50).map(s=>SMC.analyze(s, barsOf(s), rules, htfOf(s)));
+  if(rules.model==='mtf' && DataSource.mode==='live' && !Object.keys(DataSource.m15s).length) showToast('15M 資料要等伺服器改用「4H→15M」模型後才會有（按「套用到推播」）');
   const btc=results.find(r=>r.sym==='BTC'), ctx={btcDir: btc? btc.dir : 0, funding:(DataSource.ctx&&DataSource.ctx.funding)||{}};
   results.forEach(r=>SMC.applyContext(r,ctx,rules));
   $('nBtc').innerHTML = ctx.btcDir? `<span class="dir ${ctx.btcDir>0?'L':'S'}" style="font-size:16px">${ctx.btcDir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:16px">盤整</span>';
@@ -99,6 +104,7 @@ function showToast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; 
 const barMs=r=> r.ltf&&r.ltf.length>1 ? r.ltf[1].t-r.ltf[0].t : 3600e3;
 const tfName=ms=> ms>=86400e3?'D1': ms>=14400e3?'H4': ms>=3600e3?'1H': `${Math.round(ms/60000)}M`;
 function since(r){
+  if(r.model==='mtf'){ const i=r.sigIdx; if(i==null||!r.ltf[i]||r.status==='idle') return null; return { ts: r.ltf[i].t + barMs(r), what: 'CHoCH 出現', tf: tfName(barMs(r)) }; }
   if(r.model==='bf'){ const i=r.sigIdx; if(i==null||!r.ltf[i]||r.status==='idle') return null; return { ts: r.ltf[i].t + barMs(r), what: 'BOS 出現', tf: tfName(barMs(r)) }; }
   const idx = r.status==='trigger' ? r.sigIdx : r.status==='watch' ? r.fibIdx : null;
   if(idx==null || !r.ltf[idx]) return null;
@@ -132,7 +138,7 @@ function renderRows(){
     return `<div class="card ${r.status}" data-s="${r.sym}" role="option" tabindex="0" aria-selected="${r.sym===selected}">
       <div class="hd"><b>${r.sym}</b>${dir}${r.quality&&r.engulf?`<span class="qs g${r.quality.grade}" title="品質分數（越高越好）">${r.quality.score}<i>${r.quality.grade}</i></span>`:''}<span class="status ${r.status}">${stTxt}</span></div>
       ${(s=>s? `<div class="age ${Date.now()-s.ts<3600e3?'fresh':''}" data-ts="${s.ts}" title="${s.what}：${fullTime(s.ts)}"><span class="tf">${s.tf}</span>${s.what} <b>${ago(s.ts)}</b></div>` : '')(since(r))}
-      ${(r.flags&&r.flags.length)||r.blocked||(r.fvgState&&r.status!=='idle')||(r.model==='bf'&&r.status==='trigger')? `<div class="tags">${r.model==='bf'&&r.status==='trigger'?`<span class="z">${r.filledIdx>=0?'已成交':'掛單中'}</span>`:r.status==='trigger'&&r.zone==='fvg'?'<span class="z">FVG 進場</span>':''}${r.status==='watch'&&r.fvgState&&r.fvgState!=='entry'?`<span class="z">${{waiting:'等 FVG',testing:'FVG 觀察中',broken:'FVG 破 → 看 OB'}[r.fvgState]}</span>`:''}${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
+      ${(r.flags&&r.flags.length)||r.blocked||(r.fvgState&&r.status!=='idle')||((r.model==='bf'||r.model==='mtf')&&r.status==='trigger')? `<div class="tags">${(r.model==='bf'||r.model==='mtf')&&r.status==='trigger'?`<span class="z">${r.filledIdx>=0?'已成交':'掛單中'}</span>`:r.status==='trigger'&&r.zone==='fvg'?'<span class="z">FVG 進場</span>':''}${r.status==='watch'&&r.fvgState&&r.fvgState!=='entry'?`<span class="z">${{waiting:'等 FVG',testing:'FVG 觀察中',broken:'FVG 破 → 看 OB'}[r.fvgState]}</span>`:''}${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
       <div class="px"><span class="p">${fp(r.last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
       ${spark(r)}
       <div class="prog"><span class="stages">${stages}</span><span>${r.met}/${r.need.length}${r.scoreMax?` · 加分 ${r.score}/${r.scoreMax}`:''}</span></div>
@@ -153,7 +159,8 @@ function renderDetail(){
   const r=results.find(x=>x.sym===selected); if(!r) return;
   $('dName').innerHTML=`${r.sym}<span class="muted" style="font-size:14px">/USDT</span>`;
   const sn=since(r);
-  $('dSub').textContent=`現價 ${fp(r.last)} · ${r.model==='bf' ? (r.status==='trigger'? (r.filledIdx>=0?'已成交，持倉中':'掛單中：等價格回到 FVG 中間') : r.status==='watch'? ({missed:'沒回到 FVG 就先到目標，錯過',expired:'超過時間沒成交，已取消',stopped:'這筆已打到止損',done:'這筆已到目標'}[r.gone] || '有 BOS 和 FVG，但條件還沒全部成立') : '條件未成形') : (r.status==='trigger'?`${r.engulf.kind}確認，訊號成立（加分 ${r.score}/${r.scoreMax}）`: r.lowScore?`條件都到了，但加分只有 ${r.score}/${r.scoreMax}`: r.status==='watch'?'有 1H OB，等型態出現':'條件未成形')}${sn?` · ${sn.tf} ${sn.what} ${ago(sn.ts)}（${fullTime(sn.ts)}）`:''}`;
+  document.querySelector('[data-tf="ltf"]').textContent = r.model==='mtf' ? '15M' : '1H';
+  $('dSub').textContent=`現價 ${fp(r.last)} · ${r.model==='mtf' ? (r.status==='trigger'? (r.filledIdx>=0?'已成交，持倉中':'掛單中：等價格回到斐波 0.715') : r.status==='watch'? ({missed:'沒回 0.715 就先到前高，錯過',expired:'超過時間沒成交，已取消',stopped:'這筆已打到止損',done:'這筆已到目標',invalid:'收盤破了推動起點，取消'}[r.gone] || (r.st.poi||r.inPoi? '價格在 4H 區域，等 15M 換方向' : '有 4H 區域，等價格回踩')) : '條件未成形') : r.model==='bf' ? (r.status==='trigger'? (r.filledIdx>=0?'已成交，持倉中':'掛單中：等價格回到 FVG 中間') : r.status==='watch'? ({missed:'沒回到 FVG 就先到目標，錯過',expired:'超過時間沒成交，已取消',stopped:'這筆已打到止損',done:'這筆已到目標'}[r.gone] || '有 BOS 和 FVG，但條件還沒全部成立') : '條件未成形') : (r.status==='trigger'?`${r.engulf.kind}確認，訊號成立（加分 ${r.score}/${r.scoreMax}）`: r.lowScore?`條件都到了，但加分只有 ${r.score}/${r.scoreMax}`: r.status==='watch'?'有 1H OB，等型態出現':'條件未成形')}${sn?` · ${sn.tf} ${sn.what} ${ago(sn.ts)}（${fullTime(sn.ts)}）`:''}`;
   const lv=[['進場',r.entry],['止損',r.stop],['目標',r.target],['RR',r.rr],...(r.be!=null?[['移保本',r.be]]:[]),...(r.p1!=null?[[`${r.p1R}R 平一半`,r.p1]]:[])];
   $('levels').innerHTML=lv.map(([k,v])=>`<div class="lv"><div class="label">${k}</div><div class="x">${k==='RR'?(v?v.toFixed(2):'—'):fp(v)}</div></div>`).join('');
   const D=r.dir>0;
@@ -169,6 +176,12 @@ function renderDetail(){
     daily: r.dailyDir==null? '日線資料不足' : `日線${r.dailyDir>0?'多頭':r.dailyDir<0?'空頭':'盤整'}`,
     rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）・止損在${r.stopBasis||''}外` : '—'
   };
+  if(r.model==='mtf') Object.assign(val,{
+    poi: r.poi? `4H ${r.poi.kind} ${fp(r.poi.lo)} – ${fp(r.poi.hi)}，15M ${r.dir>0?"前低":"前高"} ${fp(r.legLo)} 在區域裡` : r.inPoi? `價格正在 4H ${r.inPoi.kind}（${fp(r.inPoi.lo)} – ${fp(r.inPoi.hi)}）` : (r.pois&&r.pois.length? `有 ${r.pois.length} 個有效的 4H 區域，價格還沒回到` : '沒有有效的 4H OB / FVG'),
+    choch: r.choch? `${new Date(r.ltf[r.choch.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤突破 ${fp(r.choch.level)}（${r.choch.age} 根 15M 前）` : '15M 還沒有順勢換方向',
+    fvg15: r.fvgZone? `15M FVG ${fp(r.fvgZone.lo)} – ${fp(r.fvgZone.hi)}` : (r.choch?'這段推動沒有 FVG':'—'),
+    live: r.gone? {missed:'沒回 0.715 就到前高（錯過）',expired:`超過 ${Math.round(rules.mtfWait/4)} 小時沒成交`,stopped:'已打到止損',done:'已到目標',invalid:'收盤破了推動起點，取消'}[r.gone] : r.filledIdx>=0? '已成交，持倉中' : `等成交（還剩 ${Math.max(0,rules.mtfWait-(r.choch?r.choch.age:0))} 根 15M）`,
+    rr: r.rr? `${r.rr.toFixed(2)}R（門檻 ${rules.mtfMinRR}）・${r.dir>0?"止損前低、止盈前高":"止損前高、止盈前低"}` : '—' });
   if(r.model==='bf') Object.assign(val,{
     bos: r.bos? `${new Date(r.ltf[r.bos.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤突破 ${fp(r.bos.level)}（${r.bos.age} 根前）` : '最近沒有順勢 BOS',
     fvg: r.fvgZone? `FVG ${fp(r.fvgZone.lo)} – ${fp(r.fvgZone.hi)}，掛 ${fp(r.entry)}` : (r.bos?'這次 BOS 沒有留下 FVG':'—'),
@@ -231,12 +244,12 @@ function drawChart(g,W,H,r,tf,C){
   if(tf==='htf' && r.range){ g.setLineDash([2,4]); g.strokeStyle=C('--muted'); g.beginPath(); g.moveTo(8,y(r.range.eq)); g.lineTo(W-R,y(r.range.eq)); g.stroke(); g.setLineDash([]); tag('EQ',10,y(r.range.eq)-8,C('--muted')); }
   // 斐波（1H 推動段）
   if(tf==='ltf' && r.fib){ const x0=Math.max(8,x(Math.max(off,r.fib.from))-cw/2);
-    r.fib.levels.forEach(L=>{ if(L.p<lo||L.p>hi) return; const yy=Math.round(y(L.p))+.5, key=L.r===0.5||L.r===rules.fibMin;
+    r.fib.levels.forEach(L=>{ if(L.p<lo||L.p>hi) return; const yy=Math.round(y(L.p))+.5, key=L.r===0.5||L.r===(r.model==='mtf'?+rules.mtfFib:rules.fibMin);
       g.strokeStyle=C('--muted'); g.globalAlpha=key?.9:.45; g.setLineDash(L.r===0||L.r===1?[]:[2,3]); g.beginPath(); g.moveTo(x0,yy); g.lineTo(W-R,yy); g.stroke(); g.setLineDash([]); g.globalAlpha=1;
       g.fillStyle=C('--muted'); g.font='10px "JetBrains Mono",monospace'; g.fillText(String(L.r),x0+2,yy-6); g.font='11px "JetBrains Mono",monospace'; });
     const z1=r.fib.levels.find(L=>L.r===1).p, zc=r.dir>0? r.fib.hi-(r.fib.hi-r.fib.lo)*rules.fibMin : r.fib.lo+(r.fib.hi-r.fib.lo)*rules.fibMin;
     g.globalAlpha=.07; g.fillStyle=dirCol; g.fillRect(x0,y(Math.max(z1,zc)),W-R-x0,Math.abs(y(z1)-y(zc))); g.globalAlpha=1; }
-  if(tf==='ltf' && r.entryOB && r.entryOB.idx>=off){ const x1=x(r.entryOB.idx)-cw/2; box(x1,r.entryOB.lo,r.entryOB.hi,dirCol,.28); tag('1H OB',x1+3,y(r.entryOB.lo)+ (r.dir>0?9:-9),dirCol); }
+  if(tf==='ltf' && r.entryOB && r.entryOB.idx>=off){ const x1=x(r.entryOB.idx)-cw/2; box(x1,r.entryOB.lo,r.entryOB.hi,dirCol,.28); tag(r.model==='mtf'?'15M OB':'1H OB',x1+3,y(r.entryOB.lo)+ (r.dir>0?9:-9),dirCol); }
   if(tf==='ltf' && r.entryOB && r.entryOB.fz && r.entryOB.fz.idx>=off){ const f=r.entryOB.fz, x1=x(f.idx)-cw/2, col=r.fvgState==='broken'?C('--muted'):C('--watch'); box(x1,f.lo,f.hi,col,r.fvgState==='broken'?.12:.22); tag(r.fvgState==='broken'?'FVG（已破）':'FVG',x1+3,y(r.dir>0?f.hi:f.lo)+(r.dir>0?-9:9),col); }
   // candles
   bars.forEach((b,j)=>{ const i=j+off, up=b.c>=b.o, col=up?C('--long'):C('--short'); g.strokeStyle=col; g.fillStyle=col;
@@ -250,6 +263,7 @@ function drawChart(g,W,H,r,tf,C){
   if(tf==='ltf' && r.engulf && r.engulf.idx>=off){ const i=r.engulf.idx, b=src[i], xx=x(i), yy= r.dir>0? y(b.l)+12 : y(b.h)-12;
     g.fillStyle=C('--accent'); g.beginPath(); if(r.dir>0){g.moveTo(xx,yy-6);g.lineTo(xx-6,yy+4);g.lineTo(xx+6,yy+4);} else {g.moveTo(xx,yy+6);g.lineTo(xx-6,yy-4);g.lineTo(xx+6,yy-4);} g.fill();
     tag(r.engulf.kind,xx+9,yy,C('--accent')); }
+  if(tf==='htf' && r.model==='mtf'){ const zs=r.poi?[r.poi]:(r.inPoi?[r.inPoi]:(r.pois||[]).slice(-2)); zs.forEach(z=>{ if(z.idx==null||z.idx<off) return; const x1=x(z.idx)-cw/2; box(x1,z.lo,z.hi,dirCol,.22); tag(`4H ${z.kind}`,x1+3,y(z.lo)+(r.dir>0?9:-9),dirCol); }); }
   // structure events
   const evs = tf==='ltf'? [] : r.H.events.slice(-4);
   evs.forEach(e=>{ if(e.idx<off) return; const x1=Math.max(8,x(e.from)), x2=x(e.idx), yy=Math.round(y(e.level))+.5; const col=e.dir>0?C('--long'):C('--short');
@@ -432,12 +446,12 @@ async function exportJournal(){
 // ================= 歷史回測 =================
 const BT={cache:{}, running:false, last:null};
 async function btData(sym, days){
-  const k=`${sym}|${days}`; if(BT.cache[k]) return BT.cache[k];
-  if(DataSource.mode!=='live'){ const l=DataSource.ltf(sym); return BT.cache[k]={ltf:l, htf:SMC.aggregate(l,4)}; }
-  const r=await fetch(`api/history?sym=${encodeURIComponent(sym)}&days=${days}`,{cache:'no-store'});
+  const mtf=rules.model==='mtf', k=`${sym}|${days}|${mtf?'m15':''}`; if(BT.cache[k]) return BT.cache[k];
+  if(DataSource.mode!=='live'){ if(mtf){ const m=DataSource.m15(sym); return BT.cache[k]={ltf:m, htf:SMC.aggregate(m,16)}; } const l=DataSource.ltf(sym); return BT.cache[k]={ltf:l, htf:SMC.aggregate(l,4)}; }
+  const r=await fetch(`api/history?sym=${encodeURIComponent(sym)}&days=${days}${mtf?'&m15=1':''}`,{cache:'no-store'});
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.error||`HTTP ${r.status}`);
-  return BT.cache[k]={ltf:unpack(j.ltf), htf:unpack(j.htf)};
+  return BT.cache[k]= mtf? {ltf:unpack(j.m15||[]), htf:unpack(j.htf)} : {ltf:unpack(j.ltf), htf:unpack(j.htf)};
 }
 function btProgress(p,txt){ $('btProg').hidden=false; $('btBar').style.width=`${Math.round(p*100)}%`; $('btTxt').textContent=txt; }
 // 下載歷史（同時 3 個；下載過的直接用暫存）
@@ -455,7 +469,8 @@ function btLock(on, label){ BT.running=on; $('btRun').disabled=on; $('btOpt').di
 
 $('btForm').addEventListener('submit',async e=>{ e.preventDefault(); if(BT.running) return;
   btLock(true,'run');
-  const days=+$('btDays').value, n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
+  let days=+$('btDays').value; const n=+$('btN').value, fee=+$('btFee').value||0, wait=+$('btWait').value||24;
+  if(rules.model==='mtf' && days>90){ days=90; showToast('4H→15M 模型要抓 15M K 線，回測最多 90 天'); }
   try{
     const {data, syms, failed}=await btLoad(days,n);
     // 2. 逐幣回測

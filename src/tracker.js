@@ -53,6 +53,7 @@ async function emitNear(s, last, touched) {
 }
 
 const keyOf = r => `${r.sym}:${r.dir}:${r.ltf[r.sigIdx].t}`; // 同一根吞沒 K 只算一次
+const stepOf = bars => bars && bars.length > 1 ? bars[1].t - bars[0].t : Q;
 
 async function onScan(results, market) {
   let changed = false;
@@ -64,8 +65,9 @@ async function onScan(results, market) {
     const k = keyOf(r);
     if (state.signals.some(s => s.k === k)) continue;
     if (state.signals.some(s => s.sym === r.sym && (s.status === 'pending' || s.status === 'filled'))) continue; // 同一個幣一次只做一單
-    const bf = r.model === 'bf';
-    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, p1: r.p1 ?? null, p1R: r.p1R ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, zone: r.zone || 'ob', grade: r.quality ? r.quality.grade : null, createdAt: bf ? r.ltf[r.sigIdx].t + Q : lastClose(r), model: r.model || 'ob', status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
+    const bf = r.model === 'bf' || r.model === 'mtf';   // 掛限價單的模型
+    const mtf = r.model === 'mtf';
+    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, p1: r.p1 ?? null, p1R: r.p1R ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, zone: r.zone || 'ob', grade: r.quality ? r.quality.grade : null, createdAt: bf ? r.ltf[r.sigIdx].t + stepOf(r.ltf) : lastClose(r), waitMs: r.waitMs || 24 * 3600e3, model: r.model || 'ob', status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
     state.signals.push(sig); changed = true;
     const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS || (bf && r.filledIdx < 0); // BF 是掛單：還沒成交就還有效
     if (fresh) {
@@ -74,7 +76,8 @@ async function onScan(results, market) {
       await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：${bf ? '掛單訊號' : '訊號成立'}${r.quality ? `｜${r.quality.score} 分 ${r.quality.grade}` : ''}`, [
         bf ? `限價掛單 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}` : `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
         `RR ${r.rr.toFixed(2)}　現價 ${fp(r.last)}（距進場 ${dist > 0 ? '+' : ''}${dist.toFixed(2)}%）`,
-        bf ? `1H BOS 後回踩 FVG（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}）掛中間，止損在 OB 外；${r.filledIdx >= 0 ? '⚠ 已經成交過，現價追進要小心' : '24 小時內沒成交就取消'}`
+        mtf ? `4H ${r.poi ? r.poi.kind : 'POI'}（${r.poi ? `${fp(r.poi.lo)}–${fp(r.poi.hi)}` : '—'}）回踩後 15M CHoCH 換方向；在 15M 推動的斐波 0.715 掛單，止損前低、止盈前高；${r.filledIdx >= 0 ? '⚠ 已經成交過，現價追進要小心' : `${Math.round((r.waitMs || 0) / 3600e3)} 小時內沒成交、或收盤跌破前低就取消`}`
+        : bf ? `1H BOS 後回踩 FVG（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}）掛中間，止損在 OB 外；${r.filledIdx >= 0 ? '⚠ 已經成交過，現價追進要小心' : '24 小時內沒成交就取消'}`
         : r.zone === 'fvg' ? `進場區：FVG 反應（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}），止損仍在 OB 外側` : `進場區：1H OB（${fp(r.entryOB.lo)}–${fp(r.entryOB.hi)}）`,
         ...(qline ? [qline] : []),
         ...(r.scoreMax ? [`加分 ${r.score}/${r.scoreMax}${sig.bonus.length ? `：${sig.bonus.map(b => BONUS_ZH[b]).join('、')}` : ''}`] : []),
@@ -86,22 +89,37 @@ async function onScan(results, market) {
     }
   }
 
+  // 1b. MTF 掛單：成交前斐波跟著新高更新 → 改掛單價；收盤跌破前低 → 取消
+  for (const s of state.signals) {
+    if (s.status !== 'pending' || s.model !== 'mtf') continue;
+    const r = results.find(x => x.model === 'mtf' && x.sigIdx != null && keyOf(x) === s.k);
+    if (!r) continue;
+    if (r.gone === 'invalid') {
+      s.status = 'expired'; s.closedAt = Date.now(); changed = true;
+      await emit('near', `✖ ${s.sym}/USDT ${side(s.dir)}：取消掛單`, ['價格收盤跌破前低（做空是突破前高），這筆不成立，掛單撤掉。'], { sym: s.sym });
+    } else if (r.filledIdx < 0 && Math.abs(r.entry - s.entry) / s.entry > 0.0005) {
+      Object.assign(s, { entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, p1: r.p1 ?? null }); changed = true;
+      await emit('signal', `🔁 ${s.sym}/USDT ${side(s.dir)}：掛單價更新`, [`推動又創新${s.dir > 0 ? '高' : '低'}，斐波 0.715 跟著移動`, `新掛單 ${fp(s.entry)}　止損 ${fp(s.stop)}　目標 ${fp(s.target)}　RR ${s.rr.toFixed(2)}`], { sym: s.sym });
+    }
+  }
+
   // 2. 追蹤每個未結束的訊號
   for (const s of state.signals) {
     if (s.status !== 'pending' && s.status !== 'filled') continue;
     const m = market[s.sym];
-    if (!m || !m.ltf || !m.ltf.length) continue;
-    const L = s.dir > 0;
+    const bars = s.model === 'mtf' ? m && m.m15 : m && m.ltf;
+    if (!bars || !bars.length) continue;
+    const L = s.dir > 0, step = stepOf(bars);
     const from = s.checkedT || s.createdAt;
-    for (const b of m.ltf) {
+    for (const b of bars) {
       if (b.t < from) continue;
-      s.checkedT = b.t + Q;
+      s.checkedT = b.t + step;
       if (s.status === 'pending') {
         const hitEntry = L ? b.l <= s.entry : b.h >= s.entry;
         const hitTarget = L ? b.h >= s.target : b.l <= s.target;
         if (hitEntry) { s.status = 'filled'; s.filledAt = b.t; if (!s.near) await emitNear(s, s.entry, true); }
         else if (hitTarget) { s.status = 'missed'; s.closedAt = b.t; break; }
-        else if (b.t - s.createdAt > 24 * 3600e3) { s.status = 'expired'; s.closedAt = b.t; break; }
+        else if (b.t - s.createdAt > (s.waitMs || 24 * 3600e3)) { s.status = 'expired'; s.closedAt = b.t; break; }
       }
       if (s.status === 'filled') {
         const sl = s.beHit || s.p1Hit ? s.entry : s.stop;

@@ -301,7 +301,7 @@ const SMC = (() => {
       if(filled>=0){ if(dir>0? b.l<=lv.stop : b.h>=lv.stop){ gone='stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; } }
     }
     if(filled<0 && !gone && n-1-ev.idx>(s.bfWait||24)) gone='expired';
-    res.filledIdx=filled; res.gone=gone; st.live=!gone;
+    res.filledIdx=filled; res.gone=gone; st.live=!gone; res.waitMs=(s.bfWait||24)*(ltf[1].t-ltf[0].t);
     Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null,
       p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null, dist:(last-lv.entry)/lv.entry*100});
     return finishBF(res,s);
@@ -409,7 +409,8 @@ const SMC = (() => {
     st.rr= lv.risk>0 && lv.rr>=(+s.mtfMinRR||1.5);
     res.fib={lo: dir>0? lo:hi, hi: dir>0? hi:lo, from:m, to:n-1, levels:[0,0.5,+s.mtfFib||0.715,1].map(r=>({r, p: dir>0? hi-(hi-lo)*r : hi+(lo-hi)*r}))};
     Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null,
-      be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null, dist:(last-lv.entry)/lv.entry*100, stopBasis:'前低', zone:'fib'});
+      be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null, dist:(last-lv.entry)/lv.entry*100, stopBasis:'前低', zone:'fib',
+      waitMs:(s.mtfWait||48)*(ltf[1].t-ltf[0].t), legLo:lo});
     return finishMTF(res,s);
   }
   function finishMTF(r,s){

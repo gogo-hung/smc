@@ -418,21 +418,35 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <div class="col">
         <div class="group-t">策略模型</div>
         <div class="fld"><label class="label" for="model">進場模型</label>
-          <select id="model"><option value="bf">BOS + FVG 回踩（建議）</option><option value="ob">OB + 吞沒（舊版）</option></select>
+          <select id="model"><option value="mtf">4H OB / FVG → 15M 換方向 → 斐波 0.715（你的策略）</option><option value="bf">BOS + FVG 回踩</option><option value="ob">OB + 吞沒（舊版）</option></select>
           <span class="hint">BOS + FVG：H4 順勢、1H BOS 留下 FVG，回到 FVG 中間掛單。右邊「1H 結構 × OB」「加分條件」那幾欄是舊版 OB 模型用的</span></div>
-        <div class="fld"><label class="label" for="tpR">目標（幾 R）</label>
+        <div class="fld"><label class="label" for="mtfFib">【4H→15M】掛單斐波</label>
+          <select id="mtfFib"><option value="0.715">0.715</option><option value="0.705">0.705</option><option value="0.618">0.618</option><option value="0.786">0.786</option></select>
+          <span class="hint">在 15M 換方向那段推動拉斐波，這個位置掛單；止損前低、止盈前高</span></div>
+        <div class="fld"><label class="label" for="mtfFvg">【4H→15M】15M 推動要有 FVG</label>
+          <select id="mtfFvg"><option value="on">要</option><option value="off">不看</option></select></div>
+        <div class="fld"><label class="label" for="mtfMinRR">【4H→15M】最低 RR</label>
+          <input type="number" id="mtfMinRR" min="0.5" max="5" step="0.1" value="1.5"></div>
+        <div class="fld"><label class="label" for="mtfWait">【4H→15M】幾根 15M 沒成交就取消</label>
+          <input type="number" id="mtfWait" min="8" max="192" step="4" value="48"><span class="hint">48 根 = 12 小時；收盤跌破前低也會取消</span></div>
+        <div class="fld"><label class="label" for="mtfReanchor">【4H→15M】成交前再創新高</label>
+          <select id="mtfReanchor"><option value="on">斐波跟著更新（掛單價會變）</option><option value="off">以換方向當下為準</option></select></div>
+        <div class="fld"><label class="label" for="mtfSwing">【4H→15M】15M swing 長度</label>
+          <input type="number" id="mtfSwing" min="2" max="8" value="3"></div>
+        <input type="hidden" id="mtfPois" value="6">
+        <div class="fld"><label class="label" for="tpR">【BOS+FVG】目標（幾 R）</label>
           <input type="number" id="tpR" min="1" max="5" step="0.5" value="2"><span class="hint">不分批時：1.5R 勝率約 50%、2R 約 45%、3R 約 35%</span></div>
         <div class="fld"><label class="label" for="p1">分批止盈</label>
           <select id="p1"><option value="1">到 1R 先平一半，剩下移保本（勝率約 60%）</option><option value="0">不分批，整筆打目標</option></select></div>
-        <div class="fld"><label class="label" for="bfTarget">目標算法</label>
+        <div class="fld"><label class="label" for="bfTarget">【BOS+FVG】目標算法</label>
           <select id="bfTarget"><option value="fixed">固定 R</option><option value="htf">H4 區間極值（RR 用最低 RR）</option></select></div>
-        <div class="fld"><label class="label" for="bfEntry">掛單位置</label>
+        <div class="fld"><label class="label" for="bfEntry">【BOS+FVG】掛單位置</label>
           <select id="bfEntry"><option value="mid">FVG 中間</option><option value="edge">FVG 邊緣（較早成交）</option></select></div>
-        <div class="fld"><label class="label" for="bfEma">EMA 順勢</label>
+        <div class="fld"><label class="label" for="bfEma">【BOS+FVG】EMA 順勢</label>
           <select id="bfEma"><option value="on">要</option><option value="off">不看</option></select></div>
-        <div class="fld"><label class="label" for="bfPd">折價 / 溢價區</label>
+        <div class="fld"><label class="label" for="bfPd">【BOS+FVG】折價 / 溢價區</label>
           <select id="bfPd"><option value="on">要（做多在 H4 區間下半部）</option><option value="off">不看</option></select></div>
-        <div class="fld"><label class="label" for="bfWait">幾根 1H 沒成交就取消</label>
+        <div class="fld"><label class="label" for="bfWait">【BOS+FVG】幾根 1H 沒成交就取消</label>
           <input type="number" id="bfWait" min="4" max="72" value="24"></div>
       </div>
       <div class="col">
