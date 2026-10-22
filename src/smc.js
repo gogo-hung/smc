@@ -445,7 +445,7 @@ const SMC = (() => {
       let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=i;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
       let rg=null; { const ev=[...Hs.events].filter(x=>x.idx<=hk && x.dir===dir).pop(); if(ev){ let a=-Infinity,b=Infinity; for(let j=ev.from;j<=hk;j++){ a=Math.max(a,htf[j].h); b=Math.min(b,htf[j].l); } rg={hi:a,lo:b}; } }
       let lv=mtfLevels(lo,hi,dir,s,rg);
-      const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fib',poi:poi.kind,status:'pending'};
+      const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fib',poi:poi.kind,poiLo:poi.lo,poiHi:poi.hi,legLo:lo,chochIdx:i,conf:confAt(e,lv.entry),status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(T); if(b && b!==dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=dir>0, p1=+s.p1>0? +s.p1 : 0; let fill=-1, sl=0, got=0, size=1, p1Hit=false, beHit=false, end=ltf.length;
       for(let j=i+1;j<ltf.length;j++){ const b=ltf[j];
