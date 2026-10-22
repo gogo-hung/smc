@@ -3,9 +3,10 @@
 // SOURCE=bingx：直接打 BingX REST（舊方法）
 const fs = require('fs'), path = require('path');
 const DAYS = +process.env.DAYS || 180, TOP = +process.env.TOP || 60;
+const M15 = process.env.M15 === '1';
 const SOURCE = process.env.SOURCE || 'ccxt', EXCHANGE = process.env.EXCHANGE || 'bingx';
-const CACHE = path.join(__dirname, '..', 'research-cache', SOURCE === 'ccxt' ? `hist-ccxt-${EXCHANGE}-${DAYS}.json` : `hist-${DAYS}.json`);
-const TF = { '1h': 3600e3, '4h': 4 * 3600e3 };
+const CACHE = path.join(__dirname, '..', 'research-cache', SOURCE === 'ccxt' ? `hist-ccxt-${EXCHANGE}-${DAYS}${M15 ? '-m15' : ''}.json` : `hist-${DAYS}.json`);
+const TF = { '15m': 900e3, '1h': 3600e3, '4h': 4 * 3600e3 };
 
 async function viaCcxt() {
   const ccxt = require('ccxt');
@@ -37,7 +38,8 @@ async function viaCcxt() {
     try {
       const ltf = await range(m.symbol, '1h', now - DAYS * 864e5 - 300 * 3600e3);
       const htf = await range(m.symbol, '4h', now - DAYS * 864e5 - 500 * 4 * 3600e3);
-      data[m.base] = { ltf, htf }; process.stdout.write('.');
+      const m15 = M15 ? (await range(m.symbol, '15m', now - DAYS * 864e5 - 300 * 900e3)).map(b => [b.t, b.o, b.h, b.l, b.c, b.v]) : undefined;
+      data[m.base] = { ltf, htf, m15 }; process.stdout.write('.');
     } catch (e) { console.log(`\n${m.symbol} 失敗：${e.message}`); } } };
   await Promise.all([work(), work(), work()]);
   return data;
@@ -61,13 +63,14 @@ async function viaBingx() {
 }
 
 async function load() {
-  if (fs.existsSync(CACHE)) return JSON.parse(fs.readFileSync(CACHE, 'utf8'));
+  const expand = d => { for (const k in d) if (d[k].m15 && Array.isArray(d[k].m15[0])) d[k].m15 = d[k].m15.map(a => ({ t: a[0], o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] })); return d; };
+  if (fs.existsSync(CACHE)) return expand(JSON.parse(fs.readFileSync(CACHE, 'utf8')));
   const data = SOURCE === 'ccxt' ? await viaCcxt() : await viaBingx();
   const bars = Object.values(data).reduce((a, d) => a + d.ltf.length, 0);
   console.log(`\n抓了 ${Object.keys(data).length} 個幣、${bars} 根 1H（來源：${SOURCE === 'ccxt' ? `ccxt / ${EXCHANGE}` : 'BingX REST'}）`);
   fs.mkdirSync(path.dirname(CACHE), { recursive: true });
   fs.writeFileSync(CACHE, JSON.stringify(data));
-  return data;
+  return expand(data);
 }
 
 module.exports = { load, DAYS, SOURCE, EXCHANGE };

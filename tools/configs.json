@@ -1,4 +1,236 @@
 [
- {"name":"網站引擎 BF 2R 1R平一半","rules":{"model":"bf","side":"both","tpR":2,"p1":1,"bfEntry":"mid","bfTarget":"fixed","bfEma":"on","bfPd":"on","bfWait":24,"stopBuf":0.2,"beAt":0}},
- {"name":"網站引擎 BF 2R 不分批","rules":{"model":"bf","side":"both","tpR":2,"p1":0,"bfEntry":"mid","bfTarget":"fixed","bfEma":"on","bfPd":"on","bfWait":24,"stopBuf":0.2,"beAt":0}}
+{
+"name": "MTF 基本（0.715、等 12H、斐波跟著更新）",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "不更新斐波（CHoCH 當下定死）",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "off",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "不要求 15M FVG",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "off",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "等 24H",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 96,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "不看 BTC",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "off",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "1R 平一半＋保本",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 1,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "一半移保本",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0.5,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "止損緩衝 0.1%",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.1,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "止損緩衝 0.4%",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.4,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "斐波 0.618",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.618,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "斐波 0.786",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.786,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "最低 RR 2",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 2,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3
+}
+},
+{
+"name": "15M swing 長度 5",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 5
+}
+}
 ]

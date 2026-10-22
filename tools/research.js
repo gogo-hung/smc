@@ -28,7 +28,7 @@ function stats(trades) {
     for (const part of (c.parts || [c.rules])) {   // parts：多單、空單用不同設定，合併成一個帳戶
       const rules = { ...base, ...part };
       const btc = data.BTC ? E.trendSeries(data.BTC.htf, rules) : null;
-      for (const s of syms) trades = trades.concat(E.backtest(s, data[s].ltf, data[s].htf, rules, { feePct: 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades);
+      for (const s of syms) { if (rules.model === 'mtf' && !data[s].m15) continue; trades = trades.concat(E.backtest(s, rules.model === 'mtf' ? data[s].m15 : data[s].ltf, data[s].htf, rules, { feePct: 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades); }
     }
     const all = stats(trades), h1 = stats(trades.filter(t => t.t < mid)), h2 = stats(trades.filter(t => t.t >= mid));
     const L = stats(trades.filter(t => t.dir > 0)), S = stats(trades.filter(t => t.dir < 0));

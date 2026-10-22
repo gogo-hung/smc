@@ -138,6 +138,7 @@ const SMC = (() => {
   // ltf = 1H K 線；htfIn = H4 K 線（沒給就用 1H 合成）
   function analyze(sym, ltf, s, htfIn){
     if(s.model==='bf') return analyzeBF(sym, ltf, s, htfIn);
+    if(s.model==='mtf') return analyzeMTF(sym, ltf, s, htfIn);
     const htf = htfIn && htfIn.length ? htfIn : aggregate(ltf,4);
     const H=structure(htf,{...s,swingLen:s.htfSwing});
     const L=structure(ltf,s);
@@ -353,10 +354,117 @@ const SMC = (() => {
     }
     return {trades};
   }
+  // ==== 策略 MTF：4H 結構找順勢 OB / FVG → 價格回到 4H 區域 → 15M CHoCH 換方向（推動留下 FVG）→ 15M 推動拉斐波，0.715 掛單；止損前低、止盈前高 ====
+  // ltf 這裡傳 15M K 線，htf 傳 4H
+  function poisAt(Hs, htf, dir, k, s){   // 截至第 k 根 4H（已收盤）還有效的順勢 OB / FVG
+    const out=[];
+    const evs=Hs.events.filter(e=>e.dir===dir && e.idx<=k).slice(-(s.mtfPois||6));
+    for(const e of evs){
+      const zs=[{kind:'OB',lo:e.ob.lo,hi:e.ob.hi,idx:e.ob.idx}]; if(e.ob.fz) zs.push({kind:'FVG',lo:e.ob.fz.lo,hi:e.ob.fz.hi,idx:e.ob.fz.idx});
+      for(const z of zs){ let dead=false; for(let j=Math.max(z.idx+1,e.idx+1);j<=k;j++){ if(dir>0? htf[j].c<z.lo : htf[j].c>z.hi){ dead=true; break; } } if(!dead) out.push(z); }
+    }
+    return out;
+  }
+  const inZone=(z,dir,p)=> dir>0 ? p<=z.hi && p>=z.lo-(z.hi-z.lo)*0.5 : p>=z.lo && p<=z.hi+(z.hi-z.lo)*0.5;
+  function mtfSetup(L15, e, n, s){   // CHoCH 那段推動：起點（前低）、目前的推動高點、0.715 掛單價
+    const c=L15, dir=e.dir; let m=e.from; for(let j=e.from;j<=e.idx;j++) if(dir>0? c[j].l<c[m].l : c[j].h>c[m].h) m=j;
+    const lo= dir>0? c[m].l : c[m].h;
+    return {m, lo};
+  }
+  function mtfLevels(lo, hi, dir, s){
+    const fe=+s.mtfFib||0.715, span=Math.abs(hi-lo);
+    const entry= dir>0? hi-span*fe : hi+span*fe;   // dir<0 時 hi 代表推動低點
+    const stop= lo*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100), target=hi;
+    const risk=Math.abs(entry-stop);
+    return {entry, stop, target, risk, rr: risk>0? Math.abs(target-entry)/risk : 0};
+  }
+  function analyzeMTF(sym, ltf, s, htfIn){
+    const htf=htfIn||[], H=structure(htf,{...s,swingLen:s.htfSwing}), L=structure(ltf,{...s,swingLen:s.mtfSwing||3});
+    const dir=H.trend, n=ltf.length, last=ltf[n-1].c;
+    const st={htf:false,poi:false,choch:false,fvg15:false,rr:false,live:false};
+    const res={sym,dir,last,st,htf,ltf,H,L,emaLine:ema(ltf,s.emaLen||50),model:'mtf',bonus:[],score:0,scoreMax:0,tf:'15M'};
+    if(!dir || htf.length<30) return finishMTF(res,s);
+    st.htf=true;
+    const pois=poisAt(H,htf,dir,htf.length-1,s); res.pois=pois;
+    const e=[...L.events].reverse().find(x=>x.dir===dir && x.type==='CHoCH');
+    if(!e) { res.inPoi=pois.find(z=>inZone(z,dir,dir>0? Math.min(...ltf.slice(-16).map(b=>b.l)) : Math.max(...ltf.slice(-16).map(b=>b.h)))); return finishMTF(res,s); }
+    st.choch=true; res.choch={idx:e.idx, level:e.level, age:n-1-e.idx}; res.sigIdx=e.idx; res.entryOB=e.ob;
+    const {m, lo}=mtfSetup(ltf,e,n,s);
+    const poi=pois.find(z=>inZone(z,dir,lo)); st.poi=!!poi; res.poi=poi||null;
+    st.fvg15=!!e.ob.fz || s.mtfFvg==='off'; if(e.ob.fz) res.fvgZone=e.ob.fz;
+    // 推動高點：CHoCH 之後如果再創高，斐波跟著更新（成交前）
+    let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=e.idx;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
+    let lv=mtfLevels(lo,hi,dir,s), filled=-1, gone=null, hiAtFill=null;
+    for(let j=e.idx+1;j<n;j++){ const b=ltf[j];
+      if(filled<0){
+        if(j-e.idx>(s.mtfWait||48)){ gone='expired'; break; }
+        if(dir>0? b.l<=lv.entry : b.h>=lv.entry){ filled=j; hiAtFill=lv.target; }
+        else if(dir>0? b.c<lo : b.c>lo){ gone='invalid'; break; }
+        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){ hi= dir>0? b.h : b.l; lv=mtfLevels(lo,hi,dir,s); }
+      }
+      if(filled>=0){ if(dir>0? b.l<=lv.stop : b.h>=lv.stop){ gone='stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; } }
+    }
+    if(filled<0 && !gone && n-1-e.idx>(s.mtfWait||48)) gone='expired';
+    res.filledIdx=filled; res.gone=gone; st.live=!gone;
+    st.rr= lv.risk>0 && lv.rr>=(+s.mtfMinRR||1.5);
+    res.fib={lo: dir>0? lo:hi, hi: dir>0? hi:lo, from:m, to:n-1, levels:[0,0.5,+s.mtfFib||0.715,1].map(r=>({r, p: dir>0? hi-(hi-lo)*r : hi+(lo-hi)*r}))};
+    Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null,
+      be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null, dist:(last-lv.entry)/lv.entry*100, stopBasis:'前低', zone:'fib'});
+    return finishMTF(res,s);
+  }
+  function finishMTF(r,s){
+    const need=['htf','poi','choch','fvg15','rr','live'];
+    r.need=need; r.met=need.filter(k=>r.st[k]).length;
+    r.status = need.every(k=>r.st[k]) ? 'trigger' : (r.st.htf && (r.st.poi || r.inPoi) ? 'watch' : 'idle');
+    if((s.side==='long' && r.dir<0) || (s.side==='short' && r.dir>0)){ r.sideBlocked=true; if(r.status==='trigger') r.status='watch'; }
+    return r;
+  }
+  // MTF 回測：結構一次算好（只用已收盤資料），同一幣一次一單
+  function backtestMTF(sym, ltf, htf, s, o={}){
+    if(ltf.length<500 || htf.length<60) return {trades:[], skipped:'資料不足'};
+    const fee=(o.feePct||0)/100, bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t;
+    const L=structure(ltf,{...s,swingLen:s.mtfSwing||3}), Hs=structure(htf,{...s,swingLen:s.htfSwing});
+    const trades=[]; let busy=-1, hk=-1;
+    for(const e of L.events){
+      const i=e.idx; if(i<300 || e.type!=='CHoCH' || i<=busy) continue;
+      if(s.mtfFvg!=='off' && !e.ob.fz) continue;
+      const T=ltf[i].t+bar; while(hk+1<htf.length && htf[hk+1].t+hbar<=T) hk++; if(hk<30) continue;
+      let hd=0; for(const he of Hs.events){ if(he.idx>hk) break; hd=he.dir; } if(hd!==e.dir) continue;
+      const dir=e.dir; if((s.side==='long'&&dir<0)||(s.side==='short'&&dir>0)) continue;
+      const {m, lo}=mtfSetup(ltf,e,ltf.length,s);
+      const poi=poisAt(Hs,htf,dir,hk,s).find(z=>inZone(z,dir,lo)); if(!poi) continue;
+      let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=i;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
+      let lv=mtfLevels(lo,hi,dir,s);
+      const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fib',poi:poi.kind,status:'pending'};
+      if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(T); if(b && b!==dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
+      const up=dir>0, p1=+s.p1>0? +s.p1 : 0; let fill=-1, sl=0, got=0, size=1, p1Hit=false, beHit=false, end=ltf.length;
+      for(let j=i+1;j<ltf.length;j++){ const b=ltf[j];
+        if(fill<0){
+          if(j-i>(s.mtfWait||48)){ t.status='expired'; end=j; break; }
+          if(up? b.l<=lv.entry : b.h>=lv.entry){ fill=j; t.status='filled'; t.filledT=b.t; Object.assign(t,{entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr}); sl=t.stop; }
+          else if(up? b.c<lo : b.c>lo){ t.status='invalid'; end=j; break; }
+          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){ hi= up? b.h : b.l; lv=mtfLevels(lo,hi,dir,s); } continue; }
+        }
+        if(fill>=0){
+          if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
+          if(p1 && !p1Hit && j>fill && (up? b.h>=t.entry+(t.entry-t.stop)*p1 : b.l<=t.entry-(t.stop-t.entry)*p1)){ p1Hit=true; got=0.5*p1; size=0.5; sl=t.entry; }
+          if(j>fill && (up? b.h>=t.target : b.l<=t.target)){ t.status='win'; t.R=got+size*t.rr; t.closedT=b.t+bar; end=j; break; }
+          if(!p1 && s.beAt>0 && !beHit && j>fill && (up? b.h>=t.entry+(t.target-t.entry)*s.beAt : b.l<=t.entry-(t.entry-t.target)*s.beAt)){ beHit=true; sl=t.entry; }
+        }
+      }
+      if(t.status==='filled') t.status='open';
+      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5)){ continue; } }
+      busy=end;
+      if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
+      trades.push(t);
+    }
+    return {trades};
+  }
   // ---- 歷史回測：逐根 1H 收盤往前走，每次只用「當時已收盤」的 K 棒判斷，不偷看未來 ----
   // o: { window: 1H 視窗（跟實盤一樣 300）, htfWindow: 200, maxWait: 幾根內沒進場算過期, feePct: 單邊手續費+滑點 %, btcDirAt(t) }
   function backtest(sym, ltf, htf, s, o={}){
     if(s.model==='bf') return backtestBF(sym, ltf, htf, s, o);
+    if(s.model==='mtf') return backtestMTF(sym, ltf, htf, s, o);
     const W=o.window||300, HW=o.htfWindow||500, maxWait=o.maxWait||24, fee=(o.feePct||0)/100;
     if(ltf.length<W+10 || htf.length<60) return {trades:[], skipped:'資料不足'};
     const bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t, trades=[];
