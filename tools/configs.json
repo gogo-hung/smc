@@ -1,6 +1,6 @@
 [
 {
-"name": "基本（止盈 15M 前高）",
+"name": "你的策略（4H CHoCH 的 OB/FVG → 15M CHoCH → 0.715，止盈 15M 前高）",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -14,11 +14,12 @@
 "stopBuf": 0.2,
 "btcFilter": "block",
 "mtfPois": 6,
-"mtfSwing": 3
+"mtfSwing": 3,
+"mtfPoiSrc": "choch"
 }
 },
 {
-"name": "基本，不扣手續費",
+"name": "同上，不扣手續費",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -32,12 +33,13 @@
 "stopBuf": 0.2,
 "btcFilter": "block",
 "mtfPois": 6,
-"mtfSwing": 3
+"mtfSwing": 3,
+"mtfPoiSrc": "choch"
 },
 "fee": 0
 },
 {
-"name": "止損距離至少 0.5%",
+"name": "同上，止盈改 4H 前高",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -52,30 +54,31 @@
 "btcFilter": "block",
 "mtfPois": 6,
 "mtfSwing": 3,
-"mtfMinStop": 0.5
-}
-},
-{
-"name": "止盈改 4H 前高",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.5,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
+"mtfPoiSrc": "choch",
 "mtfTarget": "htf"
 }
 },
 {
-"name": "止盈 4H 前高，不扣手續費",
+"name": "同上，15M 不要求 FVG",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "off",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch"
+}
+},
+{
+"name": "同上，不看 BTC",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -87,73 +90,14 @@
 "p1": 0,
 "beAt": 0,
 "stopBuf": 0.2,
-"btcFilter": "block",
+"btcFilter": "off",
 "mtfPois": 6,
 "mtfSwing": 3,
-"mtfTarget": "htf"
-},
-"fee": 0
-},
-{
-"name": "止盈 4H 前高 + 止損至少 0.5%",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.5,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfTarget": "htf",
-"mtfMinStop": 0.5
+"mtfPoiSrc": "choch"
 }
 },
 {
-"name": "止盈 4H 前高 + RR≥3",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 3,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfTarget": "htf"
-}
-},
-{
-"name": "止盈 4H 前高 + 1R 平一半",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.5,
-"p1": 1,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfTarget": "htf"
-}
-},
-{
-"name": "止盈 4H 前高 + swing 5",
+"name": "同上，15M swing 5",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -168,7 +112,45 @@
 "btcFilter": "block",
 "mtfPois": 6,
 "mtfSwing": 5,
-"mtfTarget": "htf"
+"mtfPoiSrc": "choch"
+}
+},
+{
+"name": "同上，1R 平一半",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 1,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch"
+}
+},
+{
+"name": "對照：4H 所有順勢區域（上一版）",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "all"
 }
 }
 ]

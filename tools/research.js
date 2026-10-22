@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path');
 const SMC = require('../src/smc');
 const OLD = require('./smc_old');
-const { load, DAYS } = require('./hist');
+const { load, DAYS, EXCHANGE } = require('./hist');
 
 const f2 = v => (v > 0 ? '+' : '') + v.toFixed(1);
 function stats(trades) {
@@ -42,6 +42,6 @@ function stats(trades) {
   console.log('\n' + md);
   const m15s = Object.values(data).filter(d => d.m15 && d.m15.length);
   const cov = m15s.length ? `\n\n15M 資料：${m15s.length} 幣，最早 ${new Date(Math.min(...m15s.map(d => d.m15[0].t))).toISOString().slice(0, 10)}，中位數起點 ${new Date(m15s.map(d => d.m15[0].t).sort((a, b) => a - b)[Math.floor(m15s.length / 2)]).toISOString().slice(0, 10)}，平均 ${Math.round(m15s.reduce((a, d) => a + d.m15.length, 0) / m15s.length)} 根` : '';
-  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `result-${DAYS}.md`), md + cov);
+  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `result-${EXCHANGE}-${DAYS}.md`), md + cov);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${new Date(t0).toISOString().slice(0, 10)} – ${new Date(t1).toISOString().slice(0, 10)}（${syms.length} 幣）\n\n${md}\n`);
 })().catch(e => { console.error(e); process.exit(1); });

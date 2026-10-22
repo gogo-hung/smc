@@ -12,7 +12,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +27,8 @@ jobs:
       - run: npm i --no-save ccxt@4.5.84
       - run: node tools/research.js
         env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "bingx", M15: "1", NODE_OPTIONS: "--max-old-space-size=6144" }
+      - run: node tools/research.js
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=6144" }
       - run: |
           mkdir -p results && cp research-cache/*.md results/ && cp research-cache/trades-*.json results/ 2>/dev/null || true
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com

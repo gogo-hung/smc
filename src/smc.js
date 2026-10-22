@@ -358,7 +358,9 @@ const SMC = (() => {
   // ltf 這裡傳 15M K 線，htf 傳 4H
   function poisAt(Hs, htf, dir, k, s){   // 截至第 k 根 4H（已收盤）還有效的順勢 OB / FVG
     const out=[];
-    const evs=Hs.events.filter(e=>e.dir===dir && e.idx<=k).slice(-(s.mtfPois||6));
+    // mtfPoiSrc='choch'：只用讓這段趨勢成立的那次 4H 結構轉換（CHoCH）留下的 OB / FVG
+    const evs= s.mtfPoiSrc==='choch' ? Hs.events.filter(e=>e.dir===dir && e.idx<=k && e.type==='CHoCH').slice(-1)
+                                     : Hs.events.filter(e=>e.dir===dir && e.idx<=k).slice(-(s.mtfPois||6));
     for(const e of evs){
       const zs=[{kind:'OB',lo:e.ob.lo,hi:e.ob.hi,idx:e.ob.idx}]; if(e.ob.fz) zs.push({kind:'FVG',lo:e.ob.fz.lo,hi:e.ob.fz.hi,idx:e.ob.fz.idx});
       for(const z of zs){ let dead=false; for(let j=Math.max(z.idx+1,e.idx+1);j<=k;j++){ if(dir>0? htf[j].c<z.lo : htf[j].c>z.hi){ dead=true; break; } } if(!dead) out.push(z); }
