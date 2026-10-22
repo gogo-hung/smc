@@ -1,6 +1,163 @@
 [
 {
-"name": "止損斐波 1 外 0.2%（RR≥1）",
+"name": "A 目前最好版本（緩衝 0.2%）",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
+},
+{
+"name": "B + 4H 轉換前要先獵取前高/前低",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfSweep": "on"
+},
+"fee": 0.035
+},
+{
+"name": "C + 止盈二（止盈一平一半、保本、看下一個前低）",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfTp2": "on"
+},
+"fee": 0.035
+},
+{
+"name": "D 獵取流動性 + 止盈二",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfSweep": "on",
+"mtfTp2": "on"
+},
+"fee": 0.035
+},
+{
+"name": "E 同 D，止損剛好斐波 1",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfSweep": "on",
+"mtfTp2": "on"
+},
+"fee": 0.035
+},
+{
+"name": "F 同 D，止損緩衝 0.05%（你圖上的位置）",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.05,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfSweep": "on",
+"mtfTp2": "on"
+},
+"fee": 0.035
+},
+{
+"name": "G 同 D，不看 BTC",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.5,
+"p1": 0,
+"beAt": 0,
+"stopBuf": 0.2,
+"btcFilter": "off",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfSweep": "on",
+"mtfTp2": "on"
+},
+"fee": 0.035
+},
+{
+"name": "H 同 D，只做 BTC / ETH 以外也算（RR≥1）",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -16,112 +173,9 @@
 "mtfPois": 6,
 "mtfSwing": 3,
 "mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035
-},
-{
-"name": "止損斐波 1 外 0.3%（RR≥1）",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.3,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035
-},
-{
-"name": "止損斐波 1 外 0.5%（RR≥1）",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.5,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035
-},
-{
-"name": "止損斐波 1 外 0.8%（RR≥1）",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.8,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035
-},
-{
-"name": "止損斐波 1 外 1.0%（RR≥1）",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 1.0,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035
-},
-{
-"name": "止損斐波 1 外 1.5%（RR≥1）",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 1.5,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
+"mtfConf": "on",
+"mtfSweep": "on",
+"mtfTp2": "on"
 },
 "fee": 0.035
 }

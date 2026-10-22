@@ -356,12 +356,19 @@ const SMC = (() => {
   }
   // ==== 策略 MTF：4H 結構找順勢 OB / FVG → 價格回到 4H 區域 → 15M CHoCH 換方向（推動留下 FVG）→ 15M 推動拉斐波，0.715 掛單；止損前低、止盈前高 ====
   // ltf 這裡傳 15M K 線，htf 傳 4H
+  // 4H 結構轉換之前有沒有先獵取流動性：做空 = 轉換前的最高點，刺破了之前一個已確認的 4H 前高（做多看前低）
+  function htfSwept(Hs, htf, e){
+    let p=e.from; for(let j=e.from;j<e.idx;j++) if(e.dir<0? htf[j].h>htf[p].h : htf[j].l<htf[p].l) p=j;
+    const pts=(e.dir<0? Hs.sw.hi : Hs.sw.lo).filter(x=>x.i<p && x.conf<=p && x.i>=p-40);
+    return pts.some(x=> e.dir<0? htf[p].h>x.price : htf[p].l<x.price);
+  }
   function poisAt(Hs, htf, dir, k, s){   // 截至第 k 根 4H（已收盤）還有效的順勢 OB / FVG
     const out=[];
     // mtfPoiSrc='choch'：只用讓這段趨勢成立的那次 4H 結構轉換（CHoCH）留下的 OB / FVG
     const evs= s.mtfPoiSrc==='choch' ? Hs.events.filter(e=>e.dir===dir && e.idx<=k && e.type==='CHoCH').slice(-1)
                                      : Hs.events.filter(e=>e.dir===dir && e.idx<=k).slice(-(s.mtfPois||6));
     for(const e of evs){
+      if(s.mtfSweep==='on' && !htfSwept(Hs,htf,e)) continue;
       const zs=[{kind:'OB',lo:e.ob.lo,hi:e.ob.hi,idx:e.ob.idx}]; if(e.ob.fz) zs.push({kind:'FVG',lo:e.ob.fz.lo,hi:e.ob.fz.hi,idx:e.ob.fz.idx});
       for(const z of zs){ let dead=false; for(let j=Math.max(z.idx+1,e.idx+1);j<=k;j++){ if(dir>0? htf[j].c<z.lo : htf[j].c>z.hi){ dead=true; break; } } if(!dead) out.push(z); }
     }
@@ -458,11 +465,20 @@ const SMC = (() => {
         if(fill>=0){
           if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
           if(p1 && !p1Hit && j>fill && (up? b.h>=t.entry+(t.entry-t.stop)*p1 : b.l<=t.entry-(t.stop-t.entry)*p1)){ p1Hit=true; got=0.5*p1; size=0.5; sl=t.entry; }
-          if(j>fill && (up? b.h>=t.target : b.l<=t.target)){ t.status='win'; t.R=got+size*t.rr; t.closedT=b.t+bar; end=j; break; }
+          if(j>fill && (up? b.h>=t.target : b.l<=t.target)){
+            // 止盈二：止盈一（15M 前高/低）先平一半、止損移到開倉價，剩下看下一個前高/低
+            if(s.mtfTp2==='on' && !t.tp1Hit){
+              if(t.tp2==null){ const pts=(up? L.sw.hi : L.sw.lo).filter(x=>x.conf<=fill && (up? x.price>t.target : x.price<t.target)); const nx=pts.sort((a,c)=> up? a.price-c.price : c.price-a.price)[0];
+                t.tp2= nx? nx.price : (rg? (up? rg.hi : rg.lo) : null); if(t.tp2!=null && (up? t.tp2<=t.target : t.tp2>=t.target)) t.tp2=null; }
+              if(t.tp2!=null){ t.tp1Hit=true; got=0.5*t.rr; size=0.5; sl=t.entry; t.target2=t.tp2; const risk0=Math.abs(t.entry-t.stop); t.rr2=Math.abs(t.tp2-t.entry)/risk0; t.target=t.tp2;
+                if(up? b.h>=t.tp2 : b.l<=t.tp2){ t.status='win'; t.R=got+size*t.rr2; t.closedT=b.t+bar; end=j; break; } continue; }
+            }
+            t.status='win'; t.R=got+size*(t.tp1Hit? t.rr2 : t.rr); t.closedT=b.t+bar; end=j; break; }
           if(!p1 && s.beAt>0 && !beHit && j>fill && (up? b.h>=t.entry+(t.target-t.entry)*s.beAt : b.l<=t.entry-(t.entry-t.target)*s.beAt)){ beHit=true; sl=t.entry; }
         }
       }
       if(t.status==='filled') t.status='open';
+      if(t.tp1Hit && t.status==='loss'){ t.status='tp1'; }
       if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5) || Math.abs(t.entry-t.stop)/t.entry*100<(+s.mtfMinStop||0) || (s.mtfConf==='on' && !confAt(e,t.entry))){ continue; } }
       busy=end;
       if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
