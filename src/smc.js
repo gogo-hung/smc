@@ -371,10 +371,10 @@ const SMC = (() => {
     const lo= dir>0? c[m].l : c[m].h;
     return {m, lo};
   }
-  function mtfLevels(lo, hi, dir, s){
+  function mtfLevels(lo, hi, dir, s, rg){
     const fe=+s.mtfFib||0.715, span=Math.abs(hi-lo);
     const entry= dir>0? hi-span*fe : hi+span*fe;   // dir<0 時 hi 代表推動低點
-    const stop= lo*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100), target=hi;
+    const stop= lo*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100), target= s.mtfTarget==='htf' && rg ? (dir>0? Math.max(hi,rg.hi) : Math.min(hi,rg.lo)) : hi;
     const risk=Math.abs(entry-stop);
     return {entry, stop, target, risk, rr: risk>0? Math.abs(target-entry)/risk : 0};
   }
@@ -385,7 +385,7 @@ const SMC = (() => {
     const res={sym,dir,last,st,htf,ltf,H,L,emaLine:ema(ltf,s.emaLen||50),model:'mtf',bonus:[],score:0,scoreMax:0,tf:'15M'};
     if(!dir || htf.length<30) return finishMTF(res,s);
     st.htf=true;
-    const pois=poisAt(H,htf,dir,htf.length-1,s); res.pois=pois;
+    const pois=poisAt(H,htf,dir,htf.length-1,s); res.pois=pois; const rg=htfRange(H,htf,dir); res.range=rg;
     const e=[...L.events].reverse().find(x=>x.dir===dir && x.type==='CHoCH');
     if(!e) { res.inPoi=pois.find(z=>inZone(z,dir,dir>0? Math.min(...ltf.slice(-16).map(b=>b.l)) : Math.max(...ltf.slice(-16).map(b=>b.h)))); return finishMTF(res,s); }
     st.choch=true; res.choch={idx:e.idx, level:e.level, age:n-1-e.idx}; res.sigIdx=e.idx; res.entryOB=e.ob;
@@ -394,19 +394,19 @@ const SMC = (() => {
     st.fvg15=!!e.ob.fz || s.mtfFvg==='off'; if(e.ob.fz) res.fvgZone=e.ob.fz;
     // 推動高點：CHoCH 之後如果再創高，斐波跟著更新（成交前）
     let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=e.idx;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
-    let lv=mtfLevels(lo,hi,dir,s), filled=-1, gone=null, hiAtFill=null;
+    let lv=mtfLevels(lo,hi,dir,s,rg), filled=-1, gone=null, hiAtFill=null;
     for(let j=e.idx+1;j<n;j++){ const b=ltf[j];
       if(filled<0){
         if(j-e.idx>(s.mtfWait||48)){ gone='expired'; break; }
         if(dir>0? b.l<=lv.entry : b.h>=lv.entry){ filled=j; hiAtFill=lv.target; }
         else if(dir>0? b.c<lo : b.c>lo){ gone='invalid'; break; }
-        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){ hi= dir>0? b.h : b.l; lv=mtfLevels(lo,hi,dir,s); }
+        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){ hi= dir>0? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg); }
       }
       if(filled>=0){ if(dir>0? b.l<=lv.stop : b.h>=lv.stop){ gone='stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; } }
     }
     if(filled<0 && !gone && n-1-e.idx>(s.mtfWait||48)) gone='expired';
     res.filledIdx=filled; res.gone=gone; st.live=!gone;
-    st.rr= lv.risk>0 && lv.rr>=(+s.mtfMinRR||1.5);
+    st.rr= lv.risk>0 && lv.rr>=(+s.mtfMinRR||1.5) && Math.abs(lv.entry-lv.stop)/lv.entry*100>=(+s.mtfMinStop||0);
     res.fib={lo: dir>0? lo:hi, hi: dir>0? hi:lo, from:m, to:n-1, levels:[0,0.5,+s.mtfFib||0.715,1].map(r=>({r, p: dir>0? hi-(hi-lo)*r : hi+(lo-hi)*r}))};
     Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null,
       be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null, dist:(last-lv.entry)/lv.entry*100, stopBasis:'前低', zone:'fib',
@@ -435,7 +435,8 @@ const SMC = (() => {
       const {m, lo}=mtfSetup(ltf,e,ltf.length,s);
       const poi=poisAt(Hs,htf,dir,hk,s).find(z=>inZone(z,dir,lo)); if(!poi) continue;
       let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=i;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
-      let lv=mtfLevels(lo,hi,dir,s);
+      let rg=null; { const ev=[...Hs.events].filter(x=>x.idx<=hk && x.dir===dir).pop(); if(ev){ let a=-Infinity,b=Infinity; for(let j=ev.from;j<=hk;j++){ a=Math.max(a,htf[j].h); b=Math.min(b,htf[j].l); } rg={hi:a,lo:b}; } }
+      let lv=mtfLevels(lo,hi,dir,s,rg);
       const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fib',poi:poi.kind,status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(T); if(b && b!==dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=dir>0, p1=+s.p1>0? +s.p1 : 0; let fill=-1, sl=0, got=0, size=1, p1Hit=false, beHit=false, end=ltf.length;
@@ -444,7 +445,7 @@ const SMC = (() => {
           if(j-i>(s.mtfWait||48)){ t.status='expired'; end=j; break; }
           if(up? b.l<=lv.entry : b.h>=lv.entry){ fill=j; t.status='filled'; t.filledT=b.t; Object.assign(t,{entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr}); sl=t.stop; }
           else if(up? b.c<lo : b.c>lo){ t.status='invalid'; end=j; break; }
-          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){ hi= up? b.h : b.l; lv=mtfLevels(lo,hi,dir,s); } continue; }
+          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){ hi= up? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg); } continue; }
         }
         if(fill>=0){
           if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
@@ -454,7 +455,7 @@ const SMC = (() => {
         }
       }
       if(t.status==='filled') t.status='open';
-      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5)){ continue; } }
+      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5) || Math.abs(t.entry-t.stop)/t.entry*100<(+s.mtfMinStop||0)){ continue; } }
       busy=end;
       if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
       trades.push(t);
