@@ -217,5 +217,15 @@ global.fetch = async (url) => {
     }
     console.log(`BF 模型：觸發 ${nT}｜回測 ${nTr} 筆`);
   }
+  // ---- MTF 模型（4H → 15M）：掃描流程要能跑（會多抓 15M） ----
+  {
+    const keep = { ...scanner.state.rules };
+    Object.assign(scanner.state.rules, { model: 'mtf' });
+    const sm = await scanner.scanOnce();
+    assert(!sm.error && Object.values(scanner.state.market).every(m => Array.isArray(m.m15)), 'MTF 掃描要抓到 15M');
+    assert(scanner.state.results.every(r => r.model === 'mtf'), 'MTF 判斷結果');
+    console.log(`MTF 模型：掃描 ${sm.symbols} 幣｜觸發 ${sm.trigger}｜觀察 ${sm.watch}`);
+    scanner.state.rules = keep;
+  }
   console.log(`\n全部通過（模擬 API 呼叫 ${calls} 次）`);
 })().catch(e => { console.error('測試失敗：', e.message); process.exit(1); });
