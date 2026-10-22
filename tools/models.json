@@ -1,0 +1,829 @@
+[
+{
+"name": "OB 現行（目標H4、RR≥3、移保本）",
+"model": "OB",
+"m": {},
+"s": {
+"tp": "struct",
+"minRR": 3,
+"be": 0.5
+}
+},
+{
+"name": "OB 固定 1.5R",
+"model": "OB",
+"m": {},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "OB 固定 2R",
+"model": "OB",
+"m": {},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "OB 3R 分批（1R 平一半＋保本）",
+"model": "OB",
+"m": {},
+"s": {
+"tp": 3,
+"p1": 1
+}
+},
+{
+"name": "SC 掃有 收盤進 折價區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "close",
+"ote": 0,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃有 收盤進 折價區 2R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "close",
+"ote": 0,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃有 收盤進 折價區 3R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "close",
+"ote": 0,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃有 收盤進 不限區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "close",
+"ote": 0,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃有 收盤進 不限區 2R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "close",
+"ote": 0,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃有 收盤進 不限區 3R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "close",
+"ote": 0,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃有 OTE0.5 折價區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.5,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃有 OTE0.5 折價區 2R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.5,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃有 OTE0.5 折價區 3R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.5,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃有 OTE0.5 不限區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.5,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃有 OTE0.5 不限區 2R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.5,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃有 OTE0.5 不限區 3R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.5,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃有 OTE0.618 折價區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.618,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃有 OTE0.618 折價區 2R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.618,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃有 OTE0.618 折價區 3R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.618,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃有 OTE0.618 不限區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.618,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃有 OTE0.618 不限區 2R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.618,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃有 OTE0.618 不限區 3R",
+"model": "SC",
+"m": {
+"sweep": "wick",
+"entry": "ote",
+"ote": 0.618,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃無 收盤進 折價區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "close",
+"ote": 0,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃無 收盤進 折價區 2R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "close",
+"ote": 0,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃無 收盤進 折價區 3R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "close",
+"ote": 0,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃無 收盤進 不限區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "close",
+"ote": 0,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃無 收盤進 不限區 2R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "close",
+"ote": 0,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃無 收盤進 不限區 3R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "close",
+"ote": 0,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃無 OTE0.5 折價區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.5,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃無 OTE0.5 折價區 2R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.5,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃無 OTE0.5 折價區 3R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.5,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃無 OTE0.5 不限區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.5,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃無 OTE0.5 不限區 2R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.5,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃無 OTE0.5 不限區 3R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.5,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃無 OTE0.618 折價區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.618,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃無 OTE0.618 折價區 2R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.618,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃無 OTE0.618 折價區 3R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.618,
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "SC 掃無 OTE0.618 不限區 1.5R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.618,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "SC 掃無 OTE0.618 不限區 2R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.618,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "SC 掃無 OTE0.618 不限區 3R",
+"model": "SC",
+"m": {
+"sweep": "off",
+"entry": "ote",
+"ote": 0.618,
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG邊 折價區 EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": true,
+"ema": true
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG邊 折價區 EMA 2R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": true,
+"ema": true
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG邊 折價區 EMA 3R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": true,
+"ema": true
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG邊 折價區 無EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG邊 折價區 無EMA 2R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG邊 折價區 無EMA 3R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG邊 不限區 EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": false,
+"ema": true
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG邊 不限區 EMA 2R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": false,
+"ema": true
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG邊 不限區 EMA 3R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": false,
+"ema": true
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG邊 不限區 無EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG邊 不限區 無EMA 2R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG邊 不限區 無EMA 3R",
+"model": "BF",
+"m": {
+"entry": "edge",
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG中 折價區 EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": true,
+"ema": true
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG中 折價區 EMA 2R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": true,
+"ema": true
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG中 折價區 EMA 3R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": true,
+"ema": true
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG中 折價區 無EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG中 折價區 無EMA 2R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG中 折價區 無EMA 3R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": true,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG中 不限區 EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": false,
+"ema": true
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG中 不限區 EMA 2R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": false,
+"ema": true
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG中 不限區 EMA 3R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": false,
+"ema": true
+},
+"s": {
+"tp": 3
+}
+},
+{
+"name": "BF FVG中 不限區 無EMA 1.5R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 1.5
+}
+},
+{
+"name": "BF FVG中 不限區 無EMA 2R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 2
+}
+},
+{
+"name": "BF FVG中 不限區 無EMA 3R",
+"model": "BF",
+"m": {
+"entry": "mid",
+"pd": false,
+"ema": false
+},
+"s": {
+"tp": 3
+}
+}
+]
