@@ -380,16 +380,18 @@ const SMC = (() => {
     const lo= dir>0? c[m].l : c[m].h;
     return {m, lo};
   }
-  function mtfLevels(lo, hi, dir, s, rg){
+  function mtfLevels(lo, hi, dir, s, rg, atr){
     const fe=+s.mtfFib||0.715, span=Math.abs(hi-lo);
     const entry= dir>0? hi-span*fe : hi+span*fe;   // dir<0 時 hi 代表推動低點
-    const stop= lo*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100), target= s.mtfTarget==='htf' && rg ? (dir>0? Math.max(hi,rg.hi) : Math.min(hi,rg.lo)) : hi;
+    const stop= +s.mtfStopAtr>0 && atr ? lo-dir*atr*(+s.mtfStopAtr) : lo*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100),   // 止損：推動起點外留 k 倍 ATR，或固定 %
+      target= s.mtfTarget==='htf' && rg ? (dir>0? Math.max(hi,rg.hi) : Math.min(hi,rg.lo)) : hi;
     const risk=Math.abs(entry-stop);
     return {entry, stop, target, risk, rr: risk>0? Math.abs(target-entry)/risk : 0};
   }
   // 0.715 有沒有落在 15M 這段推動的 OB / FVG 裡（「FVG、OB 搭配斐波」）
   const confAt=(e,p)=>{ const zs=[e.ob, e.ob.fz].filter(Boolean); return zs.some(z=>p>=z.lo*(1-0.001) && p<=z.hi*(1+0.001)); };
   // 破位夠不夠明顯：CHoCH 那根實體 ≥ k 倍 ATR14
+  const atrAt=(c,i)=>{ let a=0,n=0; for(let j=Math.max(1,i-13);j<=i;j++){ a+=Math.max(c[j].h-c[j].l,Math.abs(c[j].h-c[j-1].c),Math.abs(c[j].l-c[j-1].c)); n++; } return n? a/n : 0; };
   const dispOk=(c,i,k)=>{ if(!(k>0)) return true; let a=0,n=0; for(let j=Math.max(1,i-14);j<i;j++){ a+=Math.max(c[j].h-c[j].l,Math.abs(c[j].h-c[j-1].c),Math.abs(c[j].l-c[j-1].c)); n++; } return n && Math.abs(c[i].c-c[i].o)>=k*(a/n); };
   function analyzeMTF(sym, ltf, s, htfIn){
     const htf=htfIn||[], H=structure(htf,{...s,swingLen:s.htfSwing}), L=structure(ltf,{...s,swingLen:s.mtfSwing||3});
@@ -407,13 +409,13 @@ const SMC = (() => {
     st.fvg15=!!e.ob.fz || s.mtfFvg==='off'; if(e.ob.fz) res.fvgZone=e.ob.fz;
     // 推動高點：CHoCH 之後如果再創高，斐波跟著更新（成交前）
     let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=e.idx;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
-    let lv=mtfLevels(lo,hi,dir,s,rg), filled=-1, gone=null, hiAtFill=null;
+    const atr=atrAt(ltf,e.idx); let lv=mtfLevels(lo,hi,dir,s,rg,atr), filled=-1, gone=null, hiAtFill=null;
     for(let j=e.idx+1;j<n;j++){ const b=ltf[j];
       if(filled<0){
         if(j-e.idx>(s.mtfWait||48)){ gone='expired'; break; }
         if(dir>0? b.l<=lv.entry : b.h>=lv.entry){ filled=j; hiAtFill=lv.target; }
         else if(dir>0? b.c<lo : b.c>lo){ gone='invalid'; break; }
-        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){ hi= dir>0? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg); }
+        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){ hi= dir>0? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg,atr); }
       }
       if(filled>=0){ if(dir>0? b.l<=lv.stop : b.h>=lv.stop){ gone='stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; } }
     }
@@ -451,7 +453,7 @@ const SMC = (() => {
       const poi=poisAt(Hs,htf,dir,hk,s).find(z=>inZone(z,dir,lo)); if(!poi) continue;
       let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=i;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
       let rg=null; { const ev=[...Hs.events].filter(x=>x.idx<=hk && x.dir===dir).pop(); if(ev){ let a=-Infinity,b=Infinity; for(let j=ev.from;j<=hk;j++){ a=Math.max(a,htf[j].h); b=Math.min(b,htf[j].l); } rg={hi:a,lo:b}; } }
-      let lv=mtfLevels(lo,hi,dir,s,rg);
+      const atr=atrAt(ltf,i); let lv=mtfLevels(lo,hi,dir,s,rg,atr);
       const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fib',poi:poi.kind,poiLo:poi.lo,poiHi:poi.hi,legLo:lo,chochIdx:i,conf:confAt(e,lv.entry),status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(T); if(b && b!==dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=dir>0, p1=+s.p1>0? +s.p1 : 0; let fill=-1, sl=0, got=0, size=1, p1Hit=false, beHit=false, end=ltf.length;
@@ -460,7 +462,7 @@ const SMC = (() => {
           if(j-i>(s.mtfWait||48)){ t.status='expired'; end=j; break; }
           if(up? b.l<=lv.entry : b.h>=lv.entry){ fill=j; t.status='filled'; t.filledT=b.t; Object.assign(t,{entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr}); sl=t.stop; }
           else if(up? b.c<lo : b.c>lo){ t.status='invalid'; end=j; break; }
-          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){ hi= up? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg); } continue; }
+          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){ hi= up? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg,atr); } continue; }
         }
         if(fill>=0){
           if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
