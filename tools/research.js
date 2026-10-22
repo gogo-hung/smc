@@ -28,7 +28,7 @@ function stats(trades) {
     for (const part of (c.parts || [c.rules])) {   // parts：多單、空單用不同設定，合併成一個帳戶
       const rules = { ...base, ...part };
       const btc = data.BTC ? E.trendSeries(data.BTC.htf, rules) : null;
-      for (const s of syms) { if (rules.model === 'mtf' && !data[s].m15) continue; trades = trades.concat(E.backtest(s, rules.model === 'mtf' ? data[s].m15 : data[s].ltf, data[s].htf, rules, { feePct: 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades); }
+      for (const s of syms) { if (rules.model === 'mtf' && !data[s].m15) continue; trades = trades.concat(E.backtest(s, rules.model === 'mtf' ? data[s].m15 : data[s].ltf, data[s].htf, rules, { feePct: c.fee ?? 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades); }
     }
     const all = stats(trades), h1 = stats(trades.filter(t => t.t < mid)), h2 = stats(trades.filter(t => t.t >= mid));
     const L = stats(trades.filter(t => t.dir > 0)), S = stats(trades.filter(t => t.dir < 0));
@@ -40,6 +40,8 @@ function stats(trades) {
   const md = ['| 設定 | 筆數 | 勝率 | 累計R | 平均R | PF | 回撤 | 連虧 | 保本 | 前半/後半 | 多/空 | FVG進場 | OB進場 |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
     ...rows.map(r => `| ${r.name} | ${r.n} | ${(r.wr * 100).toFixed(0)}% | ${f(r.R)} | ${f(r.avg)} | ${r.pf.toFixed(2)} | ${r.dd.toFixed(1)} | ${r.ms} | ${r.be} | ${f(r.r1)} / ${f(r.r2)} | ${f(r.lR)} / ${f(r.sR)} | ${r.zf} | ${r.zo} |`)].join('\n');
   console.log('\n' + md);
-  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `result-${DAYS}.md`), md);
+  const m15s = Object.values(data).filter(d => d.m15 && d.m15.length);
+  const cov = m15s.length ? `\n\n15M 資料：${m15s.length} 幣，最早 ${new Date(Math.min(...m15s.map(d => d.m15[0].t))).toISOString().slice(0, 10)}，中位數起點 ${new Date(m15s.map(d => d.m15[0].t).sort((a, b) => a - b)[Math.floor(m15s.length / 2)]).toISOString().slice(0, 10)}，平均 ${Math.round(m15s.reduce((a, d) => a + d.m15.length, 0) / m15s.length)} 根` : '';
+  fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `result-${DAYS}.md`), md + cov);
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## ${new Date(t0).toISOString().slice(0, 10)} – ${new Date(t1).toISOString().slice(0, 10)}（${syms.length} 幣）\n\n${md}\n`);
 })().catch(e => { console.error(e); process.exit(1); });
