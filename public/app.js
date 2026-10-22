@@ -44,22 +44,23 @@ async function adminFetch(url,opt={}){
 
 // ---- rules ----
 // 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態；斐波、EMA、FVG、掃流動性、日線同向 = 加分
-const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,emaLen:50,lookback:10,entry:'close',minRR:2.5,stopBuf:0.2,target:'swing',btcFilter:'block',fundingMax:0.05,side:'long',stopMode:'ob',
-  pattern:'engulf',cFib:'score',cEma:'score',cFvg:'score',cSweep:'score',cDaily:'score',minScore:2,beAt:0.5};
+const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,emaLen:50,lookback:10,entry:'close',minRR:3,stopBuf:0.2,target:'htf',btcFilter:'block',fundingMax:0.05,side:'both',stopMode:'ob',
+  pattern:'engulf',cFib:'need',cEma:'need',cFvg:'need',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5,minQuality:0,fvgEntry:'on',fvgStop:'ob',fvgFib:0};
+const FVG_ZH={waiting:'等價格回到 FVG',testing:'價格在 FVG 裡，觀察反應',broken:'FVG 已被收盤穿過 → 改看 OB',entry:'FVG 反應確認'};
 const BONUS_ZH={fib:'斐波便宜區',ema:'EMA 順勢',fvg:'OB 帶 FVG',sweep:'掃流動性',daily:'日線同向'};
 const condKey=k=>'c'+k[0].toUpperCase()+k.slice(1);
 function ruleChips(r){
   const req=[],bon=[]; for(const k of ['fib','ema','fvg','sweep','daily']){ const m=r[condKey(k)]; const n=k==='fib'?`斐波 ≥ ${r.fibMin}`:k==='ema'?`EMA${r.emaLen}`:BONUS_ZH[k]; if(m==='need') req.push(n+'（必要）'); else if(m==='score') bon.push(n); }
-  return [r.pattern==='both'?'吞沒或 Pin bar':'吞沒', ...req, bon.length?`加分 ≥ ${Math.min(r.minScore,bon.length)}/${bon.length}：${bon.join('、')}`:'', `型態 ${r.lookback}H 內`, r.entry==='close'?'型態收盤進場':'OB 邊緣進場',
-    `RR ≥ ${r.minRR}`, r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不移保本', r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做', `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[r.stopMode||'swing']} + ${r.stopBuf}%`].filter(Boolean);
+  return [r.fvgEntry==='on'?`先看 FVG（止損放${r.fvgStop==='ob'?' OB':' FVG'} 外）`:'只看 OB', r.pattern==='both'?'吞沒或 Pin bar':'吞沒', ...req, bon.length?`加分 ≥ ${Math.min(r.minScore,bon.length)}/${bon.length}：${bon.join('、')}`:'', `型態 ${r.lookback}H 內`, r.entry==='close'?'型態收盤進場':'OB 邊緣進場',
+    r.minQuality>0?`品質 ≥ ${r.minQuality} 分`:'', `RR ≥ ${r.minRR}`, r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不移保本', r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做', `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[r.stopMode||'swing']} + ${r.stopBuf}%`].filter(Boolean);
 }
-let rules = {...DEFAULTS, ...(store.get('smc-rules-v5')||{})};
+let rules = {...DEFAULTS, ...(store.get('smc-rules-v10')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=ruleChips(rules);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v5',rules); renderSum(); }
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v10',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
@@ -75,7 +76,7 @@ function scan(){
   results.forEach(r=>SMC.applyContext(r,ctx,rules));
   $('nBtc').innerHTML = ctx.btcDir? `<span class="dir ${ctx.btcDir>0?'L':'S'}" style="font-size:16px">${ctx.btcDir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:16px">盤整</span>';
   const order={trigger:0,watch:1,idle:2};
-  results.sort((a,b)=>order[a.status]-order[b.status] || b.met/b.need.length - a.met/a.need.length || a.sym.localeCompare(b.sym));
+  results.sort((a,b)=>order[a.status]-order[b.status] || (b.status==='trigger'? ((b.quality?b.quality.score:-1)-(a.quality?a.quality.score:-1)) : 0) || b.met/b.need.length - a.met/a.need.length || a.sym.localeCompare(b.sym));
   const trig=new Set(results.filter(r=>r.status==='trigger').map(r=>r.sym));
   if(prevTrig){ const fresh=[...trig].filter(s=>!prevTrig.has(s)); fresh.forEach(s=>alertNew(results.find(r=>r.sym===s))); }
   prevTrig=trig;
@@ -118,15 +119,15 @@ function renderRows(){
     const dir = r.dir? `<span class="dir ${r.dir>0?'L':'S'}">${r.dir>0?'多':'空'}</span>` : '<span class="muted" style="font-size:12px">盤整</span>';
     const stTxt={trigger:'觸發',watch:'觀察',idle:'未成形'}[r.status];
     const chg = r.ltf && r.ltf.length>24 ? (r.last/r.ltf[r.ltf.length-25].c-1)*100 : null;
-    const missing = r.need.filter(k=>!r.st[k]).map(k=>STAGES.find(x=>x[0]===k)[1]).concat(r.lowScore?[`加分（${r.score}/${Math.min(rules.minScore,r.scoreMax)}）`]:[]);
-    const bottom = r.entry && !r.lowScore
+    const missing = r.need.filter(k=>!r.st[k]).map(k=>STAGES.find(x=>x[0]===k)[1]).concat(r.lowScore?[`加分（${r.score}/${Math.min(rules.minScore,r.scoreMax)}）`]:[]).concat(r.lowQuality?[`品質分數（${r.quality?r.quality.score:0} < ${rules.minQuality}）`]:[]);
+    const bottom = r.entry && !r.lowScore && !r.lowQuality
       ? `<div class="kv"><div><span>進場</span><b>${fp(r.entry)}</b></div><div><span>RR</span><b>${r.rr.toFixed(1)}</b></div>
            <div><span>止損</span><b>${fp(r.stop)}</b></div><div><span>距離</span><b>${r.dist>0?'+':''}${r.dist.toFixed(1)}%</b></div></div>`
       : `<div class="miss">還差：${missing.slice(0,3).join('、')}${missing.length>3?'…':''}</div>`;
     return `<div class="card ${r.status}" data-s="${r.sym}" role="option" tabindex="0" aria-selected="${r.sym===selected}">
-      <div class="hd"><b>${r.sym}</b>${dir}<span class="status ${r.status}">${stTxt}</span></div>
+      <div class="hd"><b>${r.sym}</b>${dir}${r.quality&&r.engulf?`<span class="qs g${r.quality.grade}" title="品質分數（越高越好）">${r.quality.score}<i>${r.quality.grade}</i></span>`:''}<span class="status ${r.status}">${stTxt}</span></div>
       ${(s=>s? `<div class="age ${Date.now()-s.ts<3600e3?'fresh':''}" data-ts="${s.ts}" title="${s.what}：${fullTime(s.ts)}"><span class="tf">${s.tf}</span>${s.what} <b>${ago(s.ts)}</b></div>` : '')(since(r))}
-      ${(r.flags&&r.flags.length)||r.blocked? `<div class="tags">${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
+      ${(r.flags&&r.flags.length)||r.blocked||(r.fvgState&&r.status!=='idle')? `<div class="tags">${r.status==='trigger'&&r.zone==='fvg'?'<span class="z">FVG 進場</span>':''}${r.status==='watch'&&r.fvgState&&r.fvgState!=='entry'?`<span class="z">${{waiting:'等 FVG',testing:'FVG 觀察中',broken:'FVG 破 → 看 OB'}[r.fvgState]}</span>`:''}${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
       <div class="px"><span class="p">${fp(r.last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
       ${spark(r)}
       <div class="prog"><span class="stages">${stages}</span><span>${r.met}/${r.need.length}${r.scoreMax?` · 加分 ${r.score}/${r.scoreMax}`:''}</span></div>
@@ -156,9 +157,9 @@ function renderDetail(){
     htf: r.dir? `H4 ${D?'多頭':'空頭'}（最後 ${[...r.H.events].reverse().find(e=>e.dir===r.dir).type}）` : '沒有明確結構',
     fib: r.fib? `${D?'推動':'下跌'} ${fp(D?r.fib.lo:r.fib.hi)} → ${fp(D?r.fib.hi:r.fib.lo)}，目前回撤 ${(r.retr*100).toFixed(0)}%（要 ≥ ${(rules.fibMin*100).toFixed(1).replace('.0','')}%）` : '1H 還沒有順勢推動',
     ob: r.entryOB? `${fp(r.entryOB.lo)} – ${fp(r.entryOB.hi)}` : (r.fib?'這段推動裡沒有未失效的 OB':'—'),
-    engulf: r.engulf? `${r.engulf.kind}・${new Date(r.ltf[r.engulf.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤 ${fp(r.ltf[r.engulf.idx].c)}` : (r.entryOB?`回到 OB 後還沒出現${rules.pattern==='both'?'吞沒或 Pin bar':'吞沒'}`:'—'),
+    engulf: r.engulf? `${r.zone==='fvg'?'FVG 上的':'OB 上的'}${r.engulf.kind}・${new Date(r.ltf[r.engulf.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤 ${fp(r.ltf[r.engulf.idx].c)}` : (r.entryOB?`回到 OB 後還沒出現${rules.pattern==='both'?'吞沒或 Pin bar':'吞沒'}`:'—'),
     ema: (()=>{ const i=r.engulf? r.engulf.idx : n-1, e=eAt(i); return e==null?'資料不足':`${r.engulf?'型態收盤':'現價'}在 EMA${rules.emaLen} ${r.ltf[i].c>e?'上方':'下方'}（${fp(e)}）`; })(),
-    fvg: r.entryOB? (r.entryOB.fvg?'OB 之後有留下缺口（強力推動）':'OB 之後沒有缺口') : '—',
+    fvg: r.entryOB? (r.entryOB.fvg?`FVG ${fp(r.entryOB.fz.lo)}–${fp(r.entryOB.fz.hi)}${r.fvgState?`・${FVG_ZH[r.fvgState]}`:''}`:'OB 之後沒有缺口') : '—',
     sweep: r.sweep? `刺破前${r.dir>0?"低":"高"} ${fp(r.sweep.price)} 後收回` : (r.engulf?'回到 OB 前沒有掃過前高 / 前低':'—'),
     daily: r.dailyDir==null? '日線資料不足' : `日線${r.dailyDir>0?'多頭':r.dailyDir<0?'空頭':'盤整'}`,
     rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）・止損在${r.stopBasis||''}外` : '—'
@@ -166,6 +167,10 @@ function renderDetail(){
   const fl=[...(r.blocked?[`⛔ ${r.blocked}`]:[]), ...(r.flags||[]).map(f=>`⚠ ${f.t}`)];
   if(r.funding!=null && !(r.flags||[]).some(f=>f.k==='fund')) fl.push(`<span class="muted" style="font-weight:400">資金費率 ${(r.funding*100).toFixed(3)}%</span>`);
   $('dFlags').hidden=!fl.length; $('dFlags').innerHTML=fl.map(x=>`<div>${x}</div>`).join('');
+  const Q=r.engulf&&r.quality;
+  $('qualBox').hidden=!Q;
+  if(Q) $('qualBox').innerHTML=`<div class="qhd"><span class="qs big g${Q.grade}">${Q.score}<i>${Q.grade}</i></span><div><b>品質分數</b><div class="muted">越高越好。1 年回測：70 分以上平均每筆約 +0.9R，40 分以下約 +0.1R</div></div></div>
+    <ul class="qbars">${Q.parts.map(p=>`<li><span>${p.n}</span><span class="bar"><i style="width:${Math.round(p.v*100)}%"></i></span><span class="mono">${Math.round(p.w*p.v)}/${p.w}</span><span class="muted mono">${p.t}</span></li>`).join('')}</ul>`;
   $('checks').innerHTML=stagesOf(r).map(([k,n])=>`<li><span class="k"><span class="mark ${r.st[k]?'y':'n'}">${r.st[k]?'✓':'·'}</span>${n}${r.need.includes(k)?'':' <span class="muted">（加分）</span>'}</span><span class="v mono">${val[k]}</span></li>`).join('');
   calc(); draw();
 }
@@ -219,6 +224,7 @@ function drawChart(g,W,H,r,tf,C){
     const z1=r.fib.levels.find(L=>L.r===1).p, zc=r.dir>0? r.fib.hi-(r.fib.hi-r.fib.lo)*rules.fibMin : r.fib.lo+(r.fib.hi-r.fib.lo)*rules.fibMin;
     g.globalAlpha=.07; g.fillStyle=dirCol; g.fillRect(x0,y(Math.max(z1,zc)),W-R-x0,Math.abs(y(z1)-y(zc))); g.globalAlpha=1; }
   if(tf==='ltf' && r.entryOB && r.entryOB.idx>=off){ const x1=x(r.entryOB.idx)-cw/2; box(x1,r.entryOB.lo,r.entryOB.hi,dirCol,.28); tag('1H OB',x1+3,y(r.entryOB.lo)+ (r.dir>0?9:-9),dirCol); }
+  if(tf==='ltf' && r.entryOB && r.entryOB.fz && r.entryOB.fz.idx>=off){ const f=r.entryOB.fz, x1=x(f.idx)-cw/2, col=r.fvgState==='broken'?C('--muted'):C('--watch'); box(x1,f.lo,f.hi,col,r.fvgState==='broken'?.12:.22); tag(r.fvgState==='broken'?'FVG（已破）':'FVG',x1+3,y(r.dir>0?f.hi:f.lo)+(r.dir>0?-9:9),col); }
   // candles
   bars.forEach((b,j)=>{ const i=j+off, up=b.c>=b.o, col=up?C('--long'):C('--short'); g.strokeStyle=col; g.fillStyle=col;
     const xx=Math.round(x(i))+.5; g.beginPath(); g.moveTo(xx,y(b.h)); g.lineTo(xx,y(b.l)); g.stroke();
@@ -262,11 +268,11 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v5',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v10',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
-  if(r&&r.ok) showToast('Telegram 推播已改用這組參數'); else if(r&&r.status!==401) showToast('套用失敗，請確認伺服器狀態'); };
+  if(r&&r.ok) showToast('推播已改用這組參數'); else if(r&&r.status!==401) showToast('套用失敗，請確認伺服器狀態'); };
 ['equity','riskPct','margin'].forEach(id=>$(id).addEventListener('input',calc));
 const gate=()=>{ const v=$('verdict');
   if(Feed.locked){ $('g2').checked=false; v.className='verdict stop'; v.textContent=`今天已連虧 ${Feed.lossStreak} 筆，風控鎖啟動：休息，明天再來`; return; }
@@ -320,7 +326,7 @@ function renderCal(){
     const imp={3:'h',2:'m',1:'l'}[e.rank]||'';
     html+=`<div class="cal-row ${cls}"><span class="tm">${calFmt(e.ts,{hour:'2-digit',minute:'2-digit'})}</span><span class="cc">${e.countryZh}</span>
       <span class="imp ${imp}" title="${e.impact}"><i></i><i></i><i></i></span>
-      <span class="tt">${e.titleZh}${e.alert?'<span class="bell" title="會推播到 Telegram">● 推播</span>':''}${e.titleZh!==e.title?`<small>${e.title}</small>`:''}</span>
+      <span class="tt">${e.titleZh}${e.alert?'<span class="bell" title="會推播到手機">● 推播</span>':''}${e.titleZh!==e.title?`<small>${e.title}</small>`:''}</span>
       <span class="fv">預測 <b>${e.forecast||'—'}</b></span><span class="fv">前值 <b>${e.previous||'—'}</b></span></div>`;
   }
   $('calBody').innerHTML=html; renderCalWarn();
@@ -344,13 +350,13 @@ setInterval(renderCal,30000); setInterval(loadCal,15*60000);
 
 
 // ================= 提醒中心（鈴鐺） =================
-const Feed={ items:[], settings:null, locked:false, lossStreak:0, seen:+(store.get('smc-seen')||0), notified:store.get('smc-notified'), telegram:false, storage:'', persistent:false };
+const Feed={ items:[], settings:null, locked:false, lossStreak:0, seen:+(store.get('smc-seen')||0), notified:store.get('smc-notified'), telegram:false, discord:false, storage:'', persistent:false };
 const TYPE_ZH={signal:'訊號成立',near:'接近進場',result:'訊號結果',calendar:'數據',earnings:'財報'};
 const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function loadAlerts(poll){
   if(DataSource.mode!=='live'){ renderAlerts(); return; }
   try{ const r=await fetch('api/alerts',{cache:'no-store'}); if(!r.ok) return; const j=await r.json();
-    Object.assign(Feed,{items:j.feed||[], settings:j.settings, locked:j.locked, lossStreak:j.lossStreak, telegram:j.telegram, storage:j.storage, persistent:j.persistent});
+    Object.assign(Feed,{items:j.feed||[], settings:j.settings, locked:j.locked, lossStreak:j.lossStreak, telegram:j.telegram, discord:j.discord, storage:j.storage, persistent:j.persistent});
     browserNotify();
   }catch(e){}
   renderAlerts(); renderLock(); gate();
@@ -370,8 +376,8 @@ function renderAlerts(){
   if(st){ $('as_signal').checked=st.signal; $('as_near').checked=st.near; $('as_nearPct').value=st.nearPct; $('as_calendar').checked=st.calendar; $('as_result').checked=st.result; }
   const live=DataSource.mode==='live';
   $('alertForm').querySelectorAll('input,button').forEach(el=>{ if(el.id!=='notifyBtn') el.disabled=!live; });
-  $('alertStatus').innerHTML = !live ? '示範模式：提醒只顯示在這裡。用你的 Render 網站開啟才會推 Telegram。'
-    : [Feed.telegram?'Telegram：已設定':'Telegram：還沒設定（Render 加上 TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID）',
+  $('alertStatus').innerHTML = !live ? '示範模式：提醒只顯示在這裡。用你的 Render 網站開啟才會推到手機。'
+    : [Feed.discord?'Discord：已設定':'Discord：還沒設定（Render 加上 DISCORD_WEBHOOK_URL）', ...(Feed.telegram?['Telegram：已設定']:[]),
        `資料儲存：${esc(Feed.storage)}`, 'Notification' in window ? `瀏覽器通知：${{granted:'已開啟',denied:'被封鎖（到瀏覽器網站設定開啟）',default:'未開啟'}[Notification.permission]}`:''].filter(Boolean).join('<br>');
   $('feed').innerHTML = Feed.items.length ? Feed.items.slice(0,100).map(i=>`<div class="feed-item ${i.t>Feed.seen?'unread':''}">
       <span class="tm">${hhmm(new Date(i.t))}<span class="tp">${new Date(i.t).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'})}</span></span>
@@ -385,7 +391,7 @@ $('alertForm').addEventListener('submit',async e=>{ e.preventDefault();
 $('notifyBtn').onclick=async()=>{ if(!('Notification' in window)) return showToast('這個瀏覽器不支援通知');
   const p=await Notification.requestPermission(); showToast(p==='granted'?'瀏覽器通知已開啟（網頁開著時會跳通知）':'瀏覽器通知沒有開啟'); renderAlerts(); };
 $('tgTestBtn').onclick=async()=>{ const r=await adminFetch('api/test-alert',{method:'POST'}); if(!r) return; const j=await r.json().catch(()=>({}));
-  showToast(r.ok? (j.ok?'測試訊息已送出，去 Telegram 看看':'送出失敗，檢查 token 和 chat id') : (j.error||'送出失敗')); };
+  showToast(r.ok? (j.ok?'測試訊息已送出，去 Discord 看看':'送出失敗，檢查 Webhook 網址') : (j.error||'送出失敗')); };
 function renderLock(){
   $('lockBar').hidden=!Feed.locked;
   if(Feed.locked) $('lockBar').textContent=`🔒 今天已連虧 ${Feed.lossStreak} 筆：風控鎖啟動，進場提醒暫停推播。休息，明天再來。`;
@@ -495,7 +501,7 @@ function renderOpt(){
     <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
     <p class="hint">其他參數沿用目前設定（${{long:'只做多',short:'只做空'}[rules.side]||'多空都做'}、逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、止損緩衝 ${rules.stopBuf}%、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
   $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
-    rules={...DEFAULTS,...g}; store.set('smc-rules-v5',rules); syncForm(); scan();
+    rules={...DEFAULTS,...g}; store.set('smc-rules-v10',rules); syncForm(); scan();
     showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
     $('btForm').requestSubmit ? $('btForm').requestSubmit() : $('btForm').dispatchEvent(new Event('submit',{cancelable:true})); });
 }
@@ -522,19 +528,20 @@ function renderBT(){
   const r=L.rules, cmp=[...ruleChips(r), `手續費 ${L.fee}%×2`];
   const ST={win:'✅ 目標',loss:'❌ 止損',be:'🛡 保本',missed:'錯過',expired:'過期',open:'持倉中',pending:'等待'};
   const rows=L.trades.slice().sort((a,b)=>b.t-a.t).slice(0,200).map(t=>`<tr><td class="num">${new Date(t.t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(t.sym)}</b>${t.againstBtc?' <span class="pill">逆BTC</span>':''}</td><td><span class="dir ${t.dir>0?'L':'S'}">${t.dir>0?'多':'空'}</span></td>
-    <td class="num">${fp(t.entry)}</td><td class="num">${fp(t.stop)}</td><td class="num">${fp(t.target)}</td><td class="num">${t.rr.toFixed(2)}</td><td>${t.R!=null?`<span class="pill ${t.R>0?'win':t.status==='be'?'':'loss'}">${t.status==='be'?'保本 ':''}${f2(t.R)}R</span>`:`<span class="pill">${ST[t.status]}</span>`}</td></tr>`).join('');
+    <td class="num">${t.q!=null?`<span class="qs g${t.grade}">${t.q}</span>`:'—'}</td><td class="num">${fp(t.entry)}</td><td class="num">${fp(t.stop)}</td><td class="num">${fp(t.target)}</td><td class="num">${t.rr.toFixed(2)}</td><td>${t.R!=null?`<span class="pill ${t.R>0?'win':t.status==='be'?'':'loss'}">${t.status==='be'?'保本 ':''}${f2(t.R)}R</span>`:`<span class="pill">${ST[t.status]}</span>`}</td></tr>`).join('');
   const sp=L.span[0]<Infinity? `${new Date(L.span[0]).toLocaleDateString('zh-TW')} – ${new Date(L.span[1]).toLocaleDateString('zh-TW')}` : '';
   $('btOut').innerHTML=`
     <div class="bt-cmp">${cmp.map(x=>`<span>${x}</span>`).join('')}<span>${L.syms.length} 個幣 · ${sp}</span></div>
     <div class="tiles">${tile('訊號數',s.n)}${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',f2(s.avgR),s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',f2(s.totalR),s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('獲利因子',s.pf==null?'—':s.pf===Infinity?'∞':s.pf.toFixed(2))}${tile('最大回撤',s.maxDD?f2(s.maxDD)+'R':'0R','neg')}${tile('最大連虧',s.maxStreak+' 筆')}${r.beAt>0?tile('保本出場',s.be+' 筆'):''}</div>
     <div><h3>資金曲線（累計 R，依出場時間）</h3><canvas id="btEq" aria-label="回測累計 R 曲線"></canvas></div>
     <div class="split">${tbl('依方向',btGroup(L.trades,t=>t.dir>0?'做多':'做空'))}${tbl('順 / 逆 BTC 大盤',btGroup(L.trades,t=>t.againstBtc?'逆 BTC':'順 BTC'))}${tbl('依月份',btGroup(L.trades,month),(a,b)=>a.g.localeCompare(b.g))}</div>
+    <div class="split">${tbl('依進場區',btGroup(L.trades,t=>t.zone==='fvg'?'FVG 進場':'OB 進場'))}${tbl('依品質分數',btGroup(L.trades,t=>t.grade?`${t.grade}（${{S:'70+',A:'55–69',B:'40–54',C:'<40'}[t.grade]} 分）`:'—'),(a,b)=>a.g.localeCompare(b.g))}</div>
     <div class="split">${tbl('表現最好的幣',btGroup(L.trades,t=>t.sym),(a,b)=>b.R-a.R)}</div>
-    <div><h3>訊號明細（最新 200 筆）</h3><div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows||''}</tbody></table></div></div>
+    <div><h3>訊號明細（最新 200 筆）</h3><div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">分數</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows||''}</tbody></table></div></div>
     <div><button class="btn" type="button" id="btCsv">匯出全部回測明細（CSV）</button></div>
     <p class="hint">錯過 ${s.missed}・過期 ${s.expired}・資料結束時仍持倉 ${s.open}（不計入勝率）。${r.beAt>0?`保本出場算 0R（扣手續費後略負），勝率只算打到目標的單；最大連虧把保本也算進「沒賺」。`:''}同一根 K 棒同時碰到止損與目標保守算止損；進場後下一根才可能打到目標。${L.failed.length?`<br>抓不到資料：${esc(L.failed.slice(0,5).join('；'))}`:''}${DataSource.mode!=='live'?'<br>示範模式：用的是程式產生的 K 線，只有約 20 天。':''}<br>過去表現不代表未來結果。</p>`;
-  $('btCsv').onclick=()=>downloadCSV('回測明細',['訊號時間','幣種','方向','進場','止損','目標','RR','結果','R','逆BTC','回撤位置'],
-    L.trades.slice().sort((a,b)=>a.t-b.t).map(t=>[tw(t.t),t.sym,t.dir>0?'多':'空',t.entry,t.stop,t.target,t.rr.toFixed(2),ST[t.status],t.R!=null?t.R.toFixed(3):'',t.againstBtc?'是':'',t.retr!=null?(t.retr*100).toFixed(0)+'%':'']));
+  $('btCsv').onclick=()=>downloadCSV('回測明細',['訊號時間','幣種','方向','品質分數','進場','止損','目標','RR','結果','R','逆BTC','回撤位置'],
+    L.trades.slice().sort((a,b)=>a.t-b.t).map(t=>[tw(t.t),t.sym,t.dir>0?'多':'空',t.q??'',t.entry,t.stop,t.target,t.rr.toFixed(2),ST[t.status],t.R!=null?t.R.toFixed(3):'',t.againstBtc?'是':'',t.retr!=null?(t.retr*100).toFixed(0)+'%':'']));
   drawEquity(s.curve);
 }
 function drawEquity(curve){
@@ -569,7 +576,7 @@ async function loadStats(){
       <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${fp(x.target)}</td><td class="num">${x.rr.toFixed(2)}</td><td>${res}</td></tr>`; }).join('');
   setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });
   box.innerHTML=`<div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
-    <div class="split">${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
+    <div class="split">${grp('依品質分數',s.byGrade||[])}${grp('依進場區',s.byZone||[])}${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
     <div><h3>最近的訊號</h3>${s.recent.length?`<div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="hint">還沒有訊號。之後每個觸發都會記在這裡。</p>'}</div>
     <div><button class="btn" type="button" id="exportSig">匯出全部訊號紀錄（CSV）</button></div>
     <p class="hint">贏輸都會保留（最近 5000 筆）。統計的是「推播用參數」下的訊號。同一根 K 棒同時碰到止損和目標，保守算止損；24 小時沒回到進場位算過期。</p>`;
@@ -627,7 +634,7 @@ function renderEarn(){
   if(!e.events.length){ $('calBody').innerHTML=`<div class="cal-empty">未來兩週追蹤的股票沒有財報。${e.error&&!e.updatedAt?'':'要加股票，在 Render 的 EARNINGS_TICKERS 加上代號。'}</div>`; return; }
   const tw=s=>s==='盤前'?'約台灣晚上 8–9 點半':s==='盤後'?'約台灣隔天凌晨 4–5 點':'時間未定';
   $('calBody').innerHTML=e.events.map(x=>`<div class="cal-row"><span class="tm">${x.date.slice(5).replace('-','/')}</span><span class="cc">${x.session}</span><span class="imp h"><i></i><i></i><i></i></span>
-    <span class="tt"><b>${esc(x.sym)}</b> ${esc(x.name)}${x.alert?'<span class="bell" title="會推播到 Telegram">● 推播</span>':''}<small>${tw(x.session)}${x.quarter?'｜'+esc(x.quarter):''}</small></span><span class="fv">EPS 預估 <b>${esc(x.eps)||'—'}</b></span><span class="fv"></span></div>`).join('');
+    <span class="tt"><b>${esc(x.sym)}</b> ${esc(x.name)}${x.alert?'<span class="bell" title="會推播到手機">● 推播</span>':''}<small>${tw(x.session)}${x.quarter?'｜'+esc(x.quarter):''}</small></span><span class="fv">EPS 預估 <b>${esc(x.eps)||'—'}</b></span><span class="fv"></span></div>`).join('');
 }
 
 // ================= 貼文圖卡 =================
@@ -638,7 +645,7 @@ function drawPost(){
   const cv=$('postCanvas'), g=cv.getContext('2d'), W=1080, H=1350, C=k=>POST_C[k];
   g.setTransform(1,0,0,1,0,0); g.fillStyle=C('--bg'); g.fillRect(0,0,W,H);
   g.textBaseline='alphabetic'; const D=r.dir>0, dc=r.dir? (D?C('--long'):C('--short')) : C('--muted');
-  g.fillStyle=C('--accent'); g.font='700 30px "Chakra Petch","Noto Sans TC",sans-serif'; g.fillText('SMC 訊號',64,96);
+  g.fillStyle=C('--accent'); g.font='700 30px "Chakra Petch","Noto Sans TC",sans-serif'; g.fillText('聚寶盆・SMC 訊號',64,96);
   g.fillStyle=C('--muted'); g.font='400 26px "Noto Sans TC",sans-serif'; const ts=new Date().toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
   g.textAlign='right'; g.fillText(`${ts}（台灣）`,W-64,96); g.textAlign='left';
   g.fillStyle=C('--fg'); g.font='700 104px "Chakra Petch","Noto Sans TC",sans-serif'; g.fillText(r.sym,64,214);
@@ -672,7 +679,7 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
     if(DataSource.serverRules) rules={...DEFAULTS,...DataSource.serverRules};
     $('srcChip').classList.add('live'); $('srcTxt').textContent='BingX 即時資料';
     $('autoLbl').textContent='每分鐘自動更新'; $('pushRules').hidden=false;
-    $('note').textContent='資料來自 BingX USDT 永續合約（已收盤的 1H / H4 K 棒）。後端每 15 分鐘掃描一次，新訊號、接近進場區、數據公布前都會推到 Telegram；策略參數改完按「套用到推播」，推播才會改用新規則。';
+    $('note').textContent='資料來自 BingX USDT 永續合約（已收盤的 1H / H4 K 棒）。後端每 15 分鐘掃描一次，新訊號、接近進場區、數據公布前都會推到 Discord；策略參數改完按「套用到推播」，推播才會改用新規則。';
     if(!DataSource.list.length){ $('note').textContent='伺服器第一次掃描中，完成後會自動顯示。';
       const wait=setInterval(async()=>{ await DataSource.refresh(); if(DataSource.list.length){ clearInterval(wait); scan(); } },8000); }
   }

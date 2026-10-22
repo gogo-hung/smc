@@ -1,5 +1,5 @@
 // 提醒中心 + 訊號成績單
-// - 新訊號可進場、價格接近進場區、數據公布前 → 進提醒紀錄（鈴鐺）並推 Telegram
+// - 新訊號可進場、價格接近進場區、數據公布前 → 進提醒紀錄（鈴鐺）並推 Discord / Telegram
 // - 每個觸發過的訊號都追蹤後續：先碰進場 → 再看先打止損還是目標
 const store = require('./store');
 const notify = require('./notify');
@@ -31,7 +31,7 @@ const fp = p => p == null || !isFinite(p) ? '—' : p >= 1000 ? p.toFixed(1) : p
 const side = d => (d > 0 ? '做多' : '做空');
 const BONUS_ZH = { fib: '斐波便宜區', ema: 'EMA 順勢', fvg: 'OB 帶 FVG', sweep: '掃流動性', daily: '日線同向' };
 
-// 寫進提醒紀錄；push=true 且該類型開啟時才推 Telegram。風控鎖住時，進場類提醒只記錄不推
+// 寫進提醒紀錄；push=true 且該類型開啟時才推 Discord / Telegram。風控鎖住時，進場類提醒只記錄不推
 async function emit(type, title, lines, extra = {}) {
   const muted = (type === 'signal' || type === 'near') && journal.locked();
   const item = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: Date.now(), type, title, body: lines.join('\n'), muted, ...extra };
@@ -63,14 +63,17 @@ async function onScan(results, market) {
     if (r.status !== 'trigger') continue;
     const k = keyOf(r);
     if (state.signals.some(s => s.k === k)) continue;
-    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
+    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, zone: r.zone || 'ob', grade: r.quality ? r.quality.grade : null, createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
     state.signals.push(sig); changed = true;
     const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS;
     if (fresh) {
       const dist = (r.last - r.entry) / r.entry * 100;
-      await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：訊號成立`, [
+      const qline = r.quality ? `品質 ${r.quality.score} 分（${r.quality.grade}）｜${r.quality.parts.filter(p => p.v >= 0.6).map(p => p.n).join('、') || '各項普通'}` : '';
+      await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：訊號成立${r.quality ? `｜${r.quality.score} 分 ${r.quality.grade}` : ''}`, [
         `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
         `RR ${r.rr.toFixed(2)}　現價 ${fp(r.last)}（距進場 ${dist > 0 ? '+' : ''}${dist.toFixed(2)}%）`,
+        r.zone === 'fvg' ? `進場區：FVG 反應（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}），止損仍在 OB 外側` : `進場區：1H OB（${fp(r.entryOB.lo)}–${fp(r.entryOB.hi)}）`,
+        ...(qline ? [qline] : []),
         `加分 ${r.score}/${r.scoreMax}${sig.bonus.length ? `：${sig.bonus.map(b => BONUS_ZH[b]).join('、')}` : ''}`,
         ...(r.be != null ? [`獲利到 ${fp(r.be)} 時，止損移到開倉價 ${fp(r.entry)}`] : []),
         ...(sig.flags.length ? [`⚠ ${sig.flags.join('；')}`] : []),
@@ -148,7 +151,7 @@ function stats(all = false) {
     winRate: done.length ? wins.length / done.length : null,
     avgR: done.length ? +(sumR(done) / done.length).toFixed(2) : null, totalR: sumR(done),
     pending: count('pending'), filled: count('filled'), be: count('be'), missed: count('missed'), expired: count('expired'),
-    byDir: group(s => (s.dir > 0 ? '做多' : '做空')), bySym: group(s => s.sym).slice(0, 10),
+    byDir: group(s => (s.dir > 0 ? '做多' : '做空')), byZone: group(s => (s.zone === 'fvg' ? 'FVG 進場' : 'OB 進場')), byGrade: group(s => s.grade ? `${s.grade}（${{ S: '70+', A: '55–69', B: '40–54', C: '<40' }[s.grade]} 分）` : '舊訊號（無分數）'), bySym: group(s => s.sym).slice(0, 10),
     recent: (all ? state.signals : state.signals.slice(-60)).slice().reverse(),
   };
 }

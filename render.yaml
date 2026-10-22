@@ -13,6 +13,8 @@ services:
         value: "20"
       - key: ADMIN_TOKEN       # 自動產生，cron-job.org 叫醒時要用
         generateValue: true
+      - key: DISCORD_WEBHOOK_URL     # Discord 頻道 → 整合 → Webhook → 複製網址
+        sync: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID

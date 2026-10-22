@@ -65,7 +65,7 @@ global.fetch = async (url) => {
   const server = require('../src/server');
   await scanner.init();
   // 示範資料是隨機 K 線：用寬鬆一點的規則測流程（不是測策略好壞）
-  Object.assign(scanner.state.rules, { fibMin: 0.5, lookback: 12, minRR: 2, stopBuf: 0.1, btcFilter: 'warn', side: 'both', minScore: 0 });
+  Object.assign(scanner.state.rules, { fibMin: 0.5, lookback: 12, minRR: 2, stopBuf: 0.1, btcFilter: 'warn', side: 'both', minScore: 0, cFvg: 'score', target: 'swing', minRR: 2 });
 
   // ---- 掃描 ----
   const sum = await scanner.scanOnce();
@@ -199,7 +199,7 @@ global.fetch = async (url) => {
   console.log(`歷史：1H ${hist.ltf.length} 根、4H ${hist.htf.length} 根（${calls - callsBefore} 次請求）｜回測 SOL ${bt.trades.length} 個訊號`);
 
   const page = await req('GET', '/');
-  assert(page.body.includes('SMC 掃幣台'));
+  assert(page.body.includes('聚寶盆'));
   assert((await req('GET', '/smc.js')).body.includes('function applyContext'));
 
   server.close();

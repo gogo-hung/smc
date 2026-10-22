@@ -48,6 +48,7 @@ module.exports = {
   HISTORY_PAGE: num(process.env.HISTORY_PAGE, 500),                  // 回測抓歷史時每段幾根（保守一點，避免撞到單次上限）
   EXTRA_MAX: num(process.env.EXTRA_MAX, 20),                         // 搜尋加入的幣最多幾個
 
+  DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL || '',  // Discord 頻道的 Webhook 網址
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || '',
   PUBLIC_URL: process.env.PUBLIC_URL || '',      // 有填的話，推播會附上看板連結
