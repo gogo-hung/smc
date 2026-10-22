@@ -23,7 +23,8 @@ const cost = (e, s) => 2 * FEE * e / Math.abs(e - s);
   const btc = SMC.trendSeries(data.BTC.htf, RULES);
   const V = {}; const add = (k, R, n = 1) => { (V[k] ||= { R: [], w: 0 }); if (R == null) return; V[k].R.push(R); if (R > 0) V[k].w++; };
   let n = 0, hunted = 0, reN = 0;
-  for (const sym of syms) {
+  const errs = [];
+  for (const sym of syms) { try {
     const m = data[sym].m15, htf = data[sym].htf, idx = new Map(m.map((b, i) => [b.t, i]));
     const Hs = SMC.structure(htf, { swingLen: 3, breakBy: 'close', obInvalid: 'close' }), hbar = htf[1].t - htf[0].t;
     const { trades } = SMC.backtest(sym, m, htf, RULES, { feePct: 0, btcDirAt: btc });
@@ -60,10 +61,11 @@ const cost = (e, s) => 2 * FEE * e / Math.abs(e - s);
       }
       add('3 止損 15M 前低，被掃後收回再進場一次（兩筆合計）', total);
     }
-  }
+  } catch (e) { errs.push(`${sym}: ${e.message}`); } }
   const out = [`# MTF 改良測試（${EXCHANGE}，${DAYS} 天，同一批 ${n} 筆成交的單，手續費 0.035%×2）`, '', '| 做法 | 筆數 | 勝率 | 平均R | 累計R |', '|---|---|---|---|---|'];
   for (const k of Object.keys(V).sort()) { const v = V[k]; const s = v.R.reduce((a, b) => a + b, 0); out.push(`| ${k} | ${v.R.length} | ${pct(v.w, v.R.length)} | ${f2(s / v.R.length)} | ${f2(s)} |`); }
   out.push('', `被掃後收回再進場：觸發 ${reN} 次，其中 ${hunted} 次第二筆打到目標。（每筆都用 1R 計：再進場那筆的止損距離另外算，同樣是 1R 風險）`);
+  if (errs.length) out.push('', `錯誤 ${errs.length} 個幣：${errs.slice(0, 5).join('；')}`);
   const md = out.join('\n'); console.log(md);
   fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `diag2-${EXCHANGE}-${DAYS}.md`), md);
 })().catch(e => { console.error(e); process.exit(1); });

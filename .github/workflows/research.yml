@@ -27,9 +27,10 @@ jobs:
       - run: npm i --no-save ccxt@4.5.84
       - run: node tools/diagnose2.js
         env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "bingx", M15: "1", NODE_OPTIONS: "--max-old-space-size=6144" }
-      - run: node tools/diagnose2.js
+      - run: node tools/diagnose2.js > research-cache/log-okx.md 2>&1 || (tail -c 3000 research-cache/log-okx.md > research-cache/log-okx-tail.md; true)
         env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=6144" }
-      - run: |
+      - if: always()
+        run: |
           mkdir -p results && cp research-cache/*.md results/ && cp research-cache/trades-*.json results/ 2>/dev/null || true
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
           git add results && git commit -m "research result" && git pull --rebase && git push
