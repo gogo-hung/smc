@@ -416,6 +416,26 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </div>
     <form id="rules">
       <div class="col">
+        <div class="group-t">策略模型</div>
+        <div class="fld"><label class="label" for="model">進場模型</label>
+          <select id="model"><option value="bf">BOS + FVG 回踩（建議）</option><option value="ob">OB + 吞沒（舊版）</option></select>
+          <span class="hint">BOS + FVG：H4 順勢、1H BOS 留下 FVG，回到 FVG 中間掛單。右邊「1H 結構 × OB」「加分條件」那幾欄是舊版 OB 模型用的</span></div>
+        <div class="fld"><label class="label" for="tpR">目標（幾 R）</label>
+          <input type="number" id="tpR" min="1" max="5" step="0.5" value="2"><span class="hint">不分批時：1.5R 勝率約 50%、2R 約 45%、3R 約 35%</span></div>
+        <div class="fld"><label class="label" for="p1">分批止盈</label>
+          <select id="p1"><option value="1">到 1R 先平一半，剩下移保本（勝率約 60%）</option><option value="0">不分批，整筆打目標</option></select></div>
+        <div class="fld"><label class="label" for="bfTarget">目標算法</label>
+          <select id="bfTarget"><option value="fixed">固定 R</option><option value="htf">H4 區間極值（RR 用最低 RR）</option></select></div>
+        <div class="fld"><label class="label" for="bfEntry">掛單位置</label>
+          <select id="bfEntry"><option value="mid">FVG 中間</option><option value="edge">FVG 邊緣（較早成交）</option></select></div>
+        <div class="fld"><label class="label" for="bfEma">EMA 順勢</label>
+          <select id="bfEma"><option value="on">要</option><option value="off">不看</option></select></div>
+        <div class="fld"><label class="label" for="bfPd">折價 / 溢價區</label>
+          <select id="bfPd"><option value="on">要（做多在 H4 區間下半部）</option><option value="off">不看</option></select></div>
+        <div class="fld"><label class="label" for="bfWait">幾根 1H 沒成交就取消</label>
+          <input type="number" id="bfWait" min="4" max="72" value="24"></div>
+      </div>
+      <div class="col">
         <div class="group-t">H4 趨勢</div>
         <div class="fld"><label class="label" for="htfSwing">H4 swing 長度</label>
           <input type="number" id="htfSwing" min="2" max="8" value="3"><span class="hint">左右各幾根 K 棒才算有效高低點</span></div>

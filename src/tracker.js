@@ -63,19 +63,23 @@ async function onScan(results, market) {
     if (r.status !== 'trigger') continue;
     const k = keyOf(r);
     if (state.signals.some(s => s.k === k)) continue;
-    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, zone: r.zone || 'ob', grade: r.quality ? r.quality.grade : null, createdAt: lastClose(r), status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
+    if (state.signals.some(s => s.sym === r.sym && (s.status === 'pending' || s.status === 'filled'))) continue; // 同一個幣一次只做一單
+    const bf = r.model === 'bf';
+    const sig = { k, sym: r.sym, dir: r.dir, entry: r.entry, stop: r.stop, target: r.target, rr: r.rr, be: r.be ?? null, p1: r.p1 ?? null, p1R: r.p1R ?? null, score: r.score, scoreMax: r.scoreMax, bonus: (r.bonus || []).filter(b => r.st[b]), q: r.quality ? r.quality.score : null, zone: r.zone || 'ob', grade: r.quality ? r.quality.grade : null, createdAt: bf ? r.ltf[r.sigIdx].t + Q : lastClose(r), model: r.model || 'ob', status: 'pending', near: false, flags: (r.flags || []).map(f => f.t) };
     state.signals.push(sig); changed = true;
-    const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS;
+    const fresh = !cfg.ALERT_MAX_AGE_BARS || (r.ltf.length - 1 - r.sigIdx) < cfg.ALERT_MAX_AGE_BARS || (bf && r.filledIdx < 0); // BF 是掛單：還沒成交就還有效
     if (fresh) {
       const dist = (r.last - r.entry) / r.entry * 100;
       const qline = r.quality ? `品質 ${r.quality.score} 分（${r.quality.grade}）｜${r.quality.parts.filter(p => p.v >= 0.6).map(p => p.n).join('、') || '各項普通'}` : '';
-      await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：訊號成立${r.quality ? `｜${r.quality.score} 分 ${r.quality.grade}` : ''}`, [
-        `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
+      await emit('signal', `🎯 ${r.sym}/USDT ${side(r.dir)}：${bf ? '掛單訊號' : '訊號成立'}${r.quality ? `｜${r.quality.score} 分 ${r.quality.grade}` : ''}`, [
+        bf ? `限價掛單 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}` : `進場 ${fp(r.entry)}　止損 ${fp(r.stop)}　目標 ${fp(r.target)}`,
         `RR ${r.rr.toFixed(2)}　現價 ${fp(r.last)}（距進場 ${dist > 0 ? '+' : ''}${dist.toFixed(2)}%）`,
-        r.zone === 'fvg' ? `進場區：FVG 反應（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}），止損仍在 OB 外側` : `進場區：1H OB（${fp(r.entryOB.lo)}–${fp(r.entryOB.hi)}）`,
+        bf ? `1H BOS 後回踩 FVG（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}）掛中間，止損在 OB 外；${r.filledIdx >= 0 ? '⚠ 已經成交過，現價追進要小心' : '24 小時內沒成交就取消'}`
+        : r.zone === 'fvg' ? `進場區：FVG 反應（${fp(r.fvgZone.lo)}–${fp(r.fvgZone.hi)}），止損仍在 OB 外側` : `進場區：1H OB（${fp(r.entryOB.lo)}–${fp(r.entryOB.hi)}）`,
         ...(qline ? [qline] : []),
-        `加分 ${r.score}/${r.scoreMax}${sig.bonus.length ? `：${sig.bonus.map(b => BONUS_ZH[b]).join('、')}` : ''}`,
+        ...(r.scoreMax ? [`加分 ${r.score}/${r.scoreMax}${sig.bonus.length ? `：${sig.bonus.map(b => BONUS_ZH[b]).join('、')}` : ''}`] : []),
         ...(r.be != null ? [`獲利到 ${fp(r.be)} 時，止損移到開倉價 ${fp(r.entry)}`] : []),
+        ...(r.p1 != null ? [`到 ${fp(r.p1)}（${r.p1R}R）先平一半，剩下一半止損移到開倉價`] : []),
         ...(sig.flags.length ? [`⚠ ${sig.flags.join('；')}`] : []),
         '下單前：這是訊號不是情緒？今天沒連虧兩筆？止損先掛。',
       ], { sym: r.sym });
@@ -100,15 +104,20 @@ async function onScan(results, market) {
         else if (b.t - s.createdAt > 24 * 3600e3) { s.status = 'expired'; s.closedAt = b.t; break; }
       }
       if (s.status === 'filled') {
-        const sl = s.beHit ? s.entry : s.stop;
+        const sl = s.beHit || s.p1Hit ? s.entry : s.stop;
         const hitStop = L ? b.l <= sl : b.h >= sl;
         const hitTarget = L ? b.h >= s.target : b.l <= s.target;
-        if (hitStop) { s.status = s.beHit ? 'be' : 'loss'; s.R = s.beHit ? 0 : -1; s.closedAt = b.t; }   // 同一根同時碰到止損和目標，保守算止損
-        else if (hitTarget && b.t > s.filledAt) { s.status = 'win'; s.R = +s.rr.toFixed(2); s.closedAt = b.t; }
-        if (s.status === 'win' || s.status === 'loss' || s.status === 'be') {
-          const title = { win: `✅ ${s.sym} ${side(s.dir)} 打到目標 +${s.R}R`, loss: `❌ ${s.sym} ${side(s.dir)} 打到止損 -1R`, be: `🛡 ${s.sym} ${side(s.dir)} 保本出場 0R` }[s.status];
+        const half = s.p1Hit ? 0.5 * s.p1R : 0, size = s.p1Hit ? 0.5 : 1;
+        if (hitStop) { s.status = s.p1Hit ? 'tp1' : s.beHit ? 'be' : 'loss'; s.R = s.p1Hit ? +half.toFixed(2) : s.beHit ? 0 : -1; s.closedAt = b.t; }   // 同一根同時碰到止損和目標，保守算止損
+        else if (hitTarget && b.t > s.filledAt) { s.status = 'win'; s.R = +(half + size * s.rr).toFixed(2); s.closedAt = b.t; }
+        if (s.status === 'win' || s.status === 'loss' || s.status === 'be' || s.status === 'tp1') {
+          const title = { win: `✅ ${s.sym} ${side(s.dir)} 打到目標 +${s.R}R`, loss: `❌ ${s.sym} ${side(s.dir)} 打到止損 -1R`, be: `🛡 ${s.sym} ${side(s.dir)} 保本出場 0R`, tp1: `🛡 ${s.sym} ${side(s.dir)} 剩下一半保本出場（前面已平一半）+${s.R}R` }[s.status];
           await emit('result', title, [`進場 ${fp(s.entry)}　止損 ${fp(s.stop)}　目標 ${fp(s.target)}`], { sym: s.sym });
           break;
+        }
+        if (s.p1 != null && !s.p1Hit && b.t > s.filledAt && (L ? b.h >= s.p1 : b.l <= s.p1)) {
+          s.p1Hit = true; s.p1At = b.t;
+          await emit('result', `💰 ${s.sym} ${side(s.dir)} 到 ${s.p1R}R：先平一半`, [`在 ${fp(s.p1)} 平掉一半倉位，剩下一半止損改到開倉價 ${fp(s.entry)}，目標 ${fp(s.target)} 不變`], { sym: s.sym });
         }
         if (s.be != null && !s.beHit && b.t > s.filledAt && (L ? b.h >= s.be : b.l <= s.be)) {
           s.beHit = true; s.beAt = b.t;
@@ -137,13 +146,13 @@ async function onScan(results, market) {
 const openSymbols = () => [...new Set(state.signals.filter(s => s.status === 'pending' || s.status === 'filled').map(s => s.sym))];
 
 function stats(all = false) {
-  const done = state.signals.filter(s => s.status === 'win' || s.status === 'loss' || s.status === 'be');
-  const wins = done.filter(s => s.status === 'win');
+  const done = state.signals.filter(s => ['win', 'loss', 'be', 'tp1'].includes(s.status));
+  const wins = done.filter(s => s.R > 0);
   const sumR = a => +a.reduce((x, s) => x + s.R, 0).toFixed(2);
   const group = (key) => {
     const m = {};
     for (const s of done) { const g = key(s); (m[g] ||= []).push(s); }
-    return Object.entries(m).map(([g, a]) => ({ g, n: a.length, winRate: a.filter(s => s.status === 'win').length / a.length, R: sumR(a) })).sort((a, b) => b.n - a.n);
+    return Object.entries(m).map(([g, a]) => ({ g, n: a.length, winRate: a.filter(s => s.R > 0).length / a.length, R: sumR(a) })).sort((a, b) => b.n - a.n);
   };
   const count = st => state.signals.filter(s => s.status === st).length;
   return {

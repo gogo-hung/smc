@@ -45,26 +45,30 @@ async function adminFetch(url,opt={}){
 // ---- rules ----
 // 策略：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態；斐波、EMA、FVG、掃流動性、日線同向 = 加分
 const DEFAULTS={swingLen:3,htfSwing:3,breakBy:'close',obInvalid:'close',fibMin:0.618,emaLen:50,lookback:10,entry:'close',minRR:3,stopBuf:0.2,target:'htf',btcFilter:'block',fundingMax:0.05,side:'both',stopMode:'ob',
-  pattern:'engulf',cFib:'need',cEma:'need',cFvg:'need',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5,minQuality:0,fvgEntry:'on',fvgStop:'ob',fvgFib:0};
+  pattern:'engulf',cFib:'need',cEma:'need',cFvg:'need',cSweep:'score',cDaily:'score',minScore:0,beAt:0.5,minQuality:0,fvgEntry:'on',fvgStop:'ob',fvgFib:0,
+  model:'bf',tpR:2,p1:1,bfEntry:'mid',bfTarget:'fixed',bfEma:'on',bfPd:'on',bfWait:24};
 const FVG_ZH={waiting:'等價格回到 FVG',testing:'價格在 FVG 裡，觀察反應',broken:'FVG 已被收盤穿過 → 改看 OB',entry:'FVG 反應確認'};
 const BONUS_ZH={fib:'斐波便宜區',ema:'EMA 順勢',fvg:'OB 帶 FVG',sweep:'掃流動性',daily:'日線同向'};
 const condKey=k=>'c'+k[0].toUpperCase()+k.slice(1);
 function ruleChips(r){
+  if(r.model==='bf') return ['BOS + FVG 回踩', `FVG ${r.bfEntry==='edge'?'邊緣':'中間'}掛限價單`, `止損 OB 外 + ${r.stopBuf}%`, r.bfTarget==='htf'?`目標 H4 極值（RR ≥ ${r.minRR}）`:`目標 ${r.tpR}R`,
+    r.bfEma!=='off'?`EMA${r.emaLen} 順勢`:'', r.bfPd!=='off'?'折價 / 溢價區':'', `${r.bfWait}H 沒成交取消`, r.p1>0?`${r.p1}R 平一半＋保本`: r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不分批',
+    {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做'].filter(Boolean);
   const req=[],bon=[]; for(const k of ['fib','ema','fvg','sweep','daily']){ const m=r[condKey(k)]; const n=k==='fib'?`斐波 ≥ ${r.fibMin}`:k==='ema'?`EMA${r.emaLen}`:BONUS_ZH[k]; if(m==='need') req.push(n+'（必要）'); else if(m==='score') bon.push(n); }
   return [r.fvgEntry==='on'?`先看 FVG（止損放${r.fvgStop==='ob'?' OB':' FVG'} 外）`:'只看 OB', r.pattern==='both'?'吞沒或 Pin bar':'吞沒', ...req, bon.length?`加分 ≥ ${Math.min(r.minScore,bon.length)}/${bon.length}：${bon.join('、')}`:'', `型態 ${r.lookback}H 內`, r.entry==='close'?'型態收盤進場':'OB 邊緣進場',
     r.minQuality>0?`品質 ≥ ${r.minQuality} 分`:'', `RR ≥ ${r.minRR}`, r.beAt>0?`到 ${Math.round(r.beAt*100)}% 移保本`:'不移保本', r.target==='swing'?'目標 1H 前高/低':'目標 H4 極值', {warn:'逆 BTC 警告',block:'逆 BTC 濾掉',off:''}[r.btcFilter], {long:'只做多',short:'只做空'}[r.side]||'多空都做', `止損：${{swing:'1H 波段點',leg:'推動起點',ob:'OB 外側'}[r.stopMode||'swing']} + ${r.stopBuf}%`].filter(Boolean);
 }
-let rules = {...DEFAULTS, ...(store.get('smc-rules-v10')||{})};
+let rules = {...DEFAULTS, ...(store.get('smc-rules-v11')||{})};
 function syncForm(){ for(const k in DEFAULTS){ const el=$(k); if(el.type==='checkbox') el.checked=rules[k]; else el.value=rules[k]; } renderSum(); }
 function renderSum(){
   const t=ruleChips(rules);
   $('ruleSum').innerHTML=t.map(x=>`<span>${x}</span>`).join('');
 }
-function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v10',rules); renderSum(); }
+function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v11',rules); renderSum(); }
 
 // ---- state ----
 let results=[], selected=null, filt='trigger', dirF=0, tf='ltf', prevTrig=null, q='';
-const STAGES=[['htf','H4 趨勢'],['ob','1H OB'],['engulf','1H 型態'],['rr','RR 達標'],['fib','斐波便宜區'],['ema','EMA 順勢'],['fvg','OB 帶 FVG'],['sweep','掃流動性'],['daily','日線同向']];
+const STAGES=[['htf','H4 趨勢'],['bos','1H 順勢 BOS'],['pd','折價 / 溢價區'],['live','掛單有效'],['ob','1H OB'],['engulf','1H 型態'],['rr','RR 達標'],['fib','斐波便宜區'],['ema','EMA 順勢'],['fvg','OB 帶 FVG'],['sweep','掃流動性'],['daily','日線同向']];
 const stagesOf=r=>STAGES.filter(([k])=>r.need.includes(k)||(r.bonus||[]).includes(k));
 
 const fp = p => p==null||!isFinite(p) ? '—' : p>=1000? p.toLocaleString('en-US',{maximumFractionDigits:1}) : p>=10? p.toFixed(2) : p>=1? p.toFixed(3) : p>=0.01? p.toFixed(4) : p.toPrecision(4);
@@ -95,6 +99,7 @@ function showToast(msg){ const t=$('toast'); t.textContent=msg; t.hidden=false; 
 const barMs=r=> r.ltf&&r.ltf.length>1 ? r.ltf[1].t-r.ltf[0].t : 3600e3;
 const tfName=ms=> ms>=86400e3?'D1': ms>=14400e3?'H4': ms>=3600e3?'1H': `${Math.round(ms/60000)}M`;
 function since(r){
+  if(r.model==='bf'){ const i=r.sigIdx; if(i==null||!r.ltf[i]||r.status==='idle') return null; return { ts: r.ltf[i].t + barMs(r), what: 'BOS 出現', tf: tfName(barMs(r)) }; }
   const idx = r.status==='trigger' ? r.sigIdx : r.status==='watch' ? r.fibIdx : null;
   if(idx==null || !r.ltf[idx]) return null;
   return { ts: r.ltf[idx].t + barMs(r), what: r.status==='trigger' ? `${r.engulf?r.engulf.kind:'型態'}出現` : '進入便宜區', tf: tfName(barMs(r)) };
@@ -127,7 +132,7 @@ function renderRows(){
     return `<div class="card ${r.status}" data-s="${r.sym}" role="option" tabindex="0" aria-selected="${r.sym===selected}">
       <div class="hd"><b>${r.sym}</b>${dir}${r.quality&&r.engulf?`<span class="qs g${r.quality.grade}" title="品質分數（越高越好）">${r.quality.score}<i>${r.quality.grade}</i></span>`:''}<span class="status ${r.status}">${stTxt}</span></div>
       ${(s=>s? `<div class="age ${Date.now()-s.ts<3600e3?'fresh':''}" data-ts="${s.ts}" title="${s.what}：${fullTime(s.ts)}"><span class="tf">${s.tf}</span>${s.what} <b>${ago(s.ts)}</b></div>` : '')(since(r))}
-      ${(r.flags&&r.flags.length)||r.blocked||(r.fvgState&&r.status!=='idle')? `<div class="tags">${r.status==='trigger'&&r.zone==='fvg'?'<span class="z">FVG 進場</span>':''}${r.status==='watch'&&r.fvgState&&r.fvgState!=='entry'?`<span class="z">${{waiting:'等 FVG',testing:'FVG 觀察中',broken:'FVG 破 → 看 OB'}[r.fvgState]}</span>`:''}${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
+      ${(r.flags&&r.flags.length)||r.blocked||(r.fvgState&&r.status!=='idle')||(r.model==='bf'&&r.status==='trigger')? `<div class="tags">${r.model==='bf'&&r.status==='trigger'?`<span class="z">${r.filledIdx>=0?'已成交':'掛單中'}</span>`:r.status==='trigger'&&r.zone==='fvg'?'<span class="z">FVG 進場</span>':''}${r.status==='watch'&&r.fvgState&&r.fvgState!=='entry'?`<span class="z">${{waiting:'等 FVG',testing:'FVG 觀察中',broken:'FVG 破 → 看 OB'}[r.fvgState]}</span>`:''}${r.blocked?'<span>已濾掉</span>':''}${(r.flags||[]).map(f=>`<span title="${f.t}">${{btc:'逆 BTC',fund:'費率擁擠'}[f.k]||f.t}</span>`).join('')}</div>` : ''}
       <div class="px"><span class="p">${fp(r.last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
       ${spark(r)}
       <div class="prog"><span class="stages">${stages}</span><span>${r.met}/${r.need.length}${r.scoreMax?` · 加分 ${r.score}/${r.scoreMax}`:''}</span></div>
@@ -148,8 +153,8 @@ function renderDetail(){
   const r=results.find(x=>x.sym===selected); if(!r) return;
   $('dName').innerHTML=`${r.sym}<span class="muted" style="font-size:14px">/USDT</span>`;
   const sn=since(r);
-  $('dSub').textContent=`現價 ${fp(r.last)} · ${(r.status==='trigger'?`${r.engulf.kind}確認，訊號成立（加分 ${r.score}/${r.scoreMax}）`: r.lowScore?`條件都到了，但加分只有 ${r.score}/${r.scoreMax}`: r.status==='watch'?'有 1H OB，等型態出現':'條件未成形')}${sn?` · ${sn.tf} ${sn.what} ${ago(sn.ts)}（${fullTime(sn.ts)}）`:''}`;
-  const lv=[['進場',r.entry],['止損',r.stop],['目標',r.target],['RR',r.rr],...(r.be!=null?[['移保本',r.be]]:[])];
+  $('dSub').textContent=`現價 ${fp(r.last)} · ${r.model==='bf' ? (r.status==='trigger'? (r.filledIdx>=0?'已成交，持倉中':'掛單中：等價格回到 FVG 中間') : r.status==='watch'? ({missed:'沒回到 FVG 就先到目標，錯過',expired:'超過時間沒成交，已取消',stopped:'這筆已打到止損',done:'這筆已到目標'}[r.gone] || '有 BOS 和 FVG，但條件還沒全部成立') : '條件未成形') : (r.status==='trigger'?`${r.engulf.kind}確認，訊號成立（加分 ${r.score}/${r.scoreMax}）`: r.lowScore?`條件都到了，但加分只有 ${r.score}/${r.scoreMax}`: r.status==='watch'?'有 1H OB，等型態出現':'條件未成形')}${sn?` · ${sn.tf} ${sn.what} ${ago(sn.ts)}（${fullTime(sn.ts)}）`:''}`;
+  const lv=[['進場',r.entry],['止損',r.stop],['目標',r.target],['RR',r.rr],...(r.be!=null?[['移保本',r.be]]:[]),...(r.p1!=null?[[`${r.p1R}R 平一半`,r.p1]]:[])];
   $('levels').innerHTML=lv.map(([k,v])=>`<div class="lv"><div class="label">${k}</div><div class="x">${k==='RR'?(v?v.toFixed(2):'—'):fp(v)}</div></div>`).join('');
   const D=r.dir>0;
   const n=r.ltf.length, eAt=i=>r.emaLine&&r.emaLine[i];
@@ -164,6 +169,14 @@ function renderDetail(){
     daily: r.dailyDir==null? '日線資料不足' : `日線${r.dailyDir>0?'多頭':r.dailyDir<0?'空頭':'盤整'}`,
     rr: r.rr? `${r.rr.toFixed(2)}（門檻 ${rules.minRR}）・止損在${r.stopBasis||''}外` : '—'
   };
+  if(r.model==='bf') Object.assign(val,{
+    bos: r.bos? `${new Date(r.ltf[r.bos.idx].t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})} 收盤突破 ${fp(r.bos.level)}（${r.bos.age} 根前）` : '最近沒有順勢 BOS',
+    fvg: r.fvgZone? `FVG ${fp(r.fvgZone.lo)} – ${fp(r.fvgZone.hi)}，掛 ${fp(r.entry)}` : (r.bos?'這次 BOS 沒有留下 FVG':'—'),
+    ob: r.entryOB? `OB ${fp(r.entryOB.lo)} – ${fp(r.entryOB.hi)}（止損放外側）` : '—',
+    pd: r.range&&r.entry? `H4 區間中線 ${fp(r.range.eq)}，掛單價在${(r.entry<=r.range.eq)?'折價':'溢價'}區` : '—',
+    ema: (()=>{ const i=r.bos? r.bos.idx : n-1, e=eAt(i); return e==null?'資料不足':`BOS 收盤在 EMA${rules.emaLen} ${r.ltf[i].c>e?'上方':'下方'}（${fp(e)}）`; })(),
+    live: r.gone? {missed:'沒回 FVG 就到目標（錯過）',expired:`超過 ${rules.bfWait} 根沒成交`,stopped:'已打到止損',done:'已到目標'}[r.gone] : r.filledIdx>=0? '已成交，持倉中' : `等成交（還剩 ${Math.max(0,rules.bfWait-(r.bos?r.bos.age:0))} 根）`,
+    rr: r.rr? `${r.rr.toFixed(2)}R・止損在 OB 外` : '—' });
   const fl=[...(r.blocked?[`⛔ ${r.blocked}`]:[]), ...(r.flags||[]).map(f=>`⚠ ${f.t}`)];
   if(r.funding!=null && !(r.flags||[]).some(f=>f.k==='fund')) fl.push(`<span class="muted" style="font-weight:400">資金費率 ${(r.funding*100).toFixed(3)}%</span>`);
   $('dFlags').hidden=!fl.length; $('dFlags').innerHTML=fl.map(x=>`<div>${x}</div>`).join('');
@@ -268,7 +281,7 @@ document.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{ const d=+b.data
 document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{ tf=b.dataset.tf; document.querySelectorAll('[data-tf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); draw(); });
 $('rules').addEventListener('input',()=>{ readForm(); scan(); });
 $('rules').addEventListener('submit',e=>e.preventDefault());
-$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v10',rules); syncForm(); scan(); };
+$('resetRules').onclick=e=>{ e.preventDefault(); e.stopPropagation(); rules={...DEFAULTS}; store.set('smc-rules-v11',rules); syncForm(); scan(); };
 $('scanBtn').onclick=async()=>{ const b=$('scanBtn'); b.disabled=true; b.textContent= DataSource.mode==='live'?'向 BingX 抓資料中…':'掃描中…';
   try{ await DataSource.advance(); scan(); } finally { b.disabled=false; b.textContent='立即掃描'; } };
 $('pushRules').onclick=async e=>{ e.preventDefault(); e.stopPropagation(); const r=await adminFetch('api/rules',{method:'POST',body:JSON.stringify(rules)});
@@ -501,7 +514,7 @@ function renderOpt(){
     <div class="tbl-wrap"><table class="mtable"><thead><tr><th class="num">#</th><th>設定</th><th class="num">已結算</th><th class="num">勝率</th><th class="num">累計 R</th><th class="num">獲利因子</th><th class="num">最大回撤</th><th class="num">最大連虧</th><th class="num">前半 / 後半 R</th><th>穩定</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>
     <p class="hint">其他參數沿用目前設定（${{long:'只做多',short:'只做空'}[rules.side]||'多空都做'}、逆 BTC：${{warn:'只標示',block:'濾掉',off:'不管'}[rules.btcFilter]}、止損緩衝 ${rules.stopBuf}%、RR ≥ ${rules.minRR}、目標 ${rules.target==='swing'?'1H 前高/低':'H4 極值'}）。手續費 ${O.fee}%×2。過去表現不代表未來結果。</p>`;
   $('btOut').querySelectorAll('[data-opt]').forEach(bn=>bn.onclick=()=>{ const g=O.out[+bn.dataset.opt].g;
-    rules={...DEFAULTS,...g}; store.set('smc-rules-v10',rules); syncForm(); scan();
+    rules={...DEFAULTS,...g}; store.set('smc-rules-v11',rules); syncForm(); scan();
     showToast('已套用到畫面上的策略參數。確認沒問題後，記得到「策略參數」按「套用到推播」');
     $('btForm').requestSubmit ? $('btForm').requestSubmit() : $('btForm').dispatchEvent(new Event('submit',{cancelable:true})); });
 }
@@ -526,9 +539,9 @@ function renderBT(){
   const tbl=(t,a,sort)=>{ a.sort(sort||((x,y)=>y.n-x.n)); return `<div><h3>${t}</h3>${a.length?`<table class="mtable"><thead><tr><th></th><th class="num">筆數</th><th class="num">勝率</th><th class="num">累計 R</th></tr></thead><tbody>${a.map(x=>`<tr><td>${esc(x.g)}</td><td class="num">${x.n}</td><td class="num">${pct(x.winRate)}</td><td class="num" style="color:var(${x.R>0?'--long':x.R<0?'--short':'--muted'})">${f2(x.R)}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">沒有已結算的訊號</p>'}</div>`; };
   const month=t=>new Date(t.t).toLocaleDateString('sv-SE',{timeZone:'Asia/Taipei'}).slice(0,7);
   const r=L.rules, cmp=[...ruleChips(r), `手續費 ${L.fee}%×2`];
-  const ST={win:'✅ 目標',loss:'❌ 止損',be:'🛡 保本',missed:'錯過',expired:'過期',open:'持倉中',pending:'等待'};
+  const ST={win:'✅ 目標',loss:'❌ 止損',be:'🛡 保本',tp1:'💰 平一半後保本',missed:'錯過',expired:'過期',open:'持倉中',pending:'等待'};
   const rows=L.trades.slice().sort((a,b)=>b.t-a.t).slice(0,200).map(t=>`<tr><td class="num">${new Date(t.t).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(t.sym)}</b>${t.againstBtc?' <span class="pill">逆BTC</span>':''}</td><td><span class="dir ${t.dir>0?'L':'S'}">${t.dir>0?'多':'空'}</span></td>
-    <td class="num">${t.q!=null?`<span class="qs g${t.grade}">${t.q}</span>`:'—'}</td><td class="num">${fp(t.entry)}</td><td class="num">${fp(t.stop)}</td><td class="num">${fp(t.target)}</td><td class="num">${t.rr.toFixed(2)}</td><td>${t.R!=null?`<span class="pill ${t.R>0?'win':t.status==='be'?'':'loss'}">${t.status==='be'?'保本 ':''}${f2(t.R)}R</span>`:`<span class="pill">${ST[t.status]}</span>`}</td></tr>`).join('');
+    <td class="num">${t.q!=null?`<span class="qs g${t.grade}">${t.q}</span>`:'—'}</td><td class="num">${fp(t.entry)}</td><td class="num">${fp(t.stop)}</td><td class="num">${fp(t.target)}</td><td class="num">${t.rr.toFixed(2)}</td><td>${t.R!=null?`<span class="pill ${t.R>0?'win':t.status==='be'?'':'loss'}">${t.status==='be'?'保本 ':t.status==='tp1'?'平一半 ':''}${f2(t.R)}R</span>`:`<span class="pill">${ST[t.status]}</span>`}</td></tr>`).join('');
   const sp=L.span[0]<Infinity? `${new Date(L.span[0]).toLocaleDateString('zh-TW')} – ${new Date(L.span[1]).toLocaleDateString('zh-TW')}` : '';
   $('btOut').innerHTML=`
     <div class="bt-cmp">${cmp.map(x=>`<span>${x}</span>`).join('')}<span>${L.syms.length} 個幣 · ${sp}</span></div>
@@ -562,7 +575,7 @@ function drawEquity(curve){
 window.addEventListener('resize',()=>{ if(!$('btPane').hidden && BT.last) drawEquity(btStats(BT.last.trades).curve); });
 
 // ================= 成績單 =================
-const ST_ZH={pending:'等待進場',filled:'已進場',win:'打到目標',loss:'打到止損',be:'保本出場',missed:'沒回進場就走了',expired:'24h 未成交'};
+const ST_ZH={pending:'等待進場',filled:'已進場',win:'打到目標',loss:'打到止損',be:'保本出場',tp1:'平一半後保本',missed:'沒回進場就走了',expired:'24h 未成交'};
 const pct=v=>v==null?'—':`${(v*100).toFixed(0)}%`;
 async function loadStats(){
   const box=$('statsBody');
@@ -571,7 +584,7 @@ async function loadStats(){
   let s; try{ s=await (await fetch('api/stats',{cache:'no-store'})).json(); }catch(e){ box.innerHTML='<div class="cal-empty">載入失敗，稍後再試。</div>'; return; }
   const tile=(l,v,c='')=>`<div class="tile"><div class="label">${l}</div><div class="n ${c}">${v}</div></div>`;
   const grp=(t,a)=>`<div><h3>${t}</h3>${a.length?`<table class="mtable"><thead><tr><th></th><th class="num">筆數</th><th class="num">勝率</th><th class="num">累計 R</th></tr></thead><tbody>${a.map(x=>`<tr><td>${esc(x.g)}</td><td class="num">${x.n}</td><td class="num">${pct(x.winRate)}</td><td class="num">${x.R>0?'+':''}${x.R}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">還沒有已結算的訊號</p>'}</div>`;
-  const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?'<span class="pill loss">-1R</span>' : x.status==='be'?'<span class="pill">保本 0R</span>' : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}${x.status==='filled'&&x.beHit?'・已移保本':''}</span>`;
+  const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?'<span class="pill loss">-1R</span>' : x.status==='be'?'<span class="pill">保本 0R</span>' : x.status==='tp1'?`<span class="pill win">平一半 +${x.R}R</span>` : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}${x.status==='filled'&&(x.beHit||x.p1Hit)?(x.p1Hit?'・已平一半':'・已移保本'):''}</span>`;
     return `<tr><td class="num">${new Date(x.createdAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(x.sym)}</b></td><td><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span></td>
       <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${fp(x.target)}</td><td class="num">${x.rr.toFixed(2)}</td><td>${res}</td></tr>`; }).join('');
   setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });

@@ -65,7 +65,7 @@ global.fetch = async (url) => {
   const server = require('../src/server');
   await scanner.init();
   // 示範資料是隨機 K 線：用寬鬆一點的規則測流程（不是測策略好壞）
-  Object.assign(scanner.state.rules, { fibMin: 0.5, lookback: 12, minRR: 2, stopBuf: 0.1, btcFilter: 'warn', side: 'both', minScore: 0, cFvg: 'score', target: 'swing', minRR: 2 });
+  Object.assign(scanner.state.rules, { fibMin: 0.5, lookback: 12, minRR: 2, stopBuf: 0.1, btcFilter: 'warn', side: 'both', minScore: 0, cFvg: 'score', target: 'swing', minRR: 2, model: 'ob' });
 
   // ---- 掃描 ----
   const sum = await scanner.scanOnce();
@@ -204,5 +204,18 @@ global.fetch = async (url) => {
 
   server.close();
   for (const f of fs.readdirSync(dataDir)) if (f.endsWith('.json')) fs.unlinkSync(path.join(dataDir, f));
+  // ---- BF 模型（BOS + FVG 回踩）：判斷與回測都要能跑 ----
+  {
+    const SMCm = require('../src/smc');
+    const bfR = { ...scanner.DEFAULT_RULES, model: 'bf', btcFilter: 'off' };
+    let nT = 0, nTr = 0;
+    for (const [sym, m] of Object.entries(scanner.state.market)) {
+      const r = SMCm.analyze(sym, m.ltf, bfR, m.htf);
+      assert(['trigger', 'watch', 'idle'].includes(r.status) && Array.isArray(r.need), 'BF 判斷結果格式');
+      if (r.status === 'trigger') { nT++; assert(r.entry && r.stop && r.target && (r.target - r.entry) * r.dir > 0 && (r.entry - r.stop) * r.dir > 0, 'BF 進場/止損/目標方向要對'); }
+      nTr += SMCm.backtest(sym, m.ltf, m.htf, bfR, { feePct: 0.06 }).trades.length;
+    }
+    console.log(`BF 模型：觸發 ${nT}｜回測 ${nTr} 筆`);
+  }
   console.log(`\n全部通過（模擬 API 呼叫 ${calls} 次）`);
 })().catch(e => { console.error('測試失敗：', e.message); process.exit(1); });
