@@ -30,6 +30,7 @@ function stats(trades) {
       const btc = data.BTC ? E.trendSeries(data.BTC.htf, rules) : null;
       for (const s of syms) { if (rules.model === 'mtf' && !data[s].m15) continue; trades = trades.concat(E.backtest(s, rules.model === 'mtf' ? data[s].m15 : data[s].ltf, data[s].htf, rules, { feePct: c.fee ?? 0.06, maxWait: 24, btcDirAt: btc, htfWindow: c.engine === 'old' ? 200 : 500 }).trades); }
     }
+    if (c.since) trades = trades.filter(t => t.t >= Date.parse(c.since));
     const all = stats(trades), h1 = stats(trades.filter(t => t.t < mid)), h2 = stats(trades.filter(t => t.t >= mid));
     const L = stats(trades.filter(t => t.dir > 0)), S = stats(trades.filter(t => t.dir < 0));
     const Z = stats(trades.filter(t => t.zone === 'fvg')), O = stats(trades.filter(t => t.zone !== 'fvg'));
