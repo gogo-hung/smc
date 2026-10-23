@@ -1,5 +1,5 @@
 == api/health
-{"ok":true,"lastScan":1792756901254,"scanning":false,"lastError":null,"symbols":60,"errors":[]}
+{"ok":true,"lastScan":1792757381652,"scanning":false,"lastError":null,"symbols":60,"errors":[],"upSince":1792757373151,"lastPing":1792757395826,"pings":1}
 == api/rules
 {"swingLen":3,"htfSwing":3,"breakBy":"close","obInvalid":"close","fibMin":0.618,"emaLen":50,"lookback":10,"entry":"close","minRR":3,"stopBuf":0.2,"target":"htf","btcFilter":"block","fundingMax":0.05,"side":"both","stopMode":"ob","pattern":"engulf","cFib":"need","cEma":"need","cFvg":"need","cSweep":"score","cDaily":"score","minScore":0,"beAt":0.5,"minQuality":0,"fvgEntry":"on","fvgStop":"ob","fvgFib":0,"model":"bf","tpR":2,"p1":1,"bfEntry":"mid","bfTarget":"fixed","bfEma":"on","bfPd":"on","bfWait":24,"trend":"on","smcPush":"off"}
 == api/stats
