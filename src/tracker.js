@@ -15,6 +15,21 @@ async function init() {
   state.signals = await store.load('signals', []);
   state.feed = await store.load('feed', []);
   state.settings = { ...DEFAULT_SETTINGS, ...(await store.load('alertSettings', {})) };
+  await resetOnce();
+}
+
+// 一次性清理（2026-10-23）：成績單從策略① 重新開始，只留趨勢單；舊資料先備份到 signals_backup_v1 / feed_backup_v1
+async function resetOnce() {
+  if (await store.load('reset_trend_v1', false)) return;
+  await store.save('signals_backup_v1', state.signals);
+  await store.save('feed_backup_v1', state.feed);
+  state.signals = state.signals.filter(s => s.model === 'trend');
+  for (const s of state.signals) if (s.tp1 == null && s.stop0 != null) s.tp1 = s.entry + s.dir * Math.abs(s.entry - s.stop0);   // 舊格式建的單補上 TP1
+  state.feed = [];
+  await store.save('signals', state.signals);
+  await store.save('feed', state.feed);
+  await store.save('reset_trend_v1', Date.now());
+  console.log(`[清理] 成績單只留趨勢單 ${state.signals.length} 筆，提醒紀錄清空（舊資料已備份）`);
 }
 
 async function setSettings(s) {
