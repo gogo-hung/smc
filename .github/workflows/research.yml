@@ -22,11 +22,13 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: research-cache
-          key: hist-665-v1
-          restore-keys: hist-665-
+          key: hist-m5-v1
+          restore-keys: |
+            hist-m5-
+            hist-665-
       - run: npm i --no-save ccxt@4.5.84
-      - run: node tools/diagnose7.js
-        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "665", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
+      - run: node tools/diagnose8.js
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", TOP: "20", SOURCE: "ccxt", EXCHANGE: "okx", M5: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
       - if: always()
         run: |
           mkdir -p results && cp research-cache/*.md results/ && cp research-cache/trades-*.json results/ 2>/dev/null || true
