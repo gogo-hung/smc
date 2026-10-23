@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          sleep 240
+          sleep 420
           mkdir -p results
           for p in api/health api/sentiment; do echo "== $p"; curl -s -m 90 "https://smc-scanner-krbg.onrender.com/$p" | head -c 3000; echo; done > results/live.txt
           curl -s -m 90 https://smc-scanner-krbg.onrender.com/api/market | grep -o "\"trend\":\[[^]]\{0,600\}" | head -c 800 >> results/live.txt
