@@ -25,7 +25,7 @@ jobs:
           key: hist-${{ steps.d.outputs.day }}-v4
           restore-keys: hist-${{ steps.d.outputs.day }}-
       - run: npm i --no-save ccxt@4.5.84
-      - run: node tools/diagnose3.js && node tools/research.js
+      - run: node tools/diagnose3.js
         env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=6144" }
       - if: always()
         run: |

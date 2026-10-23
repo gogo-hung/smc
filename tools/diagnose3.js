@@ -28,8 +28,8 @@ const reach = (m, j0, dir, target, n = 96) => { for (let j = j0 + 1; j < Math.mi
   const out = [`# 止損位置測試（${EXCHANGE}，${DAYS} 天，手續費 0.035%×2；進場、止盈都跟 B 版一樣，只換止損）`, ''];
   for (const [setName, R0] of SETS) {
     const V = {}, order = []; const add = (k, r, swept) => { if (!V[k]) { V[k] = { R: [], w: 0, st: 0, sw: 0 }; order.push(k); } if (r == null) return; V[k].R.push(r.R); if (r.R > 0) V[k].w++; if (r.hit === 'stop') { V[k].st++; if (swept) V[k].sw++; } };
-    const mae = []; let n = 0;
-    for (const sym of syms) {
+    const mae = []; let n = 0; const errs = [];
+    for (const sym of syms) { try {
       const m = data[sym].m15, htf = data[sym].htf, idx = new Map(m.map((b, i) => [b.t, i])), hbar = htf[1].t - htf[0].t;
       const L = SMC.structure(m, { ...R0, swingLen: 3 }), Hs = SMC.structure(htf, { ...R0, swingLen: 3 });
       const bosAt = {}; for (const x of L.events) if (x.type === 'BOS') bosAt[x.idx] = x;
@@ -66,7 +66,7 @@ const reach = (m, j0, dir, target, n = 96) => { for (let j = j0 + 1; j < Math.mi
           if (j > jf && (up ? b.h >= T : b.l <= T)) { ok = true; break; } }
         if (ok) mae.push({ pct: (up ? F1 - ext : ext - F1) / F1 * 100, atr: (up ? F1 - ext : ext - F1) / atr, fib: (up ? T - ext : ext - T) / span });
       }
-    }
+    } catch (e) { errs.push(`${sym}: ${e.stack.split('\n').slice(0, 3).join(' / ')}`); } }
     out.push(`## ${setName}（${n} 筆成交）`, '', '| 止損位置 | 筆數 | 勝率 | 累計R | 平均R | 打到止損 | 其中「被掃」（止損後 24h 內又到止盈） |', '|---|---|---|---|---|---|---|');
     for (const k of order) { const v = V[k], s = v.R.reduce((a, b) => a + b, 0); out.push(`| ${k} | ${v.R.length} | ${pct(v.w, v.R.length)} | ${f1(s)} | ${f2(s / Math.max(1, v.R.length))} | ${v.st} | ${v.sw}（${pct(v.sw, v.st)}） |`); }
     const q = (a, p) => { if (!a.length) return NaN; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
@@ -75,8 +75,8 @@ const reach = (m, j0, dir, target, n = 96) => { for (let j = j0 + 1; j < Math.mi
       `| 超過斐波 1 多少 % | ${q(P, .5).toFixed(2)}% | ${q(P, .75).toFixed(2)}% | ${q(P, .9).toFixed(2)}% | ${q(P, .95).toFixed(2)}% |`,
       `| 超過斐波 1 幾倍 ATR | ${q(A, .5).toFixed(2)} | ${q(A, .75).toFixed(2)} | ${q(A, .9).toFixed(2)} | ${q(A, .95).toFixed(2)} |`,
       `| 回到斐波幾 | ${q(Fb, .5).toFixed(3)} | ${q(Fb, .75).toFixed(3)} | ${q(Fb, .9).toFixed(3)} | ${q(Fb, .95).toFixed(3)} |`, '',
-      `有掃破斐波 1 的：${pct(P.filter(x => x > 0).length, P.length)}；破 1% 以上：${pct(P.filter(x => x > 1).length, P.length)}；破 2% 以上：${pct(P.filter(x => x > 2).length, P.length)}`, '');
+      ...(errs.length ? [`（${errs.length} 個幣出錯略過：${errs.slice(0, 3).join('；')}）`] : []), `有掃破斐波 1 的：${pct(P.filter(x => x > 0).length, P.length)}；破 1% 以上：${pct(P.filter(x => x > 1).length, P.length)}；破 2% 以上：${pct(P.filter(x => x > 2).length, P.length)}`, '');
   }
   const md = out.join('\n'); console.log(md);
   fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `diag3-${EXCHANGE}-${DAYS}.md`), md);
-})().catch(e => { console.error(e); process.exit(1); });
+})().catch(e => { console.error(e); fs.mkdirSync(path.join(__dirname, '..', 'research-cache'), { recursive: true }); fs.writeFileSync(path.join(__dirname, '..', 'research-cache', 'diag3-error.md'), String(e.stack)); process.exit(1); });
