@@ -30,7 +30,7 @@ function update(market, tickers) {
   if (tickers && tickers.length) {
     let up = 0, flat = 0, down = 0;
     for (const t of tickers) { if (!isFinite(t.change)) continue; if (t.change > 1) up++; else if (t.change < -1) down++; else flat++; }
-    const total = up + flat + down, pct = total ? up / total * 100 : 0;
+    const total = up + flat + down, pct = up + down ? up / (up + down) * 100 : 50;   // 上漲佔「有動的」家數（平盤不算），才不會被平盤拉低
     state.breadth = { up, flat, down, total, pct: Math.round(pct), label: pct >= 60 ? '偏多' : pct <= 40 ? '偏空' : '中性' };
   }
   state.updatedAt = Date.now();

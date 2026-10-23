@@ -708,7 +708,7 @@ const SENT=[
    scale:[[30,'超賣','#2fbf9b'],[45,'偏弱','#9bd146'],[55,'中性','#e5c33a'],[70,'偏強','#ee9a3a'],[100,'超買','#ee6a6a']]},
   {k:'fng',t:'恐懼貪婪指數',help:'alternative.me 的加密貨幣恐懼貪婪指數（0–100），每天更新一次。極度恐懼常是情緒低點，極度貪婪要小心追高。',
    scale:[[25,'極度恐懼','#ee6a6a'],[46,'恐懼','#ee9a3a'],[54,'中性','#e5c33a'],[75,'貪婪','#9bd146'],[100,'極度貪婪','#2fbf9b']]},
-  {k:'breadth',t:'整體市場',help:'BingX 全部 USDT 永續合約的 24 小時漲跌：漲超過 1% 算漲、跌超過 1% 算跌、其他算平。百分比＝上漲家數佔比。'},
+  {k:'breadth',t:'整體市場',help:'BingX 全部 USDT 永續合約的 24 小時漲跌：漲超過 1% 算漲、跌超過 1% 算跌、其他算平。百分比＝上漲家數 ÷（上漲＋下跌），平盤不算；60% 以上偏多、40% 以下偏空。'},
 ];
 const polar=(a,r=80)=>[100+r*Math.cos(a),100-r*Math.sin(a)];
 function arcPath(v0,v1,r=80){ const a0=Math.PI*(1-v0/100), a1=Math.PI*(1-v1/100), [x0,y0]=polar(a0,r), [x1,y1]=polar(a1,r); return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
