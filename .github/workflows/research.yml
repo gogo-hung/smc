@@ -27,7 +27,7 @@ jobs:
             hist-m5-
             hist-665-
       - run: npm i --no-save ccxt@4.5.84
-      - run: node tools/strat6.js
+      - run: node tools/verify-trend.js
         env: { REQUEST_GAP_MS: "60", DAYS: "665", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
       - if: always()
         run: |
