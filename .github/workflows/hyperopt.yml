@@ -1,0 +1,41 @@
+name: hyperopt
+on:
+  push:
+    branches: [research]
+    paths: ['tools/hyperopt.py', 'tools/eval-worker.js', '.github/workflows/hyperopt.yml']
+  workflow_dispatch:
+    inputs:
+      epochs: { description: 'epochs', default: '800' }
+permissions:
+  contents: write
+concurrency:
+  group: research
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - id: d
+        run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: research-cache
+          key: hist-${{ steps.d.outputs.day }}-v4
+          restore-keys: hist-${{ steps.d.outputs.day }}-
+      - run: npm i --no-save ccxt@4.5.84 && pip install optuna==4.5.0 scikit-learn
+      - name: 先確定歷史資料在（沒有就抓）
+        run: node -e "require('./tools/hist').load().then(d=>console.log(Object.keys(d).length,'coins'))"
+        env: { REQUEST_GAP_MS: "60", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=6144" }
+      - run: python tools/hyperopt.py
+        env: { EPOCHS: "${{ github.event.inputs.epochs || '800' }}", WORKERS: "4", MIN_N: "60", SPLIT: "2026-06-20", DAYS: "365", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=3072" }
+      - if: always()
+        run: |
+          mkdir -p results && cp research-cache/hyperopt-okx.* results/ 2>/dev/null || true
+          git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
+          git add results && git commit -m "hyperopt result" && git pull --rebase && git push
