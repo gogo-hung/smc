@@ -362,6 +362,21 @@ const SMC = (() => {
     const pts=(e.dir<0? Hs.sw.hi : Hs.sw.lo).filter(x=>x.i<p && x.conf<=p && x.i>=p-40);
     return pts.some(x=> e.dir<0? htf[p].h>x.price : htf[p].l<x.price);
   }
+  // 結構轉換之前，原本的趨勢夠不夠明確：做空 = 之前的高點、低點都在墊高（HH + HL）至少 n 次；做多反過來（LH + LL）
+  function priorTrendOk(Hs, htf, e, n){
+    if(!(n>0)) return true;
+    let p=e.from; for(let j=e.from;j<e.idx;j++) if(e.dir<0? htf[j].h>htf[p].h : htf[j].l<htf[p].l) p=j;
+    const up=e.dir<0, hs=Hs.sw.hi.filter(x=>x.i<=p && x.conf<=e.idx).slice(-(n+1)), ls=Hs.sw.lo.filter(x=>x.i<p && x.conf<=e.idx).slice(-(n+1));
+    if(hs.length<n+1 || ls.length<n+1) return false;
+    const inc=a=>a.every((x,i)=>!i || x.price>a[i-1].price), dec=a=>a.every((x,i)=>!i || x.price<a[i-1].price);
+    return up ? inc(hs) && inc(ls) : dec(hs) && dec(ls);
+  }
+  // 回踩區域有沒有「明顯反應」：最近 n 根 4H 裡，有一根插進區域、收盤收回區域外（做空：最高點進到區域，收盤在區域下方）
+  function reactOk(htf, z, dir, k, n){
+    for(let j=Math.max(z.idx+1,k-(n||12)+1);j<=k;j++){ const b=htf[j];
+      if(dir<0 ? b.h>=z.lo && b.c<z.lo : b.l<=z.hi && b.c>z.hi) return true; }
+    return false;
+  }
   function poisAt(Hs, htf, dir, k, s){   // 截至第 k 根 4H（已收盤）還有效的順勢 OB / FVG
     const out=[];
     // mtfPoiSrc='choch'：只用讓這段趨勢成立的那次 4H 結構轉換（CHoCH）留下的 OB / FVG
@@ -369,8 +384,11 @@ const SMC = (() => {
                                      : Hs.events.filter(e=>e.dir===dir && e.idx<=k).slice(-(s.mtfPois||6));
     for(const e of evs){
       if(s.mtfSweep==='on' && !htfSwept(Hs,htf,e)) continue;
+      if(!priorTrendOk(Hs,htf,e,+s.mtfPrior||0)) continue;
       const zs=[{kind:'OB',lo:e.ob.lo,hi:e.ob.hi,idx:e.ob.idx}]; if(e.ob.fz) zs.push({kind:'FVG',lo:e.ob.fz.lo,hi:e.ob.fz.hi,idx:e.ob.fz.idx});
-      for(const z of zs){ let dead=false; for(let j=Math.max(z.idx+1,e.idx+1);j<=k;j++){ if(dir>0? htf[j].c<z.lo : htf[j].c>z.hi){ dead=true; break; } } if(!dead) out.push(z); }
+      for(const z of zs){ let dead=false; for(let j=Math.max(z.idx+1,e.idx+1);j<=k;j++){ if(dir>0? htf[j].c<z.lo : htf[j].c>z.hi){ dead=true; break; } }
+        if(!dead && s.mtfReact==='on' && !reactOk(htf,z,dir,k,+s.mtfReactBars||12)) dead=true;
+        if(!dead) out.push(z); }
     }
     return out;
   }
