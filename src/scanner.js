@@ -5,6 +5,7 @@ const SMC = require('./smc');
 const store = require('./store');
 const tracker = require('./tracker');
 const journal = require('./journal');
+const TREND = require('./trend');
 
 // 舊版 OB 模型：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態（吞沒 / Pin bar）
 // 加分條件（need 必要 / score 加分 / off 不看）：斐波便宜區、EMA50 順勢、OB 帶 FVG、掃流動性、日線同向；加分 ≥ minScore 才推
@@ -13,7 +14,9 @@ const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: '
   pattern: 'engulf', cFib: 'need', cEma: 'need', cFvg: 'need', cSweep: 'score', cDaily: 'score', minScore: 0, beAt: 0.5, minQuality: 0,
   fvgEntry: 'on', fvgStop: 'ob', fvgFib: 0,   // 舊版：OB 帶 FVG 時先看 FVG 反應
   // 進場模型：bf = H4 順勢 → 1H BOS 留下 FVG → 回到 FVG 中間掛單（止損 OB 外、固定 R 目標）；ob = 舊版 OB + 吞沒
-  model: 'bf', tpR: 2, p1: 1, bfEntry: 'mid', bfTarget: 'fixed', bfEma: 'on', bfPd: 'on', bfWait: 24 };   // p1：到 1R 先平一半、剩下保本
+  model: 'bf', tpR: 2, p1: 1, bfEntry: 'mid', bfTarget: 'fixed', bfEma: 'on', bfPd: 'on', bfWait: 24,   // p1：到 1R 先平一半、剩下保本
+  trend: 'on',      // 策略①（4H 趨勢＋MACD 金叉＋爆量）建單、推送
+  smcPush: 'off' }; // SMC 改成輔助：只在看板顯示，不建單不推送（要恢復就設 on）
 
 const state = {
   rules: { ...DEFAULT_RULES },
@@ -21,6 +24,7 @@ const state = {
   market: {},          // { BTC: { sym, symbol, ltf, htf, quoteVolume } }
   ctx: { btcDir: 0, funding: {} },
   results: [],
+  trend: [],           // 策略① 每個幣目前的 4H 狀態
   lastScan: null, lastError: null, scanning: false, errors: [],
 };
 
@@ -108,7 +112,8 @@ async function scanOnce() {
     state.market = market;
     try { state.ctx.funding = await bingx.getFunding(); } catch (e) { state.errors.push(`資金費率：${e.message}`); }
     const results = rerun();
-    await tracker.onScan(results, market);
+    state.trend = Object.values(market).map(m => TREND.analyze(m.sym, m.htf || [])).filter(a => a.state !== 'nodata');
+    await tracker.onScan(results, market, { smcPush: state.rules.smcPush === 'on', trend: state.rules.trend !== 'off' });
 
     state.lastScan = Date.now(); state.lastError = null;
     const summary = { symbols: Object.keys(market).length, trigger: results.filter(r => r.status === 'trigger').length, watch: results.filter(r => r.status === 'watch').length, btcDir: state.ctx.btcDir, ms: Date.now() - t0, errors: state.errors.length };

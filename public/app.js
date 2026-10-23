@@ -590,7 +590,7 @@ function drawEquity(curve){
 window.addEventListener('resize',()=>{ if(!$('btPane').hidden && BT.last) drawEquity(btStats(BT.last.trades).curve); });
 
 // ================= 成績單 =================
-const ST_ZH={pending:'等待進場',filled:'已進場',win:'打到目標',loss:'打到止損',be:'保本出場',tp1:'平一半後保本',missed:'沒回進場就走了',expired:'24h 未成交'};
+const ST_ZH={skipped:'持倉已滿沒做',pending:'等待進場',filled:'已進場',win:'獲利出場',loss:'打到止損',be:'保本出場',tp1:'平一半後保本',missed:'沒回進場就走了',expired:'24h 未成交'};
 const pct=v=>v==null?'—':`${(v*100).toFixed(0)}%`;
 async function loadStats(){
   const box=$('statsBody');
@@ -599,12 +599,12 @@ async function loadStats(){
   let s; try{ s=await (await fetch('api/stats',{cache:'no-store'})).json(); }catch(e){ box.innerHTML='<div class="cal-empty">載入失敗，稍後再試。</div>'; return; }
   const tile=(l,v,c='')=>`<div class="tile"><div class="label">${l}</div><div class="n ${c}">${v}</div></div>`;
   const grp=(t,a)=>`<div><h3>${t}</h3>${a.length?`<table class="mtable"><thead><tr><th></th><th class="num">筆數</th><th class="num">勝率</th><th class="num">累計 R</th></tr></thead><tbody>${a.map(x=>`<tr><td>${esc(x.g)}</td><td class="num">${x.n}</td><td class="num">${pct(x.winRate)}</td><td class="num">${x.R>0?'+':''}${x.R}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">還沒有已結算的訊號</p>'}</div>`;
-  const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?'<span class="pill loss">-1R</span>' : x.status==='be'?'<span class="pill">保本 0R</span>' : x.status==='tp1'?`<span class="pill win">平一半 +${x.R}R</span>` : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}${x.status==='filled'&&(x.beHit||x.p1Hit)?(x.p1Hit?'・已平一半':'・已移保本'):''}</span>`;
+  const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?`<span class="pill loss">${x.model==='trend'?x.R:-1}R</span>` : x.status==='be'?'<span class="pill">保本 0R</span>' : x.status==='tp1'?`<span class="pill win">平一半 +${x.R}R</span>` : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}${x.status==='filled'&&(x.beHit||x.p1Hit||x.be)?(x.p1Hit?'・已平一半':'・已移保本'):''}</span>`;
     return `<tr><td class="num">${new Date(x.createdAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(x.sym)}</b></td><td><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span></td>
-      <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${fp(x.target)}</td><td class="num">${x.rr.toFixed(2)}</td><td>${res}</td></tr>`; }).join('');
+      <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${x.model==='trend'?'移動止損':fp(x.target)}</td><td class="num">${x.rr!=null?x.rr.toFixed(2):'—'}</td><td>${res}</td></tr>`; }).join('');
   setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });
   box.innerHTML=`<div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
-    <div class="split">${grp('依品質分數',s.byGrade||[])}${grp('依進場區',s.byZone||[])}${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
+    <div class="split">${grp('依策略',s.byModel||[])}${grp('依品質分數',s.byGrade||[])}${grp('依進場區',s.byZone||[])}${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
     <div><h3>最近的訊號</h3>${s.recent.length?`<div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="hint">還沒有訊號。之後每個觸發都會記在這裡。</p>'}</div>
     <div><button class="btn" type="button" id="exportSig">匯出全部訊號紀錄（CSV）</button></div>
     <p class="hint">贏輸都會保留（最近 5000 筆）。統計的是「推播用參數」下的訊號。同一根 K 棒同時碰到止損和目標，保守算止損；24 小時沒回到進場位算過期。</p>`;

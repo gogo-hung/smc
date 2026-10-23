@@ -69,7 +69,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/market' && req.method === 'GET') {
       return send(res, 200, {
-        updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx,
+        updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx, trend: s.trend,
         symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf), ...(m.m15 ? { m15: pack(m.m15) } : {}) })),
       });
     }

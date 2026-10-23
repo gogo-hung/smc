@@ -5,6 +5,7 @@ const store = require('./store');
 const notify = require('./notify');
 const journal = require('./journal');
 const cfg = require('./config');
+const TREND = require('./trend');
 
 const Q = 60 * 60e3; // 1H
 const DEFAULT_SETTINGS = { signal: true, near: true, nearPct: 0.3, calendar: true, result: true };
@@ -39,7 +40,7 @@ async function emit(type, title, lines, extra = {}) {
   state.feed = state.feed.slice(0, 300);
   await store.save('feed', state.feed);
   const on = { signal: state.settings.signal, near: state.settings.near, calendar: state.settings.calendar, earnings: state.settings.calendar, result: state.settings.result }[type];
-  if (on && !muted) await notify.send([`<b>${title}</b>`, ...lines, cfg.PUBLIC_URL].filter(Boolean).join('\n'));
+  if (on && !muted && !extra.quiet) await notify.send([`<b>${title}</b>`, ...lines, cfg.PUBLIC_URL].filter(Boolean).join('\n'));
   return item;
 }
 
@@ -55,13 +56,14 @@ async function emitNear(s, last, touched) {
 const keyOf = r => `${r.sym}:${r.dir}:${r.ltf[r.sigIdx].t}`; // 同一根吞沒 K 只算一次
 const stepOf = bars => bars && bars.length > 1 ? bars[1].t - bars[0].t : Q;
 
-async function onScan(results, market) {
+async function onScan(results, market, opt = {}) {
   let changed = false;
+  if (opt.trend !== false) changed = (await onTrend(market)) || changed;
   const lastClose = r => r.ltf[r.ltf.length - 1].t + Q;
 
   // 1. 新觸發 → 記錄 + 提醒
   for (const r of results) {
-    if (r.status !== 'trigger') continue;
+    if (r.status !== 'trigger' || !opt.smcPush) continue;   // SMC 改成輔助：預設只顯示、不建單不推送
     const k = keyOf(r);
     if (state.signals.some(s => s.k === k)) continue;
     if (state.signals.some(s => s.sym === r.sym && (s.status === 'pending' || s.status === 'filled'))) continue; // 同一個幣一次只做一單
@@ -106,6 +108,7 @@ async function onScan(results, market) {
   // 2. 追蹤每個未結束的訊號
   for (const s of state.signals) {
     if (s.status !== 'pending' && s.status !== 'filled') continue;
+    if (s.model === 'trend') continue;   // 趨勢單在 onTrend 處理
     const m = market[s.sym];
     const bars = s.model === 'mtf' ? m && m.m15 : m && m.ltf;
     if (!bars || !bars.length) continue;
@@ -160,11 +163,70 @@ async function onScan(results, market) {
   }
 }
 
+
+// ==== 策略①（趨勢單）：4H 收盤出訊號 → 市價進場 → 1H 逐根追蹤保本／移動止損／出場 ====
+const H4 = 4 * 3600e3;
+const isOpen = s => s.status === 'pending' || s.status === 'filled';
+const pct = (a, b) => `${(Math.abs(a - b) / b * 100).toFixed(2)}%`;
+async function onTrend(market) {
+  let changed = false;
+  const now = Date.now();
+  // 1. 新訊號：最後一根已收盤的 4H 出訊號，而且收盤不到 1 小時（服務睡著醒來的舊訊號不追）
+  for (const [sym, m] of Object.entries(market)) {
+    if (!m.htf || m.htf.length < 210) continue;
+    const a = TREND.analyze(sym, m.htf);
+    if (!a.sig || now - a.sigT > 3600e3) continue;
+    const k = `${sym}:trend:${a.sigT}`;
+    if (state.signals.some(s => s.k === k)) continue;
+    if (state.signals.some(s => s.sym === sym && s.model === 'trend' && isOpen(s))) continue;   // 同一幣一次一筆
+    const entry = isFinite(m.price) ? m.price : a.close, dir = a.sig, stop0 = entry - dir * TREND.P.slAtr * a.atr, risk = Math.abs(entry - stop0);
+    const open = state.signals.filter(s => s.model === 'trend' && isOpen(s)).length;
+    const sig = { k, sym, dir, model: 'trend', entry, stop: stop0, stop0, atr: a.atr, ext: entry, be: false, target: null, rr: null, createdAt: a.sigT, filledAt: a.sigT, checkedT: a.sigT, status: 'filled', vol: a.volRatio, lastTrailR: -1 };
+    if (open >= TREND.P.maxOpen) { Object.assign(sig, { status: 'skipped', closedAt: now }); state.signals.push(sig); changed = true;
+      await emit('result', `⏸ ${sym}/USDT ${side(dir)}：訊號成立但已有 ${open} 筆持倉，這筆不做`, [`同時最多 ${TREND.P.maxOpen} 筆，避免同方向一起虧`], { sym, quiet: true }); continue; }
+    state.signals.push(sig); changed = true;
+    const per1000 = 10 / (risk / entry);   // 帳戶 1000U、每筆虧 1% → 名目倉位
+    await emit('signal', `🎯 ${sym}/USDT ${side(dir)}｜趨勢訊號`, [
+      `市價進場 ≈ ${fp(entry)}　止損 ${fp(stop0)}（${pct(stop0, entry)}，2 倍 ATR）`,
+      `4H：EMA50 ${dir > 0 ? '>' : '<'} EMA200、MACD ${dir > 0 ? '金叉' : '死叉'}、成交量 ${a.volRatio ? a.volRatio.toFixed(1) : '—'} 倍均量`,
+      `倉位：帳戶每 1000U、每筆虧 1% → 名目約 ${per1000.toFixed(0)}U（倉位＝風險金額 ÷ ${pct(stop0, entry)}）`,
+      `保本：1H 出現同向 BOS 且已賺 0.5R（${fp(entry + dir * risk * 0.5)}）→ 止損移到開倉價`,
+      `移動止損：持倉後${dir > 0 ? '最高' : '最低'}價 ${dir > 0 ? '−' : '+'} 3 倍 ATR（${fp(3 * a.atr)}），只收緊不放寬；沒有固定止盈`,
+      `目前持倉 ${open + 1}/${TREND.P.maxOpen}`,
+      '下單前：止損先掛；這是訊號不是情緒。',
+    ], { sym });
+  }
+  // 2. 追蹤持倉：用已收盤的 1H
+  for (const s of state.signals) {
+    if (s.model !== 'trend' || s.status !== 'filled') continue;
+    const m = market[s.sym]; if (!m || !m.ltf || !m.ltf.length) continue;
+    const bos = TREND.bosMap(m.ltf), risk = Math.abs(s.entry - s.stop0);
+    for (const b of m.ltf) {
+      if (b.t < s.checkedT) continue;
+      s.checkedT = b.t + Q; changed = true;
+      const ev = TREND.step(s, b, bos.get(b.t));
+      const ex = ev.find(e => e.k === 'exit');
+      if (ex) {
+        s.status = ex.R > 0.05 ? 'win' : ex.R > -0.05 ? 'be' : 'loss'; s.R = +ex.R.toFixed(2); s.exit = ex.px; s.closedAt = b.t + Q;
+        await emit('result', { win: `✅ ${s.sym} ${side(s.dir)} 移動止損出場 +${s.R}R`, be: `🛡 ${s.sym} ${side(s.dir)} 保本出場 0R`, loss: `❌ ${s.sym} ${side(s.dir)} 打到止損 ${s.R}R` }[s.status],
+          [`進場 ${fp(s.entry)}　出場 ${fp(ex.px)}　${s.dir > 0 ? '最高' : '最低'}到過 ${fp(s.ext)}`], { sym: s.sym });
+        break;
+      }
+      if (ev.some(e => e.k === 'be')) await emit('result', `🛡 ${s.sym} ${side(s.dir)}：結構延續，止損移到開倉價`, [`1H 出現同向 BOS、已賺 ≥ 0.5R，把止損改到 ${fp(s.entry)}（保本）`], { sym: s.sym });
+      const tr = ev.find(e => e.k === 'trail');
+      if (tr) { const lockR = (s.stop - s.entry) * s.dir / risk;   // 移動止損：第一次過開倉價推一次，之後每多鎖 1R 推一次
+        if (lockR >= 0 && lockR - s.lastTrailR >= 1) { s.lastTrailR = lockR; await emit('result', `🔒 ${s.sym} ${side(s.dir)}：移動止損 ${fp(s.stop)}`, [`已鎖住 ${lockR >= 0 ? '+' : ''}${lockR.toFixed(2)}R，${s.dir > 0 ? '最高' : '最低'}價 ${fp(s.ext)}`], { sym: s.sym }); } }
+    }
+  }
+  return changed;
+}
+
 // 還在追蹤中的幣（就算掉出成交量排名也要繼續抓）
 const openSymbols = () => [...new Set(state.signals.filter(s => s.status === 'pending' || s.status === 'filled').map(s => s.sym))];
 
 function stats(all = false) {
   const done = state.signals.filter(s => ['win', 'loss', 'be', 'tp1'].includes(s.status));
+  const byModel = (() => { const m = {}; for (const s of done) { const g = s.model === 'trend' ? '趨勢單（策略①）' : 'SMC'; (m[g] ||= []).push(s); } return Object.entries(m).map(([g, a]) => ({ g, n: a.length, winRate: a.filter(s => s.R > 0).length / a.length, R: +a.reduce((x, s) => x + s.R, 0).toFixed(2) })); })();
   const wins = done.filter(s => s.R > 0);
   const sumR = a => +a.reduce((x, s) => x + s.R, 0).toFixed(2);
   const group = (key) => {
@@ -178,6 +240,7 @@ function stats(all = false) {
     winRate: done.length ? wins.length / done.length : null,
     avgR: done.length ? +(sumR(done) / done.length).toFixed(2) : null, totalR: sumR(done),
     pending: count('pending'), filled: count('filled'), be: count('be'), missed: count('missed'), expired: count('expired'),
+    byModel, openTrend: state.signals.filter(s => s.model === 'trend' && s.status === 'filled').length, skipped: count('skipped'),
     byDir: group(s => (s.dir > 0 ? '做多' : '做空')), byZone: group(s => (s.zone === 'fvg' ? 'FVG 進場' : 'OB 進場')), byGrade: group(s => s.grade ? `${s.grade}（${{ S: '70+', A: '55–69', B: '40–54', C: '<40' }[s.grade]} 分）` : '舊訊號（無分數）'), bySym: group(s => s.sym).slice(0, 10),
     recent: (all ? state.signals : state.signals.slice(-60)).slice().reverse(),
   };
