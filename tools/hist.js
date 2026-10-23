@@ -3,9 +3,9 @@
 // SOURCE=bingx：直接打 BingX REST（舊方法）
 const fs = require('fs'), path = require('path');
 const DAYS = +process.env.DAYS || 180, TOP = +process.env.TOP || 60;
-const M15 = process.env.M15 === '1', M5 = process.env.M5 === '1';
+const M15 = process.env.M15 === '1', M5 = process.env.M5 === '1', SYMS = (process.env.SYMS || '').split(',').filter(Boolean);
 const SOURCE = process.env.SOURCE || 'ccxt', EXCHANGE = process.env.EXCHANGE || 'bingx';
-const CACHE = path.join(__dirname, '..', 'research-cache', SOURCE === 'ccxt' ? `hist-ccxt-${EXCHANGE}-${DAYS}${M15 ? '-m15' : ''}${M5 ? '-m5' : ''}${TOP !== 60 ? `-top${TOP}` : ''}.json` : `hist-${DAYS}.json`);
+const CACHE = path.join(__dirname, '..', 'research-cache', SOURCE === 'ccxt' ? `hist-ccxt-${EXCHANGE}-${DAYS}${M15 ? '-m15' : ''}${M5 ? '-m5' : ''}${SYMS.length ? `-syms${SYMS.length}` : TOP !== 60 ? `-top${TOP}` : ''}.json` : `hist-${DAYS}.json`);
 const TF = { '5m': 300e3, '15m': 900e3, '1h': 3600e3, '4h': 4 * 3600e3 };
 
 async function viaCcxt() {
@@ -18,6 +18,7 @@ async function viaCcxt() {
   const ranked = swaps.filter(m => vol(m.symbol) >= 5e6).sort((a, b) => vol(b.symbol) - vol(a.symbol)).slice(0, TOP);
   const btc = swaps.find(m => m.base === 'BTC');
   const list = [...new Map([btc, ...ranked].filter(Boolean).map(m => [m.base, m])).values()];
+  if (SYMS.length) { list.length = 0; for (const b of SYMS) { const m = swaps.find(x => x.base === b); if (m) list.push(m); else console.log(`找不到 ${b}`); } }
   console.log(`ccxt ${EXCHANGE}：${swaps.length} 個 USDT 永續，取成交額前 ${list.length} 個`);
   const now = Date.now(), data = {};
   const range = async (sym, tf, since) => {
