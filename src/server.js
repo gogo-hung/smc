@@ -65,7 +65,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, fs.readFileSync(file), type);
     }
     if (url.pathname === '/api/health') {
-      return send(res, 200, { ok: true, lastScan: s.lastScan, scanning: s.scanning, lastError: s.lastError, symbols: Object.keys(s.market).length, errors: s.errors.slice(0, 10) });
+      return send(res, 200, { ok: true, lastScan: s.lastScan, scanning: s.scanning, lastError: s.lastError, symbols: Object.keys(s.market).length, errors: s.errors.slice(0, 10), upSince: keepAlive.started, lastPing: keepAlive.lastPing, pings: keepAlive.pings });
     }
     if (url.pathname === '/api/market' && req.method === 'GET') {
       return send(res, 200, {
@@ -77,11 +77,12 @@ const server = http.createServer(async (req, res) => {
       const only = url.searchParams.get('status');
       return send(res, 200, { updatedAt: s.lastScan, rules: s.rules, results: s.results.filter(r => !only || r.status === only).map(brief) });
     }
-    // 給外部排程（cron-job.org）用：GET /api/cron?token=ADMIN_TOKEN，順便叫醒休眠中的服務
+    // 叫醒用（GitHub Actions、cron-job.org、自己叫自己）：馬上回應，不等掃描；太久沒掃就在背景補掃
+    if (url.pathname === '/api/ping') return send(res, 200, { ok: true, ...keepAlive.kick('ping') });
+    // 舊網址保留：GET /api/cron?token=ADMIN_TOKEN（一樣馬上回應，避免 cron-job.org 30 秒逾時後把排程停掉）
     if (url.pathname === '/api/cron') {
       if (ADMIN_TOKEN && url.searchParams.get('token') !== ADMIN_TOKEN && req.headers['x-admin-token'] !== ADMIN_TOKEN) return send(res, 401, { error: 'token 錯誤' });
-      const fresh = s.lastScan && Date.now() - s.lastScan < 5 * 60e3;
-      return send(res, 200, fresh ? { skipped: '5 分鐘內已掃描過', lastScan: s.lastScan } : await scanner.scanOnce());
+      return send(res, 200, { ok: true, ...keepAlive.kick('cron', 5 * 60e3) });
     }
     // 立即掃描：只抓公開行情、不改設定，所以不需要密碼；1 分鐘內重複按只回傳上次結果
     if (url.pathname === '/api/scan' && req.method === 'POST') {
@@ -157,6 +158,27 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// ---- 不休眠：Render 免費方案 15 分鐘沒有外部流量就睡，睡著時排程也停，DC 就收不到訊號 ----
+const keepAlive = {
+  started: Date.now(), lastPing: null, pings: 0,
+  // 距離上次掃描超過 staleMs 就在背景補掃（不卡住回應）
+  kick(from, staleMs = 20 * 60e3) {
+    const s = scanner.state; this.lastPing = Date.now(); this.pings++;
+    const age = s.lastScan ? Date.now() - s.lastScan : Infinity, stale = age > staleMs && !s.scanning;
+    if (stale) scanner.scanOnce().catch(e => console.error('補掃失敗：', e.message));
+    return { lastScan: s.lastScan, scanAgeMin: isFinite(age) ? +(age / 60e3).toFixed(1) : null, rescan: stale, scanning: s.scanning, from };
+  },
+  // 醒著時每 10 分鐘打一次自己的公開網址（走 Render 的入口，算外部流量）
+  start() {
+    const base = (process.env.RENDER_EXTERNAL_URL || cfg.PUBLIC_URL || '').replace(/\/$/, '');
+    setInterval(() => {
+      this.kick('watchdog');   // 本機排程卡住時也會補掃
+      if (base) fetch(`${base}/api/ping?from=self`).catch(e => console.error('自我喚醒失敗：', e.message));
+    }, 10 * 60e3).unref();
+    console.log(`不休眠：${base ? `每 10 分鐘自我喚醒 ${base}` : '沒有公開網址，只做本機補掃'}`);
+  },
+};
+
 if (require.main === module) {
   server.listen(cfg.PORT, async () => {
     console.log(`聚寶盆：http://localhost:${cfg.PORT}`);
@@ -167,6 +189,7 @@ if (require.main === module) {
     calendar.start(tracker.emit);
     earnings.start(tracker.emit);
     scanner.scanOnce().then(() => scanner.startSchedule());
+    keepAlive.start();
   });
 }
 

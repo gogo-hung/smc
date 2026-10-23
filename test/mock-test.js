@@ -132,7 +132,10 @@ global.fetch = async (url) => {
   assert.strictEqual((await req('GET', '/api/signals?status=trigger')).json().results.length, 0, 'RR 門檻 99 時不應有觸發');
   assert.strictEqual((await req('POST', '/api/rules', { minRR: 2 })).status, 401, '改規則沒密碼要擋');
   await req('POST', '/api/rules', scanner.DEFAULT_RULES, 'pw');
-  assert((await req('GET', '/api/cron?token=pw')).json().skipped, '5 分鐘內重複叫醒應跳過掃描');
+  { const j = (await req('GET', '/api/cron?token=pw')).json(); assert(j.ok && j.rescan === false, '5 分鐘內重複叫醒應跳過掃描'); }
+  { const t0 = Date.now(), j = (await req('GET', '/api/ping')).json(); assert(j.ok && Date.now() - t0 < 2000 && j.rescan === false, '/api/ping 要馬上回應、剛掃過不補掃'); }
+  { const keep = scanner.state.lastScan; scanner.state.lastScan = Date.now() - 30 * 60e3; const j = (await req('GET', '/api/ping')).json(); assert(j.rescan === true, '超過 20 分鐘沒掃要在背景補掃');
+    while (scanner.state.scanning) await new Promise(r => setTimeout(r, 50)); assert(scanner.state.lastScan > keep - 1, '補掃完成'); }
 
   // 提醒中心
   const al = (await req('GET', '/api/alerts')).json();

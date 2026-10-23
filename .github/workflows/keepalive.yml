@@ -1,0 +1,30 @@
+# 每 10 分鐘叫醒 Render（免費方案 15 分鐘沒流量會睡，睡著就不會掃描、不會推 DC）
+# 掃描超過 40 分鐘沒更新會讓這個工作失敗 → GitHub 會寄信通知你
+name: keepalive
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      URL: https://smc-scanner-krbg.onrender.com
+    steps:
+      - name: 叫醒網站（剛睡醒要等 30～60 秒）
+        run: |
+          for i in 1 2 3 4; do
+            if out=$(curl -sf -m 100 "$URL/api/ping?from=github"); then echo "$out"; exit 0; fi
+            echo "第 $i 次沒回應，20 秒後再試"; sleep 20
+          done
+          echo "::error::網站叫不醒"; exit 1
+      - name: 確認掃描有在跑
+        run: |
+          sleep 60
+          age=$(curl -sf -m 60 "$URL/api/health" | python3 -c "import sys,json,time; j=json.load(sys.stdin); print(int((time.time()*1000-(j.get('lastScan') or 0))/60000))")
+          echo "距離上次掃描 ${age} 分鐘"
+          if [ "$age" -gt 40 ]; then echo "::error::掃描已經 ${age} 分鐘沒更新"; exit 1; fi
