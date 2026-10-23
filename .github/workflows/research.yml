@@ -25,7 +25,7 @@ jobs:
           key: hist-665-v1
           restore-keys: hist-665-
       - run: npm i --no-save ccxt@4.5.84
-      - run: node tools/diagnose6.js
+      - run: node tools/diagnose7.js
         env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "665", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
       - if: always()
         run: |
