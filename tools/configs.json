@@ -1,6 +1,6 @@
 [
 {
-"name": "固定緩衝 0.2%",
+"name": "止損緩衝 0.2%｜不套保",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -21,7 +21,28 @@
 "fee": 0.035
 },
 {
-"name": "固定緩衝 1%",
+"name": "止損緩衝 0.2%｜獲利 50% 套保",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.0,
+"p1": 0,
+"beAt": 0.5,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on"
+},
+"fee": 0.035
+},
+{
+"name": "止損緩衝 1%｜不套保",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -42,7 +63,7 @@
 "fee": 0.035
 },
 {
-"name": "ATR 0.5 倍",
+"name": "止損緩衝 1%｜獲利 50% 套保",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -52,41 +73,18 @@
 "mtfFvg": "on",
 "mtfMinRR": 1.0,
 "p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
+"beAt": 0.5,
+"stopBuf": 1.0,
 "btcFilter": "block",
 "mtfPois": 6,
 "mtfSwing": 3,
 "mtfPoiSrc": "choch",
-"mtfConf": "on",
-"mtfStopAtr": 0.5
+"mtfConf": "on"
 },
 "fee": 0.035
 },
 {
-"name": "ATR 1 倍",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on",
-"mtfStopAtr": 1
-},
-"fee": 0.035
-},
-{
-"name": "ATR 1.5 倍",
+"name": "止損 1.5 倍 ATR｜不套保",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -108,7 +106,7 @@
 "fee": 0.035
 },
 {
-"name": "ATR 2 倍",
+"name": "止損 1.5 倍 ATR｜獲利 50% 套保",
 "rules": {
 "model": "mtf",
 "side": "both",
@@ -118,96 +116,7 @@
 "mtfFvg": "on",
 "mtfMinRR": 1.0,
 "p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on",
-"mtfStopAtr": 2
-},
-"fee": 0.035
-},
-{
-"name": "【只算 7/14 後】固定緩衝 0.2%",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035,
-"since": "2026-07-14"
-},
-{
-"name": "【只算 7/14 後】固定緩衝 1%",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 1.0,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on"
-},
-"fee": 0.035,
-"since": "2026-07-14"
-},
-{
-"name": "【只算 7/14 後】ATR 1 倍",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
-"stopBuf": 0.2,
-"btcFilter": "block",
-"mtfPois": 6,
-"mtfSwing": 3,
-"mtfPoiSrc": "choch",
-"mtfConf": "on",
-"mtfStopAtr": 1
-},
-"fee": 0.035,
-"since": "2026-07-14"
-},
-{
-"name": "【只算 7/14 後】ATR 1.5 倍",
-"rules": {
-"model": "mtf",
-"side": "both",
-"mtfFib": 0.715,
-"mtfWait": 48,
-"mtfReanchor": "on",
-"mtfFvg": "on",
-"mtfMinRR": 1.0,
-"p1": 0,
-"beAt": 0,
+"beAt": 0.5,
 "stopBuf": 0.2,
 "btcFilter": "block",
 "mtfPois": 6,
@@ -216,7 +125,50 @@
 "mtfConf": "on",
 "mtfStopAtr": 1.5
 },
-"fee": 0.035,
-"since": "2026-07-14"
+"fee": 0.035
+},
+{
+"name": "止損 1.5 倍 ATR｜獲利 30% 套保",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.0,
+"p1": 0,
+"beAt": 0.3,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfStopAtr": 1.5
+},
+"fee": 0.035
+},
+{
+"name": "止損 1.5 倍 ATR｜獲利 70% 套保",
+"rules": {
+"model": "mtf",
+"side": "both",
+"mtfFib": 0.715,
+"mtfWait": 48,
+"mtfReanchor": "on",
+"mtfFvg": "on",
+"mtfMinRR": 1.0,
+"p1": 0,
+"beAt": 0.7,
+"stopBuf": 0.2,
+"btcFilter": "block",
+"mtfPois": 6,
+"mtfSwing": 3,
+"mtfPoiSrc": "choch",
+"mtfConf": "on",
+"mtfStopAtr": 1.5
+},
+"fee": 0.035
 }
 ]
