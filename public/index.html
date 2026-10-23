@@ -296,6 +296,31 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 .note{font-size:12px;color:var(--muted);max-width:75ch}
 .toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.4}}}
+/* 市場情緒儀表（右側） */
+@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 300px} .sent{position:sticky;top:16px} }
+@media (max-width:1099px){ .sent{order:-1;max-width:460px;width:100%;justify-self:center;position:relative} }
+.sent{padding:14px 14px 12px;display:grid;gap:6px}
+.sent[hidden]{display:none}
+.sent-hd{display:grid;grid-template-columns:28px 1fr 28px;align-items:center;text-align:center}
+.sent-hd b{font-family:var(--f-display);font-size:14px;font-weight:600}
+.sent-hd button{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px;border-radius:6px}
+.sent-hd button:hover{color:var(--fg);background:var(--raise)}
+.sent-help{position:absolute;top:42px;right:14px;font-size:11px;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;cursor:help}
+.sent svg{display:block;width:100%;max-width:230px;margin:0 auto}
+.sent .big{font-family:var(--f-mono);font-size:40px;font-weight:700;line-height:1;text-align:center}
+.sent .lbl{text-align:center;font-weight:700;font-size:13px}
+.sent .yd{text-align:center;color:var(--muted);font-size:12.5px}
+.sent .scale{display:flex;justify-content:center;flex-wrap:wrap;gap:4px 10px;font-size:12px;font-weight:600}
+.sent .scale span{opacity:.55}.sent .scale span.on{opacity:1;text-decoration:underline;text-underline-offset:3px}
+.sent .dots{display:flex;justify-content:center;gap:6px;margin-top:4px}
+.sent .dots button{width:7px;height:7px;border-radius:50%;border:0;padding:0;background:var(--line);cursor:pointer}
+.sent .dots button[aria-current="true"]{background:var(--muted)}
+.sent .bars{display:grid;gap:7px;margin:6px 4px 0;font-size:12.5px}
+.sent .bar{display:grid;grid-template-columns:22px 1fr 40px;align-items:center;gap:8px}
+.sent .bar i{display:block;height:6px;border-radius:3px;background:var(--raise);overflow:hidden}
+.sent .bar i b{display:block;height:100%;border-radius:3px}
+.sent .bar .n{text-align:right;font-family:var(--f-mono);font-weight:700}
+.sent .tot{text-align:center;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -552,6 +577,13 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <button class="btn" type="button" id="showWatch" hidden></button></div>
     </main>
 
+    <!-- 市場情緒：平均 RSI／恐懼貪婪／整體市場 -->
+    <aside class="pane sent" id="sentPane" aria-label="市場情緒" hidden>
+      <div class="sent-hd"><button type="button" id="sentPrev" aria-label="上一個">‹</button><b id="sentT">市場平均 RSI</b><button type="button" id="sentNext" aria-label="下一個">›</button></div>
+      <span class="sent-help" id="sentHelp" title="">?</span>
+      <div id="sentBody"></div>
+      <div class="dots" id="sentDots" role="tablist" aria-label="切換指標"></div>
+    </aside>
   </div>
 
 

@@ -76,6 +76,8 @@ global.fetch = async (url) => {
   assert(btc.ltf[btc.ltf.length - 1].t + Q <= Date.now(), '不應包含未收盤 K 棒');
   assert(sum.trigger >= 1, '示範資料應至少有一個觸發訊號');
   assert.strictEqual(tracker.state.signals.length, sum.trigger, '每個觸發都記進成績單');
+  { const z = require('../src/sentiment').state; assert(z.rsi && z.rsi.now > 0 && z.rsi.now < 100 && z.rsi.yday != null, '市場平均 RSI 要算出來（含昨日）');
+    assert(z.breadth && z.breadth.total >= COINS.length && z.breadth.up + z.breadth.flat + z.breadth.down === z.breadth.total, '整體市場漲跌家數要算出來'); }
   assert.strictEqual(tracker.state.feed.filter(f => f.type === 'signal').length, sum.trigger, '每個觸發都進提醒紀錄');
 
   // 策略內容

@@ -700,6 +700,44 @@ $('postModal').addEventListener('click',e=>{ if(e.target===$('postModal')) $('po
 $('postDl').onclick=()=>{ $('postCanvas').toBlob(b=>{ if(!b) return showToast('產生圖片失敗'); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=`${selected}-smc-${Date.now()}.png`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000); },'image/png'); };
 $('postCopy').onclick=()=>{ $('postCanvas').toBlob(async b=>{ try{ await navigator.clipboard.write([new ClipboardItem({'image/png':b})]); showToast('圖片已複製，可以直接貼到 IG / Threads'); }catch(e){ showToast('這個瀏覽器不能直接複製圖片，請用「下載圖片」'); } },'image/png'); };
 
+
+// ---- 市場情緒儀表（右側）：市場平均 RSI／恐懼貪婪指數／整體市場 ----
+const Sent={i:+(store.get('smc-sent-i')||0)||0, d:null};
+const SENT=[
+  {k:'rsi',t:'市場平均 RSI',help:'掃描中幣種的日線 RSI(14) 平均。低於 30 超賣、高於 70 超買；「昨日」是昨天日線收盤時的數值。',
+   scale:[[30,'超賣','#2fbf9b'],[45,'偏弱','#9bd146'],[55,'中性','#e5c33a'],[70,'偏強','#ee9a3a'],[100,'超買','#ee6a6a']]},
+  {k:'fng',t:'恐懼貪婪指數',help:'alternative.me 的加密貨幣恐懼貪婪指數（0–100），每天更新一次。極度恐懼常是情緒低點，極度貪婪要小心追高。',
+   scale:[[25,'極度恐懼','#ee6a6a'],[46,'恐懼','#ee9a3a'],[54,'中性','#e5c33a'],[75,'貪婪','#9bd146'],[100,'極度貪婪','#2fbf9b']]},
+  {k:'breadth',t:'整體市場',help:'BingX 全部 USDT 永續合約的 24 小時漲跌：漲超過 1% 算漲、跌超過 1% 算跌、其他算平。百分比＝上漲家數佔比。'},
+];
+const polar=(a,r=80)=>[100+r*Math.cos(a),100-r*Math.sin(a)];
+function arcPath(v0,v1,r=80){ const a0=Math.PI*(1-v0/100), a1=Math.PI*(1-v1/100), [x0,y0]=polar(a0,r), [x1,y1]=polar(a1,r); return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
+function gauge(v,scale){
+  const segs=[]; let lo=0; for(const [hi,,col] of scale){ segs.push(`<path d="${arcPath(lo+0.6,hi-0.6)}" stroke="${col}" stroke-opacity=".28" stroke-width="16" fill="none" stroke-linecap="butt"/>`); lo=hi; }
+  const cur=scale.find(x=>v<=x[0])||scale[scale.length-1], on=v==null?'':`<path d="${arcPath(0.5,Math.max(1,Math.min(99.5,v)))}" stroke="${cur[2]}" stroke-width="16" fill="none" stroke-linecap="round"/>`;
+  const [nx,ny]=polar(Math.PI*(1-Math.max(0,Math.min(100,v??50))/100),66);
+  return `<svg viewBox="0 0 200 112" aria-hidden="true">${segs.join('')}${on}<line x1="100" y1="100" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--fg)" stroke-width="2.5" stroke-linecap="round"/><circle cx="100" cy="100" r="6" fill="var(--surface)" stroke="var(--fg)" stroke-width="2.5"/></svg>`;
+}
+function renderSent(){
+  const d=Sent.d; if(!d) return; const S=SENT[Sent.i]; $('sentT').textContent=S.t; $('sentHelp').title=S.help;
+  $('sentDots').innerHTML=SENT.map((x,i)=>`<button type="button" role="tab" aria-label="${x.t}" aria-current="${i===Sent.i}" data-i="${i}"></button>`).join('');
+  if(S.k==='breadth'){ const b=d.breadth; if(!b){ $('sentBody').innerHTML='<p class="yd">資料準備中…</p>'; return; }
+    const col=b.pct>=60?'var(--long)':b.pct<=40?'var(--short)':'var(--accent)', C=2*Math.PI*46, mx=Math.max(b.up,b.flat,b.down,1);
+    $('sentBody').innerHTML=`<svg viewBox="0 0 200 120" aria-hidden="true"><circle cx="100" cy="60" r="46" fill="none" stroke="var(--raise)" stroke-width="12"/><circle cx="100" cy="60" r="46" fill="none" stroke="${col}" stroke-width="12" stroke-dasharray="${(C*b.pct/100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 100 60)"/>
+      <text x="100" y="62" text-anchor="middle" font-size="26" font-weight="700" fill="${col}" font-family="var(--f-mono)">${b.pct}%</text><text x="100" y="82" text-anchor="middle" font-size="11" font-weight="700" fill="${col}">${b.label}</text></svg>
+      <div class="bars">${[['漲',b.up,'var(--long)'],['平',b.flat,'var(--accent)'],['跌',b.down,'var(--short)']].map(([k,n,c])=>`<div class="bar"><span style="color:${c};font-weight:700">${k}</span><i><b style="width:${(n/mx*100).toFixed(0)}%;background:${c}"></b></i><span class="n" style="color:${c}">${n}</span></div>`).join('')}</div>
+      <div class="tot">共 ${b.total} 個合約</div>`; return; }
+  const x=d[S.k]; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…</p>'; return; }
+  const cur=S.scale.find(z=>x.now<=z[0])||S.scale[S.scale.length-1], diff=x.yday!=null? x.now-x.yday : null;
+  $('sentBody').innerHTML=`${gauge(x.now,S.scale)}<div class="big" style="color:${cur[2]}">${S.k==='rsi'?Math.round(x.now):x.now}</div>
+    <div class="lbl" style="color:${cur[2]}">${S.k==='rsi'?'市場平均 RSI｜':''}${x.label}</div>
+    <div class="yd">昨日 ${x.yday??'—'}${diff!=null?`（${diff>=0?'+':''}${S.k==='rsi'?diff.toFixed(1):diff}）`:''}</div>
+    <div class="scale">${S.scale.map(z=>`<span class="${z===cur?'on':''}" style="color:${z[2]}">${z[1]}</span>`).join('')}</div>`;
+}
+const sentGo=i=>{ Sent.i=(i+SENT.length)%SENT.length; store.set('smc-sent-i',Sent.i); renderSent(); };
+$('sentPrev').onclick=()=>sentGo(Sent.i-1); $('sentNext').onclick=()=>sentGo(Sent.i+1);
+$('sentDots').addEventListener('click',e=>{ const i=e.target.dataset&&e.target.dataset.i; if(i!=null) sentGo(+i); });
+async function loadSent(){ try{ const r=await fetch('api/sentiment',{cache:'no-store'}); if(!r.ok) return; Sent.d=await r.json(); $('sentPane').hidden=false; renderSent(); }catch(e){} }
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{
   await DataSource.init();
@@ -712,6 +750,6 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
       const wait=setInterval(async()=>{ await DataSource.refresh(); if(DataSource.list.length){ clearInterval(wait); scan(); } },8000); }
   }
   syncForm(); scan(); loadCal(); loadAlerts();
-  if(DataSource.mode==='live') setInterval(()=>loadAlerts(true),60000);
+  if(DataSource.mode==='live'){ setInterval(()=>loadAlerts(true),60000); loadSent(); setInterval(loadSent,60000); }
 })();
 })();

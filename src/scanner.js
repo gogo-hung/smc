@@ -6,6 +6,7 @@ const store = require('./store');
 const tracker = require('./tracker');
 const journal = require('./journal');
 const TREND = require('./trend');
+const sentiment = require('./sentiment');
 
 // 舊版 OB 模型：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態（吞沒 / Pin bar）
 // 加分條件（need 必要 / score 加分 / off 不看）：斐波便宜區、EMA50 順勢、OB 帶 FVG、掃流動性、日線同向；加分 ≥ minScore 才推
@@ -63,7 +64,8 @@ async function pickUniverse() {
     .slice(0, cfg.TOP_N);
   // BTC 一定要掃（大盤濾網要用），加上自選、搜尋加入的、還在追蹤成績的幣
   const watch = ['BTC', ...cfg.WATCHLIST, ...state.extras, ...tracker.openSymbols()].map(s => `${s}-USDT`).filter(s => live.has(s));
-  return { symbols: [...new Set([...watch, ...ranked])], vol, price };
+  const allTickers = tickers.filter(t => /-USDT$/.test(t.symbol) && live.has(t.symbol) && !isTradfi(t.symbol));   // 整體市場漲跌用（不含美股、商品）
+  return { symbols: [...new Set([...watch, ...ranked])], vol, price, allTickers };
 }
 
 // 用目前的行情與規則重新判斷（改規則時不用重抓資料）
@@ -90,7 +92,7 @@ async function scanOnce() {
   state.scanning = true; state.errors = [];
   const t0 = Date.now();
   try {
-    const { symbols, vol, price } = await pickUniverse();
+    const { symbols, vol, price, allTickers } = await pickUniverse();
     const now = Date.now();
     const fetched = await bingx.pool(symbols, async symbol => {
       const sym = symbol.replace(/-USDT$/, '');
@@ -112,6 +114,7 @@ async function scanOnce() {
     state.market = market;
     try { state.ctx.funding = await bingx.getFunding(); } catch (e) { state.errors.push(`資金費率：${e.message}`); }
     const results = rerun();
+    try { sentiment.update(market, allTickers); await sentiment.refreshFng(); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
     state.trend = Object.values(market).map(m => TREND.analyze(m.sym, m.htf || [])).filter(a => a.state !== 'nodata');
     await tracker.onScan(results, market, { smcPush: state.rules.smcPush === 'on', trend: state.rules.trend !== 'off' });
 
