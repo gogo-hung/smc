@@ -1,7 +1,5 @@
 == api/health
-{"ok":true,"lastScan":1792760422553,"scanning":false,"lastError":null,"symbols":60,"errors":[],"upSince":1792760317220,"lastPing":null,"pings":0}
-== api/stats
-{"total":1,"resolved":0,"winRate":null,"avgR":null,"totalR":0,"pending":0,"filled":1,"be":0,"missed":0,"expired":0,"byModel":[],"openTrend":1,"skipped":0,"byDir":[],"byZone":[],"byGrade":[],"bySym":[],"recent":[{"k":"1000PEPE:trend:1792756800000","sym":"1000PEPE","dir":1,"model":"trend","entry":0.0050582,"stop":0.004757621866993664,"stop0":0.004757621866993664,"atr":0.00015028906650316762,"ext":0.0051056,"be":false,"target":null,"rr":null,"createdAt":1792756800000,"filledAt":1792756800000,"checkedT":1792760400000,"status":"filled","vol":1.5324148552713472,"lastTrailR":-1,"tp1":0.005358778133006335}]}
-== api/alerts
-{"feed":[],"settings":{"signal":true,"near":true,"nearPct":0.3,"calendar":true,"result":true},"locked":false,"lossStreak":0,"storage":"Upstash Redis（永久保存）","persistent":true,"telegram":false,"discord":true}
+{"ok":true,"lastScan":1792761590264,"scanning":false,"lastError":null,"symbols":60,"errors":[],"upSince":1792761581257,"lastPing":null,"pings":0}
+== api/sentiment
+{"rsi":{"now":46.2,"yday":44.9,"label":"中性","n":60},"fng":{"now":50,"yday":68,"label":"中性"},"breadth":{"up":222,"flat":203,"down":130,"total":555,"pct":40,"label":"偏空"},"updatedAt":1792761589164}
 "trend":[{"sym":"BTC","model":"trend","trend":0,"sig":0,"sigT":1792756800000,"atr":767.3419928850284,"close":81696.6,"hist":-185.5715605126697,"volRatio":0.4166215036607224,"e50":82330.0151566575,"e200":81954.76870065209,"state":"idle"},{"sym":"ETH","model":"trend","trend":-1,"sig":0,"sigT":1792756800000,"atr":33.711574514811126,"close":2401.77,"hist":-5.550422902483946,"volRatio":0.7351394897349731,"e50":2435.6874825171158,"e200":2498.151314620478,"state":"idle"},{"sym":"SOL","model":"trend","trend":-1,"sig":0,"sigT":1792756800000,"atr":1.6117300055530588,"close":104.51,"hist":-0.22711615011665148,"vo
