@@ -28,7 +28,7 @@ jobs:
             hist-665-
       - run: npm i --no-save ccxt@4.5.84
       - run: node tools/diagnose8.js
-        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SYMS: "BTC,ETH,SOL,XRP,BNB,DOGE,ADA,LINK,AVAX,LTC,BCH,DOT,SUI,TRX,TON,HYPE", SOURCE: "ccxt", EXCHANGE: "okx", M5: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
+        env: { REQUEST_GAP_MS: "60", CONCURRENCY: "4", DAYS: "365", SYMS: "BTC,ETH,SOL,XRP,BNB,DOGE,ADA,LINK,AVAX,LTC,BCH,DOT,SUI,TRX,TON,HYPE", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", M5: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
       - if: always()
         run: |
           mkdir -p results && cp research-cache/*.md results/ && cp research-cache/trades-*.json results/ 2>/dev/null || true

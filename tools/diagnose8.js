@@ -20,8 +20,7 @@ function sim(m, bosAt, jf, dir, entry, stop, target, be) {
 }
 const CFG = ['B 原本（斐波 1 外 1%、15M 前高、套保）', '4H 區域外 1%＋0.5:1', '4H 區域外 1%＋0.5:1＋套保'];
 (async () => {
-  const d5 = await load(); const d15 = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'research-cache', 'hist-ccxt-okx-665-m15.json'), 'utf8'));
-  for (const k in d15) if (d15[k].m15 && Array.isArray(d15[k].m15[0])) d15[k].m15 = d15[k].m15.map(a => ({ t: a[0], o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] }));
+  const d5 = await load(), d15 = d5;   // 同一份資料裡同時有 15M 和 5M
   const syms = Object.keys(d5).filter(s => d5[s].m5 && d5[s].m5.length > 2000 && d15[s] && d15[s].m15 && d15[s].m15.length > 2000);
   const S0 = Object.fromEntries(syms.map(s => [s, d5[s].m5[300].t])), T0 = Math.min(...Object.values(S0)), T1 = Math.max(...syms.map(s => d5[s].m5[d5[s].m5.length - 1].t)), months = (T1 - T0) / (30.4 * 864e5);
   const GROUPS = [['只有 BTC、ETH', T2], ['前 6 大', T6], [`全部 ${syms.length} 個`, syms]].map(([n, l]) => [n, l.filter(s => syms.includes(s))]);
