@@ -2,7 +2,7 @@
 // 訊號在 1H 收盤確認，下一根開盤市價進場；止損／止盈用 ATR；同一根同時碰到止損止盈算止損；超過 maxBars 根收盤出場
 const fs = require('fs'), path = require('path');
 const { load, DAYS, EXCHANGE } = require('./hist');
-const FEE = 0.05 / 100;   // 市價單單邊
+let FEE = 0.05 / 100;   // 市價單單邊（下面會換不同費率各跑一次）
 
 // ---- 指標（只用到第 i 根為止的資料） ----
 const emaArr = (v, n) => { const o = Array(v.length).fill(null), k = 2 / (n + 1); let e = null, s = 0; for (let i = 0; i < v.length; i++) { if (i < n - 1) { s += v[i]; continue; } if (e === null) e = (s + v[i]) / n; else e = v[i] * k + e * (1 - k); o[i] = e; } return o; };
@@ -72,9 +72,10 @@ function run(sym, h1, h4, cf) {
   const T6 = ['BTC', 'ETH', 'SOL', 'XRP', 'BNB', 'DOGE'].filter(s => syms.includes(s));
   const f1 = v => (v > 0 ? '+' : '') + v.toFixed(1), pct = (a, b) => b ? `${(a / b * 100).toFixed(0)}%` : '—';
   const t0 = Math.min(...syms.map(s => data[s].ltf[210].t)), t1 = Math.max(...syms.map(s => data[s].ltf[data[s].ltf.length - 1].t)), yrs = (t1 - t0) / (365 * 864e5);
-  const out = [`# 高勝率候選策略（${EXCHANGE}，${new Date(t0).toISOString().slice(0, 10)} ～ ${new Date(t1).toISOString().slice(0, 10)}，${syms.length} 個幣，市價手續費 0.05%×2）`, '',
+  const out = [`# 高勝率候選策略（${EXCHANGE}，${new Date(t0).toISOString().slice(0, 10)} ～ ${new Date(t1).toISOString().slice(0, 10)}，${syms.length} 個幣，市價手續費兩種費率）`, '',
     '標準：勝率 ≥ 60%、最長連虧 ≤ 5、2025 和 2026 都賺、卡瑪 > 1（R 當 %，每筆風險 1%）', '',
     '| 策略 | 幣 | 筆數 | 每月幾筆 | 勝率 | 2025 | 2026 | 全部 | 每筆平均 | 最大回撤 | 最長連虧 | 卡瑪 | 賺錢月份 |', '|---|---|---|---|---|---|---|---|---|---|---|---|---|'];
+  for (const [feeName, fee] of [['你的費率 0.022%', 0.022], ['完全沒手續費', 0]]) { FEE = fee / 100; out.push('', `**${feeName}**`, '', out[4], out[5]);
   for (const cf of CONFIGS) {
     let all = []; for (const s of syms) all = all.concat(run(s, data[s].ltf, data[s].htf, cf));
     for (const [g, l] of [['全部', syms], ['前 6 大', T6]]) {
@@ -86,7 +87,7 @@ function run(sym, h1, h4, cf) {
       out.push(`| ${cf.name} | ${g} | ${q.length} | ${(q.length / yrs / 12).toFixed(0)} | ${pct(q.filter(r => r.R > 0).length, q.length)} | ${y(2025)} | ${y(2026)} | ${f1(e)} | ${q.length ? (e / q.length).toFixed(3) : '—'} | ${d.toFixed(1)} | ${ms} | ${cal.toFixed(2)} | ${mv.filter(v => v > 0).length} / ${mv.length} |`);
     }
     console.log(cf.name, 'done');
-  }
-  const md = out.join('\n'); console.log(md);
+  } }
+  out.splice(4, 2); const md = out.join('\n'); console.log(md);
   fs.writeFileSync(path.join(__dirname, '..', 'research-cache', `strat-${EXCHANGE}-${DAYS}.md`), md);
 })().catch(e => { console.error(e); fs.mkdirSync(path.join(__dirname, '..', 'research-cache'), { recursive: true }); fs.writeFileSync(path.join(__dirname, '..', 'research-cache', 'strat-error.md'), String(e.stack)); process.exit(1); });
