@@ -40,7 +40,7 @@ async function emit(type, title, lines, extra = {}) {
   state.feed = state.feed.slice(0, 300);
   await store.save('feed', state.feed);
   const on = { signal: state.settings.signal, near: state.settings.near, calendar: state.settings.calendar, earnings: state.settings.calendar, result: state.settings.result }[type];
-  if (on && !muted && !extra.quiet) await notify.send([`<b>${title}</b>`, ...lines, cfg.PUBLIC_URL].filter(Boolean).join('\n'));
+  if (on && !muted && !extra.quiet) await notify.send([`<b>${title}</b>`, ...lines, extra.noLink ? '' : cfg.PUBLIC_URL].filter(Boolean).join('\n'));
   return item;
 }
 
@@ -168,6 +168,8 @@ async function onScan(results, market, opt = {}) {
 const H4 = 4 * 3600e3;
 const isOpen = s => s.status === 'pending' || s.status === 'filled';
 const pct = (a, b) => `${(Math.abs(a - b) / b * 100).toFixed(2)}%`;
+const head = (sym, dir) => `${sym}USDT　${dir > 0 ? '多' : '空'}`;
+const DISCLAIMER = '⚠️以上內容僅供個人投資記錄使用，並不構成任何形式的投資建議或財務建議';
 async function onTrend(market) {
   let changed = false;
   const now = Date.now();
@@ -185,16 +187,14 @@ async function onTrend(market) {
     if (open >= TREND.P.maxOpen) { Object.assign(sig, { status: 'skipped', closedAt: now }); state.signals.push(sig); changed = true;
       await emit('result', `⏸ ${sym}/USDT ${side(dir)}：訊號成立但已有 ${open} 筆持倉，這筆不做`, [`同時最多 ${TREND.P.maxOpen} 筆，避免同方向一起虧`], { sym, quiet: true }); continue; }
     state.signals.push(sig); changed = true;
-    const per1000 = 10 / (risk / entry);   // 帳戶 1000U、每筆虧 1% → 名目倉位
-    await emit('signal', `🎯 ${sym}/USDT ${side(dir)}｜趨勢訊號`, [
-      `市價進場 ≈ ${fp(entry)}　止損 ${fp(stop0)}（${pct(stop0, entry)}，2 倍 ATR）`,
-      `4H：EMA50 ${dir > 0 ? '>' : '<'} EMA200、MACD ${dir > 0 ? '金叉' : '死叉'}、成交量 ${a.volRatio ? a.volRatio.toFixed(1) : '—'} 倍均量`,
-      `倉位：帳戶每 1000U、每筆虧 1% → 名目約 ${per1000.toFixed(0)}U（倉位＝風險金額 ÷ ${pct(stop0, entry)}）`,
-      `保本：1H 出現同向 BOS 且已賺 0.5R（${fp(entry + dir * risk * 0.5)}）→ 止損移到開倉價`,
-      `移動止損：持倉後${dir > 0 ? '最高' : '最低'}價 ${dir > 0 ? '−' : '+'} 3 倍 ATR（${fp(3 * a.atr)}），只收緊不放寬；沒有固定止盈`,
-      `目前持倉 ${open + 1}/${TREND.P.maxOpen}`,
-      '下單前：止損先掛；這是訊號不是情緒。',
-    ], { sym });
+    sig.tp1 = entry + dir * risk;   // TP1＝1R：到了推通知，自己決定出場或移保本；成績單照原策略（移動止損）算
+    await emit('signal', head(sym, dir), [
+      `進場: ${fp(entry)}`,
+      `TP1: ${fp(sig.tp1)}（可選擇出場，或把止損移到開倉價）`,
+      `TP2: 移動止損出場（持倉後${dir > 0 ? '最高' : '最低'}價${dir > 0 ? '回落' : '反彈'} 3 倍 ATR＝${fp(3 * a.atr)}）`,
+      `止損: ${fp(stop0)}`,
+      DISCLAIMER,
+    ], { sym, noLink: true });
   }
   // 2. 追蹤持倉：用已收盤的 1H
   for (const s of state.signals) {
@@ -208,14 +208,16 @@ async function onTrend(market) {
       const ex = ev.find(e => e.k === 'exit');
       if (ex) {
         s.status = ex.R > 0.05 ? 'win' : ex.R > -0.05 ? 'be' : 'loss'; s.R = +ex.R.toFixed(2); s.exit = ex.px; s.closedAt = b.t + Q;
-        await emit('result', { win: `✅ ${s.sym} ${side(s.dir)} 移動止損出場 +${s.R}R`, be: `🛡 ${s.sym} ${side(s.dir)} 保本出場 0R`, loss: `❌ ${s.sym} ${side(s.dir)} 打到止損 ${s.R}R` }[s.status],
-          [`進場 ${fp(s.entry)}　出場 ${fp(ex.px)}　${s.dir > 0 ? '最高' : '最低'}到過 ${fp(s.ext)}`], { sym: s.sym });
+        await emit('result', `${head(s.sym, s.dir)}｜${{ win: `TP2 出場 +${s.R}R`, be: '保本出場 0R', loss: `止損出場 ${s.R}R` }[s.status]}`,
+          [`進場: ${fp(s.entry)}`, `出場: ${fp(ex.px)}`, DISCLAIMER], { sym: s.sym, noLink: true });
         break;
       }
-      if (ev.some(e => e.k === 'be')) await emit('result', `🛡 ${s.sym} ${side(s.dir)}：結構延續，止損移到開倉價`, [`1H 出現同向 BOS、已賺 ≥ 0.5R，把止損改到 ${fp(s.entry)}（保本）`], { sym: s.sym });
+      if (s.tp1 != null && !s.tp1Hit && b.t >= s.filledAt && (s.dir > 0 ? b.h >= s.tp1 : b.l <= s.tp1)) { s.tp1Hit = true;
+        await emit('result', `${head(s.sym, s.dir)}｜到達 TP1`, [`TP1: ${fp(s.tp1)}`, s.be ? `止損已在開倉價 ${fp(s.entry)}，可選擇出場或繼續抱` : `可選擇出場，或把止損移到開倉價 ${fp(s.entry)}`, DISCLAIMER], { sym: s.sym, noLink: true }); }
+      if (ev.some(e => e.k === 'be')) await emit('result', `${head(s.sym, s.dir)}｜止損移到開倉價`, [`止損: ${fp(s.entry)}（1H 結構延續，保本）`, DISCLAIMER], { sym: s.sym, noLink: true });
       const tr = ev.find(e => e.k === 'trail');
       if (tr) { const lockR = (s.stop - s.entry) * s.dir / risk;   // 移動止損：第一次過開倉價推一次，之後每多鎖 1R 推一次
-        if (lockR >= 0 && lockR - s.lastTrailR >= 1) { s.lastTrailR = lockR; await emit('result', `🔒 ${s.sym} ${side(s.dir)}：移動止損 ${fp(s.stop)}`, [`已鎖住 ${lockR >= 0 ? '+' : ''}${lockR.toFixed(2)}R，${s.dir > 0 ? '最高' : '最低'}價 ${fp(s.ext)}`], { sym: s.sym }); } }
+        if (lockR >= 0 && lockR - s.lastTrailR >= 1) { s.lastTrailR = lockR; await emit('result', `${head(s.sym, s.dir)}｜移動止損`, [`止損: ${fp(s.stop)}（已鎖住 +${lockR.toFixed(2)}R）`, DISCLAIMER], { sym: s.sym, noLink: true }); } }
     }
   }
   return changed;
