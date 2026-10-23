@@ -1,7 +1,7 @@
 // 市場情緒三個儀表：市場平均 RSI（掃描中的幣，日線 RSI14）、恐懼貪婪指數（alternative.me）、整體市場漲跌家數（BingX 全部 USDT 永續 24h 漲跌）
 const SMC = require('./smc');
 
-const state = { rsi: null, fng: null, breadth: null, updatedAt: null, fngAt: 0 };
+const state = { rsi: null, fng: null, breadth: null, ls: null, oi: null, funding: null, updatedAt: null, fngAt: 0, derivAt: 0 };
 
 function rsiLast(closes, n = 14) {   // Wilder RSI，回傳最後一根
   if (closes.length <= n) return null;
@@ -47,4 +47,43 @@ async function refreshFng(force) {
   } catch (e) { console.error('恐懼貪婪指數：', e.message); }
 }
 
-module.exports = { state, update, refreshFng, rsiLast };
+
+// ---- 合約數據（BTC）：多空比、未平倉量、資金費率；先抓 Binance，被擋（例如 451 地區限制）就改用 OKX ----
+const getJson = async (url) => { const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 12000);
+  try { const r = await fetch(url, { signal: ctl.signal, headers: { 'User-Agent': 'jubaopen-scanner' } }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return await r.json(); } finally { clearTimeout(t); } };
+const BN = 'https://fapi.binance.com', OKX = 'https://www.okx.com';
+const lsLabel = p => p >= 60 ? '偏多擁擠' : p >= 52 ? '偏多' : p > 48 ? '均衡' : p > 40 ? '偏空' : '偏空擁擠';
+
+async function viaBinance() {
+  const q = 'symbol=BTCUSDT&period=1h&limit=25';
+  const [g, top, oi, prem] = await Promise.all([getJson(`${BN}/futures/data/globalLongShortAccountRatio?${q}`), getJson(`${BN}/futures/data/topLongShortPositionRatio?${q}`),
+    getJson(`${BN}/futures/data/openInterestHist?${q}`), getJson(`${BN}/fapi/v1/premiumIndex`)]);
+  const side = a => { const now = a[a.length - 1], y = a[0]; return { long: +(now.longAccount * 100).toFixed(1), ratio: +(+now.longShortRatio).toFixed(2), yday: +(y.longAccount * 100).toFixed(1) }; };
+  const fr = {}; for (const x of prem) if (/USDT$/.test(x.symbol) && x.lastFundingRate !== '') fr[x.symbol.replace(/USDT$/, '')] = +x.lastFundingRate;
+  return { src: 'Binance', ls: { global: side(g), top: side(top) }, oi: oi.map(x => ({ t: +x.timestamp, v: +x.sumOpenInterestValue })), fr };
+}
+async function viaOkx(bingxFunding) {
+  const [g, top, oi, fb, fe] = await Promise.all([getJson(`${OKX}/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H`), getJson(`${OKX}/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=BTC-USDT-SWAP&period=1H`),
+    getJson(`${OKX}/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1H`), getJson(`${OKX}/api/v5/public/funding-rate?instId=BTC-USDT-SWAP`), getJson(`${OKX}/api/v5/public/funding-rate?instId=ETH-USDT-SWAP`)]);
+  const side = rows => { const now = +rows[0][1], y = +(rows[24] || rows[rows.length - 1])[1], pct = r => +(r / (1 + r) * 100).toFixed(1); return { long: pct(now), ratio: +now.toFixed(2), yday: pct(y) }; };   // OKX 由新到舊、只給比值
+  const fr = { ...(bingxFunding || {}) }; if (fb.data && fb.data[0]) fr.BTC = +fb.data[0].fundingRate; if (fe.data && fe.data[0]) fr.ETH = +fe.data[0].fundingRate;
+  return { src: 'OKX', ls: { global: side(g.data), top: side(top.data) }, oi: oi.data.slice(0, 25).reverse().map(r => ({ t: +r[0], v: +r[1] })), fr };
+}
+async function refreshDeriv(bingxFunding, force) {
+  if (!force && Date.now() - state.derivAt < 10 * 60e3) return;
+  let d = null, err = [];
+  for (const f of [viaBinance, () => viaOkx(bingxFunding)]) { try { d = await f(); break; } catch (e) { err.push(`${f === viaBinance ? 'Binance' : 'OKX'}：${e.message}`); } }
+  state.derivAt = Date.now();
+  if (!d) { console.error('合約數據抓不到：', err.join('；')); return; }
+  const g = d.ls.global, t = d.ls.top;
+  state.ls = { src: d.src, global: { ...g, label: lsLabel(g.long) }, top: { ...t, label: lsLabel(t.long) } };
+  const o = d.oi, last = o[o.length - 1], first = o[0];
+  if (last) state.oi = { src: d.src, now: last.v, chg: first && first.v ? +((last.v / first.v - 1) * 100).toFixed(2) : null, series: o.map(x => +x.v.toFixed(0)) };
+  const all = Object.values(d.fr).filter(isFinite), pos = all.filter(x => x > 0).length, neg = all.filter(x => x < 0).length, avgFr = avg(all);
+  const pct4 = x => x == null ? null : +(x * 100).toFixed(4);
+  state.funding = { src: d.src, btc: pct4(d.fr.BTC), eth: pct4(d.fr.ETH), avg: pct4(avgFr), pos, neg, n: all.length,
+    label: avgFr == null ? '—' : avgFr > 0.0003 ? '多方過熱' : avgFr > 0 ? '多方付費' : avgFr > -0.0001 ? '中性' : '空方付費' };
+  if (err.length) state.funding.note = err.join('；');
+}
+
+module.exports = { state, update, refreshFng, refreshDeriv, rsiLast };

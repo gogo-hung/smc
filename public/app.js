@@ -709,6 +709,9 @@ const SENT=[
   {k:'fng',t:'恐懼貪婪指數',help:'alternative.me 的加密貨幣恐懼貪婪指數（0–100），每天更新一次。極度恐懼常是情緒低點，極度貪婪要小心追高。',
    scale:[[25,'極度恐懼','#ee6a6a'],[46,'恐懼','#ee9a3a'],[54,'中性','#e5c33a'],[75,'貪婪','#9bd146'],[100,'極度貪婪','#2fbf9b']]},
   {k:'breadth',t:'整體市場',help:'BingX 全部 USDT 永續合約的 24 小時漲跌：漲超過 1% 算漲、跌超過 1% 算跌、其他算平。百分比＝上漲家數 ÷（上漲＋下跌），平盤不算；60% 以上偏多、40% 以下偏空。'},
+  {k:'ls',t:'BTC 多空比',help:'BTC 永續合約：散戶＝做多帳戶數 ÷ 做空帳戶數；大戶＝前 20% 大戶的持倉多空比。散戶太偏多常是反指標，大戶跟散戶方向相反時要特別注意。資料每 10 分鐘更新，「昨日」是 24 小時前。'},
+  {k:'oi',t:'BTC 未平倉量',help:'BTC 永續合約還沒平倉的合約總值（美元）。價格漲＋OI 增＝新資金推動；價格漲＋OI 減＝空單回補；OI 急增後常伴隨大波動。小圖是過去 24 小時。'},
+  {k:'funding',t:'資金費率',help:'永續合約每 8 小時多空互付的費率。正＝多方付給空方（做多的人多），太高代表多方過熱、容易被反殺；負＝空方付費。全市場平均是全部 USDT 永續的平均。'},
 ];
 const polar=(a,r=80)=>[100+r*Math.cos(a),100-r*Math.sin(a)];
 function arcPath(v0,v1,r=80){ const a0=Math.PI*(1-v0/100), a1=Math.PI*(1-v1/100), [x0,y0]=polar(a0,r), [x1,y1]=polar(a1,r); return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; }
@@ -717,6 +720,26 @@ function gauge(v,scale){
   const cur=scale.find(x=>v<=x[0])||scale[scale.length-1], on=v==null?'':`<path d="${arcPath(0.5,Math.max(1,Math.min(99.5,v)))}" stroke="${cur[2]}" stroke-width="16" fill="none" stroke-linecap="round"/>`;
   const [nx,ny]=polar(Math.PI*(1-Math.max(0,Math.min(100,v??50))/100),66);
   return `<svg viewBox="0 0 200 112" aria-hidden="true">${segs.join('')}${on}<line x1="100" y1="100" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="var(--fg)" stroke-width="2.5" stroke-linecap="round"/><circle cx="100" cy="100" r="6" fill="var(--surface)" stroke="var(--fg)" stroke-width="2.5"/></svg>`;
+}
+
+const lsCol=p=> p>=60?'var(--short)':p>=52?'#ee9a3a':p>48?'var(--accent)':p>40?'#9bd146':'var(--long)';
+const usd=v=> v>=1e9? `$${(v/1e9).toFixed(2)}B` : v>=1e6? `$${(v/1e6).toFixed(1)}M` : `$${Math.round(v)}`;
+function derivHtml(k,x){
+  if(k==='ls'){ const row=(n,o)=>`<div style="display:grid;gap:4px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><b>${n}</b><span style="color:${lsCol(o.long)};font-weight:700">${o.label}｜比 ${o.ratio}</span></div>
+      <div style="display:flex;height:10px;border-radius:5px;overflow:hidden"><i style="width:${o.long}%;background:var(--long)"></i><i style="flex:1;background:var(--short)"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--long)">多 ${o.long}%</span><span class="muted">昨日多 ${o.yday}%（${o.long-o.yday>=0?'+':''}${(o.long-o.yday).toFixed(1)}）</span><span style="color:var(--short)">空 ${(100-o.long).toFixed(1)}%</span></div></div>`;
+    return `<div class="big" style="color:${lsCol(x.global.long)};margin-top:6px">${x.global.ratio}</div><div class="lbl" style="color:${lsCol(x.global.long)}">散戶多空比｜${x.global.label}</div>
+      <div style="display:grid;gap:12px;margin:12px 4px 2px">${row('散戶（帳戶數）',x.global)}${row('大戶（持倉）',x.top)}</div><div class="tot">資料：${x.src}</div>`; }
+  if(k==='oi'){ const sr=x.series||[], lo=Math.min(...sr), hi=Math.max(...sr), up=(x.chg||0)>=0, col=up?'var(--long)':'var(--short)';
+    const pts=sr.map((v,i)=>`${(10+i*(180/Math.max(1,sr.length-1))).toFixed(1)},${(70-(hi>lo?(v-lo)/(hi-lo):.5)*55).toFixed(1)}`).join(' ');
+    return `<div class="big" style="margin-top:10px">${usd(x.now)}</div><div class="lbl" style="color:${col}">24h ${up?'+':''}${x.chg}%｜${up?'持倉增加':'持倉減少'}</div>
+      <svg viewBox="0 0 200 80" aria-hidden="true" style="margin-top:8px"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round"/></svg><div class="tot">過去 24 小時｜資料：${x.src}</div>`; }
+  const c=v=> v==null?'var(--muted)': v>0.03?'var(--short)': v>0?'#ee9a3a': v>-0.01?'var(--accent)':'var(--long)', f=v=> v==null?'—':`${v>0?'+':''}${v.toFixed(4)}%`, tot=Math.max(1,x.pos+x.neg);
+  return `<div class="big" style="color:${c(x.btc)};margin-top:10px;font-size:34px">${f(x.btc)}</div><div class="lbl" style="color:${c(x.avg)}">BTC 資金費率｜全市場${x.label}</div>
+    <div class="bars" style="margin-top:12px"><div class="bar" style="grid-template-columns:70px 1fr"><span class="muted">ETH</span><span class="n" style="color:${c(x.eth)}">${f(x.eth)}</span></div>
+    <div class="bar" style="grid-template-columns:70px 1fr"><span class="muted">全市場平均</span><span class="n" style="color:${c(x.avg)}">${f(x.avg)}</span></div>
+    <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:4px"><i style="width:${(x.pos/tot*100).toFixed(0)}%;background:#ee9a3a"></i><i style="flex:1;background:var(--long)"></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:#ee9a3a">正費率 ${x.pos} 個</span><span style="color:var(--long)">負費率 ${x.neg} 個</span></div></div><div class="tot">資料：${x.src}</div>`;
 }
 function renderSent(){
   const d=Sent.d; if(!d) return; const S=SENT[Sent.i]; $('sentT').textContent=S.t; $('sentHelp').title=S.help;
@@ -727,6 +750,7 @@ function renderSent(){
       <text x="100" y="62" text-anchor="middle" font-size="26" font-weight="700" fill="${col}" font-family="var(--f-mono)">${b.pct}%</text><text x="100" y="82" text-anchor="middle" font-size="11" font-weight="700" fill="${col}">${b.label}</text></svg>
       <div class="bars">${[['漲',b.up,'var(--long)'],['平',b.flat,'var(--accent)'],['跌',b.down,'var(--short)']].map(([k,n,c])=>`<div class="bar"><span style="color:${c};font-weight:700">${k}</span><i><b style="width:${(n/mx*100).toFixed(0)}%;background:${c}"></b></i><span class="n" style="color:${c}">${n}</span></div>`).join('')}</div>
       <div class="tot">共 ${b.total} 個合約</div>`; return; }
+  if(S.k==='ls'||S.k==='oi'||S.k==='funding'){ const x=d[S.k]; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…（合約數據每 10 分鐘更新）</p>'; return; } $('sentBody').innerHTML=derivHtml(S.k,x); return; }
   const x=d[S.k]; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…</p>'; return; }
   const cur=S.scale.find(z=>x.now<=z[0])||S.scale[S.scale.length-1], diff=x.yday!=null? x.now-x.yday : null;
   $('sentBody').innerHTML=`${gauge(x.now,S.scale)}<div class="big" style="color:${cur[2]}">${S.k==='rsi'?Math.round(x.now):x.now}</div>

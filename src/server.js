@@ -78,7 +78,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, { updatedAt: s.lastScan, rules: s.rules, results: s.results.filter(r => !only || r.status === only).map(brief) });
     }
     // 叫醒用（GitHub Actions、cron-job.org、自己叫自己）：馬上回應，不等掃描；太久沒掃就在背景補掃
-    if (url.pathname === '/api/sentiment' && req.method === 'GET') { const z = require('./sentiment').state; return send(res, 200, { rsi: z.rsi, fng: z.fng, breadth: z.breadth, updatedAt: z.updatedAt }); }
+    if (url.pathname === '/api/sentiment' && req.method === 'GET') { const z = require('./sentiment').state; return send(res, 200, { rsi: z.rsi, fng: z.fng, breadth: z.breadth, ls: z.ls, oi: z.oi, funding: z.funding, updatedAt: z.updatedAt }); }
     if (url.pathname === '/api/ping') return send(res, 200, { ok: true, ...keepAlive.kick('ping') });
     // 舊網址保留：GET /api/cron?token=ADMIN_TOKEN（一樣馬上回應，避免 cron-job.org 30 秒逾時後把排程停掉）
     if (url.pathname === '/api/cron') {

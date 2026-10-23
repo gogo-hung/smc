@@ -114,7 +114,7 @@ async function scanOnce() {
     state.market = market;
     try { state.ctx.funding = await bingx.getFunding(); } catch (e) { state.errors.push(`資金費率：${e.message}`); }
     const results = rerun();
-    try { sentiment.update(market, allTickers); await sentiment.refreshFng(); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
+    try { sentiment.update(market, allTickers); await sentiment.refreshFng(); await sentiment.refreshDeriv(state.ctx.funding); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
     state.trend = Object.values(market).map(m => TREND.analyze(m.sym, m.htf || [])).filter(a => a.state !== 'nodata');
     await tracker.onScan(results, market, { smcPush: state.rules.smcPush === 'on', trend: state.rules.trend !== 'off' });
 
