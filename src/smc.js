@@ -344,6 +344,8 @@ const SMC = (() => {
           if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
           if(p1 && !p1Hit && j>fill && (up? b.h>=t.entry+(t.entry-t.stop)*p1 : b.l<=t.entry-(t.stop-t.entry)*p1)){ p1Hit=true; got=0.5*p1; size=0.5; sl=t.entry; }
           if(j>fill && (up? b.h>=t.target : b.l<=t.target)){ t.status='win'; t.R=got+size*t.rr; t.closedT=b.t+bar; end=j; break; }
+          // 套保：成交後出現新的低點（做多是高點）、回撤，再出現同方向 BOS（結構延續）→ 止損移到開倉價
+          if(s.mtfBe==='bos' && !beHit && !p1Hit && j>fill){ const x=bosAt[j]; if(x && x.dir===dir && x.from>fill){ beHit=true; sl=t.entry; t.beT=b.t; } }
           if(!p1 && s.beAt>0 && !beHit && j>fill && (up? b.h>=t.entry+(t.target-t.entry)*s.beAt : b.l<=t.entry-(t.entry-t.target)*s.beAt)){ beHit=true; sl=t.entry; }
         }
       }
@@ -398,14 +400,26 @@ const SMC = (() => {
     const lo= dir>0? c[m].l : c[m].h;
     return {m, lo};
   }
-  function mtfLevels(lo, hi, dir, s, rg, atr){
+  function mtfLevels(lo, hi, dir, s, rg, atr, zones){
     const fe=+s.mtfFib||0.715, span=Math.abs(hi-lo);
     const entry= dir>0? hi-span*fe : hi+span*fe;   // dir<0 時 hi 代表推動低點
     const stop= +s.mtfStopAtr>0 && atr ? lo-dir*atr*(+s.mtfStopAtr) : lo*(1-dir*(s.stopBuf==null?0.2:+s.stopBuf)/100),   // 止損：推動起點外留 k 倍 ATR，或固定 %
       target= s.mtfTarget==='htf' && rg ? (dir>0? Math.max(hi,rg.hi) : Math.min(hi,rg.lo)) : hi;
-    const risk=Math.abs(entry-stop);
-    return {entry, stop, target, risk, rr: risk>0? Math.abs(target-entry)/risk : 0};
+    let e2=entry, conf=null;
+    // B 版：進場帶 mtfBand~mtfFib（例 0.618~0.715），要跟 15M OB / FVG 重疊；掛在重疊區先碰到的那一邊（edge）、中間（mid）或固定 0.618 / 0.715
+    if(+s.mtfBand>0 && zones){
+      const a=hi-dir*span*(+s.mtfBand), b=entry, bl=Math.min(a,b), bh=Math.max(a,b); let best=null;
+      for(const z of zones){ const lo2=Math.max(bl,z.lo*(1-0.001)), hi2=Math.min(bh,z.hi*(1+0.001)); if(lo2>hi2) continue;
+        const near= dir>0? hi2 : lo2; if(!best || (dir>0? near>best.near : near<best.near)) best={near,far: dir>0? lo2:hi2}; }
+      conf=!!best;
+      if(best) e2= s.mtfEntry==='mid'? (best.near+best.far)/2 : s.mtfEntry==='f618'? a : s.mtfEntry==='f715'? b : best.near;
+      else e2=(a+b)/2;
+    }
+    const risk=Math.abs(e2-stop);
+    return {entry:e2, stop, target, risk, rr: risk>0? Math.abs(target-e2)/risk : 0, conf};
   }
+  // 15M 這段推動有效的 OB / FVG：CHoCH 的，加上之後同方向 BOS 的（到第 j 根為止）
+  const legZones=(L,e,j)=>{ const out=[]; for(const x of L.events){ if(x.idx<e.idx) continue; if(x.idx>j) break; if(x.dir!==e.dir) continue; out.push(x.ob); if(x.ob.fz) out.push(x.ob.fz); } return out; };
   // 0.715 有沒有落在 15M 這段推動的 OB / FVG 裡（「FVG、OB 搭配斐波」）
   const confAt=(e,p)=>{ const zs=[e.ob, e.ob.fz].filter(Boolean); return zs.some(z=>p>=z.lo*(1-0.001) && p<=z.hi*(1+0.001)); };
   // 破位夠不夠明顯：CHoCH 那根實體 ≥ k 倍 ATR14
@@ -422,26 +436,32 @@ const SMC = (() => {
     const e=[...L.events].reverse().find(x=>x.dir===dir && x.type==='CHoCH');
     if(!e) { res.inPoi=pois.find(z=>inZone(z,dir,dir>0? Math.min(...ltf.slice(-16).map(b=>b.l)) : Math.max(...ltf.slice(-16).map(b=>b.h)))); return finishMTF(res,s); }
     st.choch=dispOk(ltf,e.idx,+s.mtfDisp||0); res.choch={idx:e.idx, level:e.level, age:n-1-e.idx}; res.sigIdx=e.idx; res.entryOB=e.ob;
-    const {m, lo}=mtfSetup(ltf,e,n,s);
+    let {m, lo}=mtfSetup(ltf,e,n,s);
     const poi=pois.find(z=>inZone(z,dir,lo)); st.poi=!!poi; res.poi=poi||null;
     st.fvg15=!!e.ob.fz || s.mtfFvg==='off'; if(e.ob.fz) res.fvgZone=e.ob.fz;
     // 推動高點：CHoCH 之後如果再創高，斐波跟著更新（成交前）
     let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=e.idx;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
-    const atr=atrAt(ltf,e.idx); let lv=mtfLevels(lo,hi,dir,s,rg,atr), filled=-1, gone=null, hiAtFill=null;
+    const atr=atrAt(ltf,e.idx); let lv=mtfLevels(lo,hi,dir,s,rg,atr,legZones(L,e,e.idx)), filled=-1, gone=null, hiAtFill=null, rx=hi, sl=null, beHit=false;
+    const bosAt={}; for(const x of L.events) if(x.type==='BOS') bosAt[x.idx]=x;
     for(let j=e.idx+1;j<n;j++){ const b=ltf[j];
       if(filled<0){
         if(j-e.idx>(s.mtfWait||48)){ gone='expired'; break; }
-        if(dir>0? b.l<=lv.entry : b.h>=lv.entry){ filled=j; hiAtFill=lv.target; }
+        if(lv.conf!==false && (dir>0? b.l<=lv.entry : b.h>=lv.entry)){ filled=j; hiAtFill=lv.target; sl=lv.stop; }
         else if(dir>0? b.c<lo : b.c>lo){ gone='invalid'; break; }
-        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){ hi= dir>0? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg,atr); }
+        else if(s.mtfReanchor!=='off' && (dir>0? b.h>hi : b.l<hi)){
+          if(+s.mtfReLo>0 && Math.abs(hi-rx)>=Math.abs(hi-lo)*(+s.mtfReLo)){ lo=rx; for(let q=j;q>m;q--) if(dir>0? ltf[q].l===rx : ltf[q].h===rx){ m=q; break; } }
+          hi= dir>0? b.h : b.l; rx=hi; lv=mtfLevels(lo,hi,dir,s,rg,atr,legZones(L,e,j)); }
+        else { rx= dir>0? Math.min(rx,b.l) : Math.max(rx,b.h); if(+s.mtfBand>0) lv=mtfLevels(lo,hi,dir,s,rg,atr,legZones(L,e,j)); }
       }
-      if(filled>=0){ if(dir>0? b.l<=lv.stop : b.h>=lv.stop){ gone='stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; } }
+      if(filled>=0){ if(dir>0? b.l<=sl : b.h>=sl){ gone= beHit? 'be' : 'stopped'; break; } if(j>filled && (dir>0? b.h>=lv.target : b.l<=lv.target)){ gone='done'; break; }
+        if(s.mtfBe==='bos' && !beHit && j>filled){ const x=bosAt[j]; if(x && x.dir===dir && x.from>filled){ beHit=true; sl=lv.entry; } } }
     }
+    res.beHit=beHit;
     if(filled<0 && !gone && n-1-e.idx>(s.mtfWait||48)) gone='expired';
     res.filledIdx=filled; res.gone=gone; st.live=!gone;
     st.rr= lv.risk>0 && lv.rr>=(+s.mtfMinRR||1.5) && Math.abs(lv.entry-lv.stop)/lv.entry*100>=(+s.mtfMinStop||0);
-    st.conf= s.mtfConf!=='on' || confAt(e,lv.entry);
-    res.fib={lo: dir>0? lo:hi, hi: dir>0? hi:lo, from:m, to:n-1, levels:[0,0.5,+s.mtfFib||0.715,1].map(r=>({r, p: dir>0? hi-(hi-lo)*r : hi+(lo-hi)*r}))};
+    st.conf= s.mtfConf!=='on' || (lv.conf!=null? lv.conf : confAt(e,lv.entry));
+    res.fib={lo: dir>0? lo:hi, hi: dir>0? hi:lo, from:m, to:n-1, levels:[0,0.5,...(+s.mtfBand>0?[+s.mtfBand]:[]),+s.mtfFib||0.715,1].map(r=>({r, p: dir>0? hi-(hi-lo)*r : hi+(lo-hi)*r}))};
     Object.assign(res,{entry:lv.entry, stop:lv.stop, target:lv.target, rr:lv.rr, p1: s.p1>0? lv.entry+dir*lv.risk*s.p1 : null, p1R: s.p1>0? +s.p1 : null,
       be: s.beAt>0 && !(s.p1>0)? lv.entry+(lv.target-lv.entry)*s.beAt : null, dist:(last-lv.entry)/lv.entry*100, stopBasis:'前低', zone:'fib',
       waitMs:(s.mtfWait||48)*(ltf[1].t-ltf[0].t), legLo:lo});
@@ -459,7 +479,7 @@ const SMC = (() => {
     if(ltf.length<500 || htf.length<60) return {trades:[], skipped:'資料不足'};
     const fee=(o.feePct||0)/100, bar=ltf[1].t-ltf[0].t, hbar=htf[1].t-htf[0].t;
     const L=structure(ltf,{...s,swingLen:s.mtfSwing||3}), Hs=structure(htf,{...s,swingLen:s.htfSwing});
-    const trades=[]; let busy=-1, hk=-1;
+    const trades=[]; let busy=-1, hk=-1; const bosAt={}; for(const x of L.events) if(x.type==='BOS') bosAt[x.idx]=x;
     for(const e of L.events){
       const i=e.idx; if(i<300 || e.type!=='CHoCH' || i<=busy) continue;
       if(s.mtfFvg!=='off' && !e.ob.fz) continue;
@@ -467,20 +487,25 @@ const SMC = (() => {
       const T=ltf[i].t+bar; while(hk+1<htf.length && htf[hk+1].t+hbar<=T) hk++; if(hk<30) continue;
       let hd=0; for(const he of Hs.events){ if(he.idx>hk) break; hd=he.dir; } if(hd!==e.dir) continue;
       const dir=e.dir; if((s.side==='long'&&dir<0)||(s.side==='short'&&dir>0)) continue;
-      const {m, lo}=mtfSetup(ltf,e,ltf.length,s);
+      let {m, lo}=mtfSetup(ltf,e,ltf.length,s);
       const poi=poisAt(Hs,htf,dir,hk,s).find(z=>inZone(z,dir,lo)); if(!poi) continue;
       let hi= dir>0? -Infinity : Infinity; for(let j=m;j<=i;j++) hi= dir>0? Math.max(hi,ltf[j].h) : Math.min(hi,ltf[j].l);
       let rg=null; { const ev=[...Hs.events].filter(x=>x.idx<=hk && x.dir===dir).pop(); if(ev){ let a=-Infinity,b=Infinity; for(let j=ev.from;j<=hk;j++){ a=Math.max(a,htf[j].h); b=Math.min(b,htf[j].l); } rg={hi:a,lo:b}; } }
-      const atr=atrAt(ltf,i); let lv=mtfLevels(lo,hi,dir,s,rg,atr);
+      const atr=atrAt(ltf,i); let lv=mtfLevels(lo,hi,dir,s,rg,atr,legZones(L,e,i)), rx=hi;
       const t={sym,dir,t:T,entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,zone:'fib',poi:poi.kind,poiLo:poi.lo,poiHi:poi.hi,legLo:lo,chochIdx:i,conf:confAt(e,lv.entry),status:'pending'};
       if(o.btcDirAt && sym!=='BTC'){ const b=o.btcDirAt(T); if(b && b!==dir){ t.againstBtc=true; if(s.btcFilter==='block') continue; } }
       const up=dir>0, p1=+s.p1>0? +s.p1 : 0; let fill=-1, sl=0, got=0, size=1, p1Hit=false, beHit=false, end=ltf.length;
       for(let j=i+1;j<ltf.length;j++){ const b=ltf[j];
         if(fill<0){
           if(j-i>(s.mtfWait||48)){ t.status='expired'; end=j; break; }
-          if(up? b.l<=lv.entry : b.h>=lv.entry){ fill=j; t.status='filled'; t.filledT=b.t; Object.assign(t,{entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr}); sl=t.stop; }
+          if(lv.conf!==false && (up? b.l<=lv.entry : b.h>=lv.entry)){ fill=j; t.status='filled'; t.filledT=b.t; Object.assign(t,{entry:lv.entry,stop:lv.stop,target:lv.target,rr:lv.rr,conf:lv.conf,legLo:lo}); sl=t.stop; }
           else if(up? b.c<lo : b.c>lo){ t.status='invalid'; end=j; break; }
-          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){ hi= up? b.h : b.l; lv=mtfLevels(lo,hi,dir,s,rg,atr); } continue; }
+          else { if(s.mtfReanchor!=='off' && (up? b.h>hi : b.l<hi)){
+              // 斐波 1 換到更高的低點：先明顯回調（≥ mtfReLo）再創新高
+              if(+s.mtfReLo>0 && Math.abs(hi-rx)>=Math.abs(hi-lo)*(+s.mtfReLo)) { lo=rx; t.reLo=(t.reLo||0)+1; }
+              hi= up? b.h : b.l; rx=hi; lv=mtfLevels(lo,hi,dir,s,rg,atr,legZones(L,e,j)); }
+            else { rx= up? Math.min(rx,b.l) : Math.max(rx,b.h); if(+s.mtfBand>0) lv=mtfLevels(lo,hi,dir,s,rg,atr,legZones(L,e,j)); }
+            continue; }
         }
         if(fill>=0){
           if(up? b.l<=sl : b.h>=sl){ t.R=got+size*(sl-t.entry)*dir/Math.abs(t.entry-t.stop); t.status= p1Hit? 'tp1' : beHit? 'be' : 'loss'; t.closedT=b.t+bar; end=j; break; }
@@ -494,12 +519,14 @@ const SMC = (() => {
                 if(up? b.h>=t.tp2 : b.l<=t.tp2){ t.status='win'; t.R=got+size*t.rr2; t.closedT=b.t+bar; end=j; break; } continue; }
             }
             t.status='win'; t.R=got+size*(t.tp1Hit? t.rr2 : t.rr); t.closedT=b.t+bar; end=j; break; }
+          // 套保：成交後出現新的低點（做多是高點）、回撤，再出現同方向 BOS（結構延續）→ 止損移到開倉價
+          if(s.mtfBe==='bos' && !beHit && !p1Hit && j>fill){ const x=bosAt[j]; if(x && x.dir===dir && x.from>fill){ beHit=true; sl=t.entry; t.beT=b.t; } }
           if(!p1 && s.beAt>0 && !beHit && j>fill && (up? b.h>=t.entry+(t.target-t.entry)*s.beAt : b.l<=t.entry-(t.entry-t.target)*s.beAt)){ beHit=true; sl=t.entry; }
         }
       }
       if(t.status==='filled') t.status='open';
       if(t.tp1Hit && t.status==='loss'){ t.status='tp1'; }
-      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5) || Math.abs(t.entry-t.stop)/t.entry*100<(+s.mtfMinStop||0) || (s.mtfConf==='on' && !confAt(e,t.entry))){ continue; } }
+      if(t.status==='filled'||t.status==='open'||t.R!=null){ if(!(lv.risk>0) || t.rr<(+s.mtfMinRR||1.5) || Math.abs(t.entry-t.stop)/t.entry*100<(+s.mtfMinStop||0) || (s.mtfConf==='on' && !(lv.conf!=null? lv.conf : confAt(e,t.entry)))){ continue; } }
       busy=end;
       if(t.R!=null && fee){ t.cost=fee*2*t.entry/Math.abs(t.entry-t.stop); t.R-=t.cost; }
       trades.push(t);
