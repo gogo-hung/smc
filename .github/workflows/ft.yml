@@ -31,17 +31,18 @@ jobs:
         with:
           path: tools/ft/data
           key: ft-okx-futures-v1-${{ github.run_id }}
-      - name: 回測（2025、2026、全部）
+      - name: 回測（每個策略分開跑：各自的週期）
         run: |
-          S=$(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//' | tr '\n' ' ')
-          for r in "2025:20250101-20260101" "2026:20260101-" "all:20250101-"; do tag=${r%%:*}; tr=${r#*:}
-            docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy-list $S --timerange $tr --fee 0.0005 --export trades > tools/ft/bt-$tag.log 2>&1 || echo "::warning::$tag 回測失敗：$(grep -iE 'error|exception' tools/ft/bt-$tag.log | tail -3 | tr '\n' ' ')"
-            mkdir -p tools/ft/res/$tag && mv tools/ft/backtest_results/backtest-result-* tools/ft/res/$tag/ 2>/dev/null || true
+          for st in $(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//'); do
+            for r in "2025:20250101-20260101" "2026:20260101-" "all:20250101-"; do tag=${r%%:*}; tr=${r#*:}
+              docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy $st --timerange $tr --fee 0.0005 --export trades > tools/ft/bt-$st-$tag.log 2>&1 || echo "::warning::$st $tag 失敗：$(grep -iE 'error|exception' tools/ft/bt-$st-$tag.log | tail -2 | tr '\n' ' ' | cut -c1-250)"
+              mkdir -p tools/ft/res/$tag && mv tools/ft/backtest_results/backtest-result-* tools/ft/res/$tag/ 2>/dev/null || true
+            done
           done
-          ls -la tools/ft/res/*
+          ls tools/ft/res/*
       - if: always()
         run: |
           docker run --rm -v $PWD/tools/ft:/ud --entrypoint python ft /ud/summary.py || echo "::warning::summary 失敗"
-          mkdir -p results && cp tools/ft/ft-summary.md results/ 2>/dev/null; for f in tools/ft/bt-*.log; do tail -70 "$f" > results/ft-$(basename $f); done 2>/dev/null || true
+          mkdir -p results && cp tools/ft/ft-summary.md results/ 2>/dev/null; tail -60 tools/ft/bt-mabStra-all.log > results/ft-bt-sample.log 2>/dev/null || true
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
           git add results && git commit -m "freqtrade result" && git stash -u -q; git pull --rebase && git push
