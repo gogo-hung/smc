@@ -1,0 +1,70 @@
+2026-10-24 06:05:08,525 - freqtrade.resolvers.iresolver - INFO - Using resolved strategy hlhb from '/freqtrade/user_data/strategies/hlhb.py'...
+2026-10-24 06:05:08,525 - freqtrade.strategy.hyper - INFO - Found no parameter file.
+2026-10-24 06:05:08,526 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_currency' with value from the configuration: USDT.
+2026-10-24 06:05:08,526 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_amount' with value from the configuration: 100.
+2026-10-24 06:05:08,526 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'unfilledtimeout' with value from the configuration: {'entry': 10, 'exit': 10, 'unit': 'minutes', 
+'exit_timeout_count': 0}.
+2026-10-24 06:05:08,526 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'max_open_trades' with value from the configuration: 5.
+2026-10-24 06:05:08,527 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using minimal_roi: {'0': 0.6225, '703': 0.2187, '2849': 0.0363, '5520': 0}
+2026-10-24 06:05:08,527 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using timeframe: 4h
+2026-10-24 06:05:08,527 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stoploss: -0.3211
+2026-10-24 06:05:08,527 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop: True
+2026-10-24 06:05:08,528 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop_positive: 0.0117
+2026-10-24 06:05:08,528 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop_positive_offset: 0.0186
+2026-10-24 06:05:08,528 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_only_offset_is_reached: True
+2026-10-24 06:05:08,528 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_custom_stoploss: False
+2026-10-24 06:05:08,528 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using process_only_new_candles: True
+2026-10-24 06:05:08,529 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_types: {'entry': 'limit', 'exit': 'limit', 'stoploss': 'market', 'stoploss_on_exchange': False}
+2026-10-24 06:05:08,529 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_time_in_force: {'entry': 'gtc', 'exit': 'gtc'}
+2026-10-24 06:05:08,529 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_currency: USDT
+2026-10-24 06:05:08,529 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_amount: 100
+2026-10-24 06:05:08,530 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using startup_candle_count: 30
+2026-10-24 06:05:08,530 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using unfilledtimeout: {'entry': 10, 'exit': 10, 'unit': 'minutes', 'exit_timeout_count': 0}
+2026-10-24 06:05:08,530 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_exit_signal: True
+2026-10-24 06:05:08,530 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_only: False
+2026-10-24 06:05:08,530 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_roi_if_entry_signal: True
+2026-10-24 06:05:08,531 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_offset: 0.0
+2026-10-24 06:05:08,531 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using disable_dataframe_checks: False
+2026-10-24 06:05:08,531 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_buying_expired_candle_after: 0
+2026-10-24 06:05:08,531 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using position_adjustment_enable: False
+2026-10-24 06:05:08,532 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_entry_position_adjustment: -1
+2026-10-24 06:05:08,532 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_open_trades: 5
+2026-10-24 06:05:08,532 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-10-24 06:05:08,535 - freqtrade.resolvers.iresolver - INFO - Using resolved strategy mabStra from '/freqtrade/user_data/strategies/mabStra.py'...
+2026-10-24 06:05:08,536 - freqtrade.strategy.hyper - INFO - Found no parameter file.
+2026-10-24 06:05:08,536 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_currency' with value from the configuration: USDT.
+2026-10-24 06:05:08,536 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'stake_amount' with value from the configuration: 100.
+2026-10-24 06:05:08,536 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'unfilledtimeout' with value from the configuration: {'entry': 10, 'exit': 10, 'unit': 'minutes', 
+'exit_timeout_count': 0}.
+2026-10-24 06:05:08,537 - freqtrade.resolvers.strategy_resolver - INFO - Override strategy 'max_open_trades' with value from the configuration: 5.
+2026-10-24 06:05:08,537 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using minimal_roi: {'0': 0.598, '644': 0.166, '3269': 0.115, '7289': 0}
+2026-10-24 06:05:08,537 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using timeframe: 4h
+2026-10-24 06:05:08,537 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stoploss: -0.128
+2026-10-24 06:05:08,538 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop: False
+2026-10-24 06:05:08,538 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_stop_positive_offset: 0.0
+2026-10-24 06:05:08,538 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using trailing_only_offset_is_reached: False
+2026-10-24 06:05:08,538 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_custom_stoploss: False
+2026-10-24 06:05:08,539 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using process_only_new_candles: True
+2026-10-24 06:05:08,539 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_types: {'entry': 'limit', 'exit': 'limit', 'stoploss': 'limit', 'stoploss_on_exchange': False, 
+'stoploss_on_exchange_interval': 60, 'emergency_exit': 'market'}
+2026-10-24 06:05:08,539 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using order_time_in_force: {'entry': 'GTC', 'exit': 'GTC'}
+2026-10-24 06:05:08,539 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_currency: USDT
+2026-10-24 06:05:08,539 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using stake_amount: 100
+2026-10-24 06:05:08,540 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using startup_candle_count: 0
+2026-10-24 06:05:08,540 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using unfilledtimeout: {'entry': 10, 'exit': 10, 'unit': 'minutes', 'exit_timeout_count': 0}
+2026-10-24 06:05:08,540 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using use_exit_signal: True
+2026-10-24 06:05:08,540 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_only: False
+2026-10-24 06:05:08,541 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_roi_if_entry_signal: False
+2026-10-24 06:05:08,541 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using exit_profit_offset: 0.0
+2026-10-24 06:05:08,541 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using disable_dataframe_checks: False
+2026-10-24 06:05:08,541 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using ignore_buying_expired_candle_after: 0
+2026-10-24 06:05:08,541 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using position_adjustment_enable: False
+2026-10-24 06:05:08,542 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_entry_position_adjustment: -1
+2026-10-24 06:05:08,542 - freqtrade.resolvers.strategy_resolver - INFO - Strategy using max_open_trades: 5
+2026-10-24 06:05:08,542 - freqtrade.configuration.config_validation - INFO - Validating configuration ...
+2026-10-24 06:05:08,544 - freqtrade - ERROR - Timeframe needs to be set in either configuration or as cli argument `--timeframe 5m`
+Add {
+	"method": "AgeFilter",
+	"min_days_listed": 30
+},
+ to your pairlists in config (Under StaticPairList)
