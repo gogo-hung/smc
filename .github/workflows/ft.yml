@@ -7,42 +7,54 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: research
-  cancel-in-progress: false
+  group: freqtrade
+  cancel-in-progress: true
 jobs:
-  run:
+  list:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    outputs:
+      s: ${{ steps.s.outputs.s }}
     steps:
       - uses: actions/checkout@v4
-      - run: git config core.fileMode false
+      - id: s
+        run: echo "s=$(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//' | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+  bt:
+    needs: list
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        st: ${{ fromJson(needs.list.outputs.s) }}
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/cache/restore@v4
         with:
           path: tools/ft/data
           key: ft-okx-futures-v1
           restore-keys: ft-okx-futures-v1-
-      - run: docker build -t ft tools/ft && mkdir -p tools/ft/data tools/ft/backtest_results && chmod -R 777 tools/ft
-      - name: 下載 OKX 合約歷史 K 線（有快取就只補新的）
+      - run: docker build -t ft tools/ft && mkdir -p tools/ft/data tools/ft/backtest_results out && chmod -R 777 tools/ft
+      - name: 回測 ${{ matrix.st }}
         run: |
-          set -o pipefail
-          docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures -t 15m 1h 4h 12h 1d --timerange 20240601- 2>&1 | tail -20
-      - uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: tools/ft/data
-          key: ft-okx-futures-v1-${{ github.run_id }}
-      - name: 回測（每個策略分開跑：各自的週期）
-        run: |
-          for st in $(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//'); do
-            for r in "2025:20250101-20260101" "2026:20260101-" "all:20250101-"; do tag=${r%%:*}; tr=${r#*:}
-              docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy $st --timerange $tr --fee 0.0005 --export trades > tools/ft/bt-$st-$tag.log 2>&1 || echo "::warning::$st $tag 失敗：$(grep -iE 'error|exception' tools/ft/bt-$st-$tag.log | tail -2 | tr '\n' ' ' | cut -c1-250)"
-              mkdir -p tools/ft/res/$tag && mv tools/ft/backtest_results/backtest-result-* tools/ft/res/$tag/ 2>/dev/null || true
-            done
+          for r in "2025:20250101-20260101" "2026:20260101-" "all:20250101-"; do tag=${r%%:*}; tr=${r#*:}
+            docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy ${{ matrix.st }} --timerange $tr --fee 0.0005 --export none > out/bt-${{ matrix.st }}-$tag.log 2>&1 || true
           done
-          ls tools/ft/res/*
-      - if: always()
-        run: |
-          docker run --rm -v $PWD/tools/ft:/ud --entrypoint python ft /ud/summary.py || echo "::warning::summary 失敗"
-          mkdir -p results && cp tools/ft/ft-summary.md results/ 2>/dev/null; tail -60 tools/ft/bt-mabStra-all.log > results/ft-bt-sample.log 2>/dev/null || true
+          grep -A12 "STRATEGY SUMMARY" out/bt-${{ matrix.st }}-all.log || tail -5 out/bt-${{ matrix.st }}-all.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ft-${{ matrix.st }}
+          path: out/
+  sum:
+    needs: bt
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: logs
+      - run: |
+          python3 tools/ft/parse.py
+          for f in logs/*/bt-*-all.log; do n=$(basename $f .log); grep -A12 "STRATEGY SUMMARY" $f > results/ft-$n.txt 2>/dev/null || tail -20 $f > results/ft-$n.txt; done
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
-          git add results && git commit -m "freqtrade result" && git stash -u -q; git pull --rebase && git push
+          git add results && git commit -m "freqtrade result" && git pull --rebase && git push
