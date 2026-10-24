@@ -1,0 +1,91 @@
+logs
+logs/fst-FST_SL10
+logs/fst-FST_SL10/bt.log
+logs/fst-FST_SL06
+logs/fst-FST_SL06/bt.log
+logs/fst-FST_Prot
+logs/fst-FST_Prot/bt.log
+logs/fst-FST_Orig
+logs/fst-FST_Orig/bt.log
+logs/fst-FST_SL15
+logs/fst-FST_SL15/bt.log
+== logs/fst-FST_SL10/bt.log
+2026-10-24 11:44:44,210 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,211 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,212 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,213 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,214 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,215 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,216 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,217 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,218 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,219 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,219 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:44,220 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
+dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
+2026-10-24 11:44:44,225 - freqtrade - ERROR - No data found. Terminating.
+== logs/fst-FST_SL06/bt.log
+2026-10-24 11:44:43,568 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,568 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,569 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,570 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,571 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,571 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,572 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,573 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,574 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,575 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,575 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,576 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
+dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
+2026-10-24 11:44:43,580 - freqtrade - ERROR - No data found. Terminating.
+== logs/fst-FST_Prot/bt.log
+2026-10-24 11:44:45,618 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,619 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,619 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,620 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,620 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,620 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,621 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,621 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,622 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,622 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,622 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:45,623 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
+dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
+2026-10-24 11:44:45,625 - freqtrade - ERROR - No data found. Terminating.
+== logs/fst-FST_Orig/bt.log
+2026-10-24 11:44:43,921 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,922 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,923 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,924 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,924 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,925 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,926 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,927 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,928 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,929 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,930 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:43,930 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
+dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
+2026-10-24 11:44:43,934 - freqtrade - ERROR - No data found. Terminating.
+== logs/fst-FST_SL15/bt.log
+2026-10-24 11:44:42,935 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,935 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,936 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,937 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,938 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,939 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,940 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,940 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,941 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,942 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,943 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+2026-10-24 11:44:42,944 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
+dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
+dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
+2026-10-24 11:44:42,947 - freqtrade - ERROR - No data found. Terminating.
