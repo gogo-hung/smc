@@ -1,0 +1,48 @@
+name: freqtrade-fst
+on:
+  push:
+    branches: [research]
+    paths: ['tools/ft2/**', '.github/workflows/ft2.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: freqtrade2
+  cancel-in-progress: true
+jobs:
+  bt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        st: [FST_Orig, FST_SL15, FST_SL10, FST_SL06, FST_Prot]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache/restore@v4
+        with:
+          path: tools/ft2/data
+          key: ft-okx-futures-v1
+          restore-keys: ft-okx-futures-v1-
+      - run: docker build -t ft tools/ft2 && mkdir -p tools/ft2/data tools/ft2/backtest_results out && chmod -R 777 tools/ft2
+      - run: |
+          docker run --rm -v $PWD/tools/ft2:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy ${{ matrix.st }} --timerange 20250101- --fee 0.0005 --export trades > out/bt.log 2>&1 || true
+          grep -A12 "STRATEGY SUMMARY" out/bt.log || tail -20 out/bt.log
+          cp tools/ft2/backtest_results/backtest-result-*.zip out/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fst-${{ matrix.st }}
+          path: out/
+  sum:
+    needs: bt
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: logs
+      - run: |
+          python3 tools/ft2/analyze.py
+          git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
+          git add results && git commit -m "fst result" && git pull --rebase && git push

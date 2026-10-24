@@ -1,0 +1,27 @@
+{
+  "max_open_trades": 5,
+  "stake_currency": "USDT",
+  "stake_amount": 100,
+  "tradable_balance_ratio": 0.99,
+  "dry_run": true,
+  "dry_run_wallet": 1000,
+  "trading_mode": "futures",
+  "margin_mode": "isolated",
+  "unfilledtimeout": { "entry": 10, "exit": 10, "unit": "minutes" },
+  "entry_pricing": { "price_side": "same", "use_order_book": true, "order_book_top": 1 },
+  "exit_pricing": { "price_side": "same", "use_order_book": true, "order_book_top": 1 },
+  "exchange": {
+    "name": "okx", "key": "", "secret": "", "password": "",
+    "pair_whitelist": [
+      "BTC/USDT:USDT","ETH/USDT:USDT","SOL/USDT:USDT","XRP/USDT:USDT","DOGE/USDT:USDT","BNB/USDT:USDT","ADA/USDT:USDT","LINK/USDT:USDT",
+      "AVAX/USDT:USDT","LTC/USDT:USDT","BCH/USDT:USDT","DOT/USDT:USDT","SUI/USDT:USDT","TRX/USDT:USDT","TON/USDT:USDT","NEAR/USDT:USDT",
+      "APT/USDT:USDT","ARB/USDT:USDT","OP/USDT:USDT","FIL/USDT:USDT","ATOM/USDT:USDT","UNI/USDT:USDT","AAVE/USDT:USDT","INJ/USDT:USDT",
+      "ETC/USDT:USDT","WLD/USDT:USDT","CRV/USDT:USDT","LDO/USDT:USDT","TIA/USDT:USDT","SEI/USDT:USDT"
+    ],
+    "pair_blacklist": []
+  },
+  "pairlists": [{ "method": "StaticPairList" }],
+  "bot_name": "jubaopen-ft",
+  "initial_state": "running",
+  "internals": { "process_throttle_secs": 5 }
+}
