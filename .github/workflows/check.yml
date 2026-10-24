@@ -13,7 +13,7 @@ jobs:
       - run: |
           sleep 420
           mkdir -p results
-          for p in api/health api/sentiment; do echo "== $p"; curl -s -m 90 "https://smc-scanner-krbg.onrender.com/$p" | head -c 3000; echo; done > results/live.txt
+          for p in api/health trend.js; do echo "== $p"; curl -s -m 90 "https://smc-scanner-krbg.onrender.com/$p" | head -c 3000; echo; done > results/live.txt
           curl -s -m 90 https://smc-scanner-krbg.onrender.com/api/market | grep -o "\"trend\":\[[^]]\{0,600\}" | head -c 800 >> results/live.txt
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
           git add results && git commit -m "live check" && git pull --rebase && git push
