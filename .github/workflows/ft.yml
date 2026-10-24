@@ -1,0 +1,37 @@
+name: freqtrade-backtest
+on:
+  push:
+    branches: [research]
+    paths: ['tools/ft/**', '.github/workflows/ft.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: research
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: tools/ft/data
+          key: ft-okx-futures-v1
+      - run: docker build -t ft tools/ft
+      - name: 下載 OKX 合約歷史 K 線
+        run: docker run --rm --user root -v $PWD/tools/ft:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures -t 15m 1h 4h 12h 1d --timerange 20240601-
+      - name: 回測（2025、2026、全部）
+        run: |
+          S=$(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//' | tr '\n' ' ')
+          for r in "2025:20250101-20260101" "2026:20260101-" "all:20250101-"; do tag=${r%%:*}; tr=${r#*:}
+            mkdir -p tools/ft/backtest_results/$tag
+            docker run --rm --user root -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy-list $S --timerange $tr --fee 0.0005 --export trades --backtest-directory user_data/backtest_results/$tag 2>&1 | tail -60 > tools/ft/bt-$tag.log || true
+          done
+      - if: always()
+        run: |
+          docker run --rm --user root -v $PWD/tools/ft:/ud --entrypoint python ft /ud/summary.py || true
+          mkdir -p results && cp tools/ft/ft-summary.md results/ 2>/dev/null; cp tools/ft/bt-*.log results/ 2>/dev/null || true
+          git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
+          git add results && git commit -m "freqtrade result" && git pull --rebase && git push
