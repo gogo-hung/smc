@@ -1,5 +1,38 @@
 == api/health
-{"ok":true,"lastScan":1792766305913,"scanning":false,"lastError":null,"symbols":60,"errors":[],"upSince":1792766296111,"lastPing":null,"pings":0}
-== api/sentiment
-{"rsi":{"now":46.1,"yday":44.3,"label":"中性","n":60},"fng":{"now":50,"yday":68,"label":"中性"},"breadth":{"up":258,"flat":182,"down":115,"total":555,"pct":69,"label":"偏多"},"ls":{"src":"Binance","global":{"long":68,"ratio":2.13,"yday":65.9,"label":"偏多擁擠"},"top":{"long":62.2,"ratio":1.64,"yday":59.7,"label":"偏多擁擠"}},"oi":{"src":"Binance","now":7655311419.537291,"chg":-0.43,"series":[7688034673,7780727957,7802503513,7730773891,7731957983,7767030976,7779131331,7763153737,7785253895,7787677164,7805734438,7811779170,7797957012,7833290534,7777691192,7731645430,7748210149,7747234483,7704676119,7766072422,7748266429,7749092788,7751476298,7649463263,7655311420]},"funding":{"src":"Binance","btc":0.0095,"eth":0.0031,"avg":-0.0035,"pos":484,"neg":117,"n":885,"label":"中性"},"updatedAt":1792766304421}
-"trend":[{"sym":"BTC","model":"trend","trend":0,"sig":0,"sigT":1792756800000,"atr":767.3419928850284,"close":81696.6,"hist":-185.5715605126697,"volRatio":0.4166215036607224,"e50":82330.0151566575,"e200":81954.76870065209,"state":"idle"},{"sym":"ETH","model":"trend","trend":-1,"sig":0,"sigT":1792756800000,"atr":33.711574514811126,"close":2401.77,"hist":-5.550422902483946,"volRatio":0.7351394897349731,"e50":2435.6874825171158,"e200":2498.151314620478,"state":"idle"},{"sym":"SOL","model":"trend","trend":-1,"sig":0,"sigT":1792756800000,"atr":1.6117300055530588,"close":104.51,"hist":-0.22711615011665148,"vo
+{"ok":true,"lastScan":1792811183176,"scanning":false,"lastError":null,"symbols":60,"errors":[],"upSince":1792811173486,"lastPing":null,"pings":0}
+== trend.js
+// 策略①：4H 趨勢＋MACD 金叉＋爆量，市價進場，ATR 止損＋移動止損，1H 結構延續（同向 BOS）且已賺 0.5R 就保本
+// 回測（OKX 56 幣，2025/1 ～ 2026/10，同時最多 5 筆）：兩年都賺，卡瑪約 1.8
+(function (root) {
+  const SM = typeof require === 'function' ? require('./smc') : (typeof SMC !== 'undefined' ? SMC : root.SMC);   // 瀏覽器：smc.js 宣告的全域 SMC
+  const P = { emaFast: 50, emaSlow: 200, volMult: 1.5, slAtr: 2, trailAtr: 3, beMinR: 0.5, maxOpen: 5 };
+
+  const emaArr = (v, n) => { const o = Array(v.length).fill(null), k = 2 / (n + 1); let e = null, s = 0; for (let i = 0; i < v.length; i++) { if (i < n - 1) { s += v[i]; continue; } if (e === null) e = (s + v[i]) / n; else e = v[i] * k + e * (1 - k); o[i] = e; } return o; };
+  const smaArr = (v, n) => { const o = Array(v.length).fill(null); let s = 0; for (let i = 0; i < v.length; i++) { s += v[i]; if (i >= n) s -= v[i - n]; if (i >= n - 1) o[i] = s / n; } return o; };
+  function atrArr(b, n = 14) { const o = Array(b.length).fill(null); let a = null; for (let i = 1; i < b.length; i++) { const tr = Math.max(b[i].h - b[i].l, Math.abs(b[i].h - b[i - 1].c), Math.abs(b[i].l - b[i - 1].c)); a = a === null ? tr : (a * (n - 1) + tr) / n; if (i >= n) o[i] = a; } return o; }
+
+  // 4H 指標＋每根的訊號（只用到那根為止的資料）
+  function indicators(h4) {
+    const c = h4.map(b => b.c), v = h4.map(b => b.v);
+    const e50 = emaArr(c, P.emaFast), e200 = emaArr(c, P.emaSlow), atr = atrArr(h4, 14), vma = smaArr(v, 20);
+    const m12 = emaArr(c, 12), m26 = emaArr(c, 26), macd = c.map((_, i) => m12[i] != null && m26[i] != null ? m12[i] - m26[i] : null);
+    const sg = emaArr(macd.map(x => x ?? 0), 9), hist = macd.map((x, i) => x == null ? null : x - sg[i]);
+    return { c, v, e50, e200, atr, vma, hist };
+  }
+  function signalAt(I, i) {
+    if (i < 1 || I.atr[i] == null || I.hist[i - 1] == null || I.e200[i] == null || I.vma[i] == null) return 0;
+    const up = I.e50[i] > I.e200[i] && I.c[i] > I.e50[i], dn = I.e50[i] < I.e200[i] && I.c[i] < I.e50[i], vol = I.v[i] > P.volMult * I.vma[i];
+    if (up && I.hist[i - 1] <= 0 && I.hist[i] > 0 && vol) return 1;
+    if (dn && I.hist[i - 1] >= 0 && I.hist[i] < 0 && vol) return -1;
+    return 0;
+  }
+  function signals(h4) { const I = indicators(h4), out = []; for (let i = 210; i < h4.length; i++) { const d = signalAt(I, i); if (d) out.push({ i, t: h4[i].t, dir: d, atr: I.atr[i] }); } return out; }
+
+  // 看板用：目前 4H 狀態＋最後一根 4H 是不是訊號
+  function analyze(sym, h4) {
+    const n = h4.length, H4 = 4 * 3600e3;
+    if (n < 210) return { sym, model: 'trend', state: 'nodata' };
+    const I = indicators(h4), i = n - 1, d = signalAt(I, i);
+    const trend = I.e50[i] > I.e200[i] && I.c[i] > I.e50[i] ? 1 : I.e50[i] < I.e200[i] && I.c[i] < I.e50[i] ? -1 : 0;
+    return { sym, model: 'trend', trend, sig: d, sigT: h4[i].t + H4, atr: I.atr[i], close: I.c[i], hist: I.hist[i], 
+"trend":[{"sym":"BTC","model":"trend","trend":0,"sig":0,"sigT":1792800000000,"atr":786.1987093179321,"close":81155.3,"hist":-166.00429578862475,"volRatio":0.8627558344543471,"e50":82218.86477618573,"e200":81934.1933232822,"state":"idle"},{"sym":"ETH","model":"trend","trend":-1,"sig":0,"sigT":1792800000000,"atr":34.591905688425705,"close":2386.57,"hist":-4.480079742991192,"volRatio":1.0085994124307662,"e50":2431.115667814858,"e200":2495.052817291015,"state":"idle"},{"sym":"SOL","model":"trend","trend":-1,"sig":0,"sigT":1792800000000,"atr":1.665690168440258,"close":102.798,"hist":-0.25174918410117664,"vo
