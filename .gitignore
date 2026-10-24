@@ -4,3 +4,4 @@ data/*.json
 research-cache/
 tools/ft/data/
 tools/ft/backtest_results/
+tools/ft/res/

@@ -1,11 +1,20 @@
 # 把三段回測（2025、2026、全部）的策略總表整理成一張 markdown
-import json, sys, glob, os
+import json, sys, glob, os, zipfile
 rows = {}
 for tag in ['2025', '2026', 'all']:
-    for f in glob.glob(f'/ud/backtest_results/{tag}/*.json'):
+    for f in glob.glob(f'/ud/res/{tag}/*'):
         if f.endswith('.meta.json') or 'last_result' in f: continue
-        try: d = json.load(open(f))
-        except Exception: continue
+        d = None
+        try:
+            if f.endswith('.zip'):
+                z = zipfile.ZipFile(f)
+                for nm in z.namelist():
+                    if nm.endswith('.json') and not nm.endswith('_config.json') and 'meta' not in nm:
+                        j = json.loads(z.read(nm))
+                        if isinstance(j, dict) and 'strategy' in j: d = j; break
+            elif f.endswith('.json'): d = json.load(open(f))
+        except Exception as e: print('skip', f, e)
+        if not d: continue
         for name, s in (d.get('strategy') or {}).items():
             r = rows.setdefault(name, {})
             r[tag] = dict(n=s.get('total_trades', 0), wr=(s.get('wins', 0) / s['total_trades'] * 100) if s.get('total_trades') else 0,

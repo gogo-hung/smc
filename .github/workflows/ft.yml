@@ -15,25 +15,32 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - run: git config core.fileMode false
+      - uses: actions/cache/restore@v4
         with:
           path: tools/ft/data
           key: ft-okx-futures-v1
       - run: docker build -t ft tools/ft && mkdir -p tools/ft/data tools/ft/backtest_results && chmod -R 777 tools/ft
-      - name: 下載 OKX 合約歷史 K 線
+      - name: 下載 OKX 合約歷史 K 線（有快取就只補新的）
         run: |
           set -o pipefail
-          docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures -t 15m 1h 4h 12h 1d --timerange 20240601- 2>&1 | tee tools/ft/dl.log | tail -40 || { grep -iE 'error|exception|fail|not' tools/ft/dl.log | tail -15 | sed 's/^/::warning::/'; exit 1; }
+          docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures -t 15m 1h 4h 12h 1d --timerange 20240601- 2>&1 | tail -20
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: tools/ft/data
+          key: ft-okx-futures-v1-${{ github.run_id }}
       - name: 回測（2025、2026、全部）
         run: |
           S=$(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//' | tr '\n' ' ')
           for r in "2025:20250101-20260101" "2026:20260101-" "all:20250101-"; do tag=${r%%:*}; tr=${r#*:}
-            mkdir -p tools/ft/backtest_results/$tag
-            docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy-list $S --timerange $tr --fee 0.0005 --export trades --backtest-directory user_data/backtest_results/$tag 2>&1 | tail -60 > tools/ft/bt-$tag.log || true
+            docker run --rm -v $PWD/tools/ft:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy-list $S --timerange $tr --fee 0.0005 --export trades > tools/ft/bt-$tag.log 2>&1 || echo "::warning::$tag 回測失敗：$(grep -iE 'error|exception' tools/ft/bt-$tag.log | tail -3 | tr '\n' ' ')"
+            mkdir -p tools/ft/res/$tag && mv tools/ft/backtest_results/backtest-result-* tools/ft/res/$tag/ 2>/dev/null || true
           done
+          ls -la tools/ft/res/*
       - if: always()
         run: |
-          docker run --rm -v $PWD/tools/ft:/ud --entrypoint python ft /ud/summary.py || true
-          mkdir -p results && cp tools/ft/ft-summary.md results/ 2>/dev/null; cp tools/ft/bt-*.log results/ 2>/dev/null; tail -80 tools/ft/dl.log > results/ft-dl.log 2>/dev/null || true
+          docker run --rm -v $PWD/tools/ft:/ud --entrypoint python ft /ud/summary.py || echo "::warning::summary 失敗"
+          mkdir -p results && cp tools/ft/ft-summary.md results/ 2>/dev/null; for f in tools/ft/bt-*.log; do tail -70 "$f" > results/ft-$(basename $f); done 2>/dev/null || true
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
-          git add results && git commit -m "freqtrade result" && git pull --rebase && git push
+          git add results && git commit -m "freqtrade result" && git stash -u -q; git pull --rebase && git push
