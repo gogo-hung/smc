@@ -1,0 +1,60 @@
+│ Final balance                          │ 176.253 USDT                              │
+│ Absolute profit                        │ -823.747 USDT                             │
+│ Total profit %                         │ -82.37%                                   │
+│ CAGR %                                 │ -61.65%                                   │
+│ Sharpe (closed trades)                 │ -2.55                                     │
+│ Sortino (closed trades)                │ -4.27                                     │
+│ Calmar (closed trades)                 │ -2.80                                     │
+│ SQN                                    │ -4.39                                     │
+│ Mean profit p-value                    │ 1.419e-05                                 │
+│ Profit factor                          │ 0.57                                      │
+│ Expectancy (Ratio)                     │ -2.04 (-0.22)                             │
+│ Avg. daily profit                      │ -1.246 USDT                               │
+│ Avg. stake amount                      │ 98.05 USDT                                │
+│ Market change                          │ -56.04%                                   │
+│ Total trade volume                     │ 78284.473 USDT                            │
+│                                        │                                           │
+│ Best Pair                              │ BNB/USDT:USDT 3.37%                       │
+│ Worst Pair                             │ XRP/USDT:USDT -14.43%                     │
+│ Best trade                             │ SOL/USDT:USDT 17.05%                      │
+│ Worst trade                            │ SOL/USDT:USDT -12.93%                     │
+│ Best day                               │ 38.875 USDT                               │
+│ Worst day                              │ -352.727 USDT                             │
+│ Days win/draw/lose                     │ 134 / 425 / 96                            │
+│ Min/Max/Avg. Duration Winners          │ 0d 12:00 / 44d 12:00 / 5d 08:57           │
+│ Min/Max/Avg. Duration Losers           │ 0d 00:00 / 21d 20:00 / 4d 09:23           │
+│ Max Consecutive Wins / Loss            │ 17 / 32                                   │
+│ Rejected Entry signals                 │ 33204                                     │
+│ Entry/Exit Timeouts                    │ 0 / 0                                     │
+│                                        │                                           │
+│ Min/Max balance (closed trades)        │ 157.266 USDT / 1040.98 USDT               │
+│ Max % of account underwater            │ 84.89%                                    │
+│ Absolute drawdown                      │ 883.714 USDT (84.89%)                     │
+│ Drawdown duration                      │ 506 days 16:00:00                         │
+│ Profit at drawdown start               │ 40.98 USDT                                │
+│ Profit at drawdown end                 │ -842.734 USDT                             │
+│ Drawdown start                         │ 2025-01-19 20:00:00                       │
+│ Drawdown end                           │ 2026-06-10 12:00:00                       │
+│                                        │                                           │
+│ Wallet based Metrics                   │                                           │
+│ Min/Max balance (wallet balance)       │ 157.266 USDT / 1040.98 USDT               │
+│ Min/Max balance dates (wallet balance) │ 2026-06-10 16:00:00 / 2025-01-18 16:00:00 │
+│ Max % of account underwater (balance)  │ 84.89%                                    │
+│ Absolute drawdown (wallet balance)     │ 883.713 USDT (84.89%)                     │
+│ Drawdown duration                      │ 508 days 00:00:00                         │
+│ Profit at drawdown start               │ 40.98 USDT                                │
+│ Profit at drawdown end                 │ -842.734 USDT                             │
+│ Drawdown start                         │ 2025-01-18 16:00:00                       │
+│ Drawdown end                           │ 2026-06-10 16:00:00                       │
+│ Sharpe (daily wallet balance)          │ -1.28                                     │
+│ Sortino (daily wallet balance)         │ -0.60                                     │
+│ Calmar (daily wallet balance)          │ -2.80                                     │
+└────────────────────────────────────────┴───────────────────────────────────────────┘
+
+Backtested 2025-01-01 00:00:00 -> 2026-10-24 00:00:00 | Max open trades : 5
+                                                            STRATEGY SUMMARY                                                            
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃     Avg Duration ┃  Win  Draw  Loss  Win% ┃             Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│  mabStra │    403 │        -2.07 │        -823.747 │       -82.37 │ 4 days, 20:54:00 │  197     0   206  48.9 │ 883.714 USDT  84.89% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────────┴────────────────────────┴──────────────────────┘
