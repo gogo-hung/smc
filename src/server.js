@@ -19,6 +19,7 @@ const STATIC = {
   '/index.html': [path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8'],
   '/app.js': [path.join(PUBLIC_DIR, 'app.js'), 'text/javascript; charset=utf-8'],
   '/smc.js': [path.join(__dirname, 'smc.js'), 'text/javascript; charset=utf-8'],
+  '/trend.js': [path.join(__dirname, 'trend.js'), 'text/javascript; charset=utf-8'],
 };
 
 const pack = bars => bars.map(b => [b.t, b.o, b.h, b.l, b.c, b.v]);
@@ -70,6 +71,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/market' && req.method === 'GET') {
       return send(res, 200, {
         updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx, trend: s.trend,
+        positions: tracker.state.signals.filter(x => x.model === 'trend' && x.status === 'filled').map(x => ({ sym: x.sym, dir: x.dir, entry: x.entry, stop: x.stop, stop0: x.stop0, tp1: x.tp1, tp1Hit: !!x.tp1Hit, be: !!x.be, ext: x.ext, atr: x.atr, filledAt: x.filledAt })),
         symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf), ...(m.m15 ? { m15: pack(m.m15) } : {}) })),
       });
     }

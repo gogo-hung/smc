@@ -1,7 +1,7 @@
 // 策略①：4H 趨勢＋MACD 金叉＋爆量，市價進場，ATR 止損＋移動止損，1H 結構延續（同向 BOS）且已賺 0.5R 就保本
 // 回測（OKX 56 幣，2025/1 ～ 2026/10，同時最多 5 筆）：兩年都賺，卡瑪約 1.8
 (function (root) {
-  const SMC = typeof require === 'function' ? require('./smc') : root.SMC;
+  const SM = typeof require === 'function' ? require('./smc') : (typeof SMC !== 'undefined' ? SMC : root.SMC);   // 瀏覽器：smc.js 宣告的全域 SMC
   const P = { emaFast: 50, emaSlow: 200, volMult: 1.5, slAtr: 2, trailAtr: 3, beMinR: 0.5, maxOpen: 5 };
 
   const emaArr = (v, n) => { const o = Array(v.length).fill(null), k = 2 / (n + 1); let e = null, s = 0; for (let i = 0; i < v.length; i++) { if (i < n - 1) { s += v[i]; continue; } if (e === null) e = (s + v[i]) / n; else e = v[i] * k + e * (1 - k); o[i] = e; } return o; };
@@ -48,7 +48,7 @@
   }
   // 1H 同向 BOS（打破進場後才形成的擺動點）：回傳 Map(收盤時間 → {dir, fromT})
   function bosMap(h1) {
-    const S = SMC.structure(h1, { swingLen: 3, breakBy: 'close', obInvalid: 'close' }), m = new Map();
+    const S = SM.structure(h1, { swingLen: 3, breakBy: 'close', obInvalid: 'close' }), m = new Map();
     for (const e of S.events) if (e.type === 'BOS') m.set(h1[e.idx].t, { dir: e.dir, fromT: h1[e.from].t });
     return m;
   }

@@ -551,9 +551,9 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </section>
 
   <section class="summary" aria-label="掃描摘要">
-    <div class="stat t"><div class="label">觸發訊號</div><div class="n mono" id="nT">0</div></div>
-    <div class="stat w"><div class="label">觀察中（已到 POI）</div><div class="n mono" id="nW">0</div></div>
-    <div class="stat"><div class="label">BTC H4 大盤</div><div class="n" id="nBtc">—</div></div>
+    <div class="stat t"><div class="label">持倉中 / 剛觸發</div><div class="n mono" id="nT">0</div></div>
+    <div class="stat w"><div class="label">等待 MACD 金叉</div><div class="n mono" id="nW">0</div></div>
+    <div class="stat"><div class="label">BTC 4H 趨勢</div><div class="n" id="nBtc">—</div></div>
     <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
     <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
   </section>
@@ -564,8 +564,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <h2 id="boardT">推薦幣種
         <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
         <span class="filters" role="group" aria-label="篩選">
-          <button class="seg" type="button" data-f="trigger" aria-pressed="true">推薦</button>
-          <button class="seg" type="button" data-f="watch" aria-pressed="false">觀察中</button>
+          <button class="seg" type="button" data-f="trigger" aria-pressed="true">持倉／觸發</button>
+          <button class="seg" type="button" data-f="watch" aria-pressed="false">等金叉</button>
           <button class="seg" type="button" data-f="all" aria-pressed="false">全部</button>
           <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
           <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
@@ -596,8 +596,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="d-head">
           <div><div class="name" id="dName">—</div><div class="muted mono" id="dSub"></div></div>
           <div class="tabs" role="group" aria-label="時框">
-            <button class="seg" type="button" data-tf="ltf" aria-pressed="true">1H</button>
-            <button class="seg" type="button" data-tf="htf" aria-pressed="false">H4</button>
+            <button class="seg" type="button" data-tf="ltf" aria-pressed="false">1H</button>
+            <button class="seg" type="button" data-tf="htf" aria-pressed="true">4H</button>
           </div>
         </div>
         <canvas id="chart" aria-label="K 線圖，標示斐波、EMA50、OB、進場型態與進出場位"></canvas>
@@ -607,7 +607,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="d-actions"><button class="btn" type="button" id="logTradeBtn">記一筆交易</button><button class="btn" type="button" id="postBtn">產生貼文圖卡</button></div>
 
         <div class="qual" id="qualBox" hidden></div>
-        <div><h3>SMC 條件</h3><ul class="checklist" id="checks"></ul></div>
+        <div><h3>策略條件（4H）</h3><ul class="checklist" id="checks"></ul></div>
 
         <div>
           <h3>倉位計算（由止損距離推槓桿）</h3>
@@ -646,6 +646,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 </div>
 <div class="toast" id="toast" hidden></div>
 <script src="smc.js"></script>
+<script src="trend.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
