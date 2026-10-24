@@ -21,12 +21,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/cache/restore@v4
         with:
-          path: tools/ft2/data
+          path: tools/ft/data
           key: ft-okx-futures-v1
           restore-keys: ft-okx-futures-v1-
-      - run: docker build -t ft tools/ft2 && mkdir -p tools/ft2/data tools/ft2/backtest_results out && chmod -R 777 tools/ft2
+      - run: docker build -t ft tools/ft2 && mkdir -p tools/ft/data tools/ft2/backtest_results out && chmod -R 777 tools/ft2 tools/ft/data && ls tools/ft/data/okx/futures | head -3
       - run: |
-          docker run --rm -v $PWD/tools/ft2:/freqtrade/user_data ft backtesting --config user_data/config.json --strategy ${{ matrix.st }} --timerange 20250101- --fee 0.0005 --export trades ${{ matrix.st == 'FST_Prot' && '--enable-protections' || '' }} > out/bt.log 2>&1 || true
+          docker run --rm -v $PWD/tools/ft2:/freqtrade/user_data -v $PWD/tools/ft/data:/freqtrade/user_data/data ft backtesting --config user_data/config.json --strategy ${{ matrix.st }} --timerange 20250101- --fee 0.0005 --export trades ${{ matrix.st == 'FST_Prot' && '--enable-protections' || '' }} > out/bt.log 2>&1 || true
           grep -A12 "STRATEGY SUMMARY" out/bt.log || tail -20 out/bt.log
           cp tools/ft2/backtest_results/backtest-result-*.zip out/ 2>/dev/null || true
       - uses: actions/upload-artifact@v4
