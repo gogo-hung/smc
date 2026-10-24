@@ -20,6 +20,7 @@ jobs:
         with:
           path: tools/ft/data
           key: ft-okx-futures-v1
+          restore-keys: ft-okx-futures-v1-
       - run: docker build -t ft tools/ft && mkdir -p tools/ft/data tools/ft/backtest_results && chmod -R 777 tools/ft
       - name: 下載 OKX 合約歷史 K 線（有快取就只補新的）
         run: |
