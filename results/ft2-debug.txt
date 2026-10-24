@@ -1,91 +1,106 @@
 logs
 logs/fst-FST_SL10
 logs/fst-FST_SL10/bt.log
+logs/fst-FST_SL10/backtest-result-2026-10-24_11-48-32.zip
 logs/fst-FST_SL06
 logs/fst-FST_SL06/bt.log
+logs/fst-FST_SL06/backtest-result-2026-10-24_11-48-22.zip
 logs/fst-FST_Prot
+logs/fst-FST_Prot/backtest-result-2026-10-24_11-53-26.zip
 logs/fst-FST_Prot/bt.log
 logs/fst-FST_Orig
 logs/fst-FST_Orig/bt.log
+logs/fst-FST_Orig/backtest-result-2026-10-24_11-48-27.zip
 logs/fst-FST_SL15
 logs/fst-FST_SL15/bt.log
+logs/fst-FST_SL15/backtest-result-2026-10-24_11-48-33.zip
+== logs/fst-FST_SL10/backtest-result-2026-10-24_11-48-32.zip
+Archive:  logs/fst-FST_SL10/backtest-result-2026-10-24_11-48-32.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+  3317933  2026-10-24 11:48   backtest-result-2026-10-24_11-48-32.json
+     1179  2026-10-24 11:48   backtest-result-2026-10-24_11-48-32_config.json
+     8012  2026-10-24 11:48   backtest-result-2026-10-24_11-48-32_FST_SL10.py
+   340906  2026-10-24 11:48   backtest-result-2026-10-24_11-48-32_market_change.feather
+   274314  2026-10-24 11:48   backtest-result-2026-10-24_11-48-32_FST_SL10_wallet.feather
+---------                     -------
+  3942344                     5 files
+== logs/fst-FST_SL06/backtest-result-2026-10-24_11-48-22.zip
+Archive:  logs/fst-FST_SL06/backtest-result-2026-10-24_11-48-22.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+  3611054  2026-10-24 11:48   backtest-result-2026-10-24_11-48-22.json
+     1179  2026-10-24 11:48   backtest-result-2026-10-24_11-48-22_config.json
+     8012  2026-10-24 11:48   backtest-result-2026-10-24_11-48-22_FST_SL06.py
+   340906  2026-10-24 11:48   backtest-result-2026-10-24_11-48-22_market_change.feather
+   278954  2026-10-24 11:48   backtest-result-2026-10-24_11-48-22_FST_SL06_wallet.feather
+---------                     -------
+  4240105                     5 files
+== logs/fst-FST_Prot/backtest-result-2026-10-24_11-53-26.zip
+Archive:  logs/fst-FST_Prot/backtest-result-2026-10-24_11-53-26.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+  3118322  2026-10-24 11:53   backtest-result-2026-10-24_11-53-26.json
+     1179  2026-10-24 11:53   backtest-result-2026-10-24_11-53-26_config.json
+     8443  2026-10-24 11:53   backtest-result-2026-10-24_11-53-26_FST_Prot.py
+   340906  2026-10-24 11:53   backtest-result-2026-10-24_11-53-26_market_change.feather
+   263818  2026-10-24 11:53   backtest-result-2026-10-24_11-53-26_FST_Prot_wallet.feather
+---------                     -------
+  3732668                     5 files
+== logs/fst-FST_Orig/backtest-result-2026-10-24_11-48-27.zip
+Archive:  logs/fst-FST_Orig/backtest-result-2026-10-24_11-48-27.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+  3287725  2026-10-24 11:48   backtest-result-2026-10-24_11-48-27.json
+     1179  2026-10-24 11:48   backtest-result-2026-10-24_11-48-27_config.json
+     8013  2026-10-24 11:48   backtest-result-2026-10-24_11-48-27_FST_Orig.py
+   340906  2026-10-24 11:48   backtest-result-2026-10-24_11-48-27_market_change.feather
+   273802  2026-10-24 11:48   backtest-result-2026-10-24_11-48-27_FST_Orig_wallet.feather
+---------                     -------
+  3911625                     5 files
+== logs/fst-FST_SL15/backtest-result-2026-10-24_11-48-33.zip
+Archive:  logs/fst-FST_SL15/backtest-result-2026-10-24_11-48-33.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+  3288930  2026-10-24 11:48   backtest-result-2026-10-24_11-48-33.json
+     1179  2026-10-24 11:48   backtest-result-2026-10-24_11-48-33_config.json
+     8012  2026-10-24 11:48   backtest-result-2026-10-24_11-48-33_FST_SL15.py
+   340906  2026-10-24 11:48   backtest-result-2026-10-24_11-48-33_market_change.feather
+   273898  2026-10-24 11:48   backtest-result-2026-10-24_11-48-33_FST_SL15_wallet.feather
+---------                     -------
+  3912925                     5 files
 == logs/fst-FST_SL10/bt.log
-2026-10-24 11:44:44,210 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,211 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,212 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,213 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,214 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,215 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,216 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,217 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,218 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,219 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,219 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:44,220 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
-dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
-2026-10-24 11:44:44,225 - freqtrade - ERROR - No data found. Terminating.
+                                                         STRATEGY SUMMARY                                                          
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃ Avg Duration ┃  Win  Draw  Loss  Win% ┃            Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ FST_SL10 │   3217 │         0.11 │         338.408 │        33.84 │     14:27:00 │ 1858     0  1359  57.8 │ 255.82 USDT  22.96% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────┴────────────────────────┴─────────────────────┘
 == logs/fst-FST_SL06/bt.log
-2026-10-24 11:44:43,568 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,568 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,569 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,570 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,571 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,571 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,572 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,573 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,574 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,575 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,575 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,576 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
-dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
-2026-10-24 11:44:43,580 - freqtrade - ERROR - No data found. Terminating.
+                                                         STRATEGY SUMMARY                                                          
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃ Avg Duration ┃  Win  Draw  Loss  Win% ┃            Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+│ FST_SL06 │   3499 │        -0.04 │        -133.223 │       -13.32 │     13:00:00 │ 1870     0  1629  53.4 │ 326.81 USDT  29.41% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────┴────────────────────────┴─────────────────────┘
 == logs/fst-FST_Prot/bt.log
-2026-10-24 11:44:45,618 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,619 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,619 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,620 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,620 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,620 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,621 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,621 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,622 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,622 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,622 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:45,623 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
-dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
-2026-10-24 11:44:45,625 - freqtrade - ERROR - No data found. Terminating.
+                                                          STRATEGY SUMMARY                                                          
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃ Avg Duration ┃  Win  Draw  Loss  Win% ┃             Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ FST_Prot │   2398 │         0.14 │         328.544 │        32.85 │     15:27:00 │ 1344     0  1054  56.0 │ 238.345 USDT  21.62% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────┴────────────────────────┴──────────────────────┘
 == logs/fst-FST_Orig/bt.log
-2026-10-24 11:44:43,921 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,922 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,923 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,924 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,924 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,925 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,926 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,927 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,928 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,929 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,930 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:43,930 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
-dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
-2026-10-24 11:44:43,934 - freqtrade - ERROR - No data found. Terminating.
+                                                          STRATEGY SUMMARY                                                          
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃ Avg Duration ┃  Win  Draw  Loss  Win% ┃             Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ FST_Orig │   3177 │         0.17 │         531.884 │        53.19 │     14:41:00 │ 1856     0  1321  58.4 │ 243.973 USDT  21.82% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────┴────────────────────────┴──────────────────────┘
 == logs/fst-FST_SL15/bt.log
-2026-10-24 11:44:42,935 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for OP/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,935 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for FIL/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,936 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ATOM/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,937 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for UNI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,938 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for AAVE/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,939 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for INJ/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,940 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for ETC/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,940 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for WLD/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,941 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for CRV/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,942 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for LDO/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,943 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for TIA/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-2026-10-24 11:44:42,944 - freqtrade.data.history.datahandlers.idatahandler - WARNING - No history for SEI/USDT:USDT, futures, 1h found. Use `freqtrade download-data` to download the data
-dataload ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸                                                                                                                          1/4  25% • 0:00:00 • -:--:--
-dataload                                                                                                                                                                    0/1   0% • 0:00:00 • -:--:--
-2026-10-24 11:44:42,947 - freqtrade - ERROR - No data found. Terminating.
+                                                          STRATEGY SUMMARY                                                          
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃ Avg Duration ┃  Win  Draw  Loss  Win% ┃             Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━┩
+│ FST_SL15 │   3182 │         0.15 │         471.293 │        47.13 │     14:40:00 │ 1856     0  1326  58.3 │ 243.973 USDT  21.82% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────┴────────────────────────┴──────────────────────┘
