@@ -23,7 +23,7 @@ jobs:
       - name: 下載 OKX 合約歷史 K 線
         run: |
           set -o pipefail
-          docker run --rm --user root -v $PWD/tools/ft:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures -t 15m 1h 4h 12h 1d --timerange 20240601- 2>&1 | tee tools/ft/dl.log | tail -40
+          docker run --rm --user root -v $PWD/tools/ft:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures -t 15m 1h 4h 12h 1d --timerange 20240601- 2>&1 | tee tools/ft/dl.log | tail -40 || { grep -iE 'error|exception|fail|not' tools/ft/dl.log | tail -15 | sed 's/^/::warning::/'; exit 1; }
       - name: 回測（2025、2026、全部）
         run: |
           S=$(ls tools/ft/strategies/*.py | xargs -n1 basename | sed 's/.py$//' | tr '\n' ' ')
