@@ -2,7 +2,7 @@
 // 回測（OKX 56 幣，2025/1 ～ 2026/10，同時最多 5 筆）：兩年都賺，卡瑪約 1.8
 (function (root) {
   const SM = typeof require === 'function' ? require('./smc') : (typeof SMC !== 'undefined' ? SMC : root.SMC);   // 瀏覽器：smc.js 宣告的全域 SMC
-  const P = { emaFast: 50, emaSlow: 200, volMult: 1.5, slAtr: 2, trailAtr: 3, beMinR: 0.5, maxOpen: 5 };
+  const P = { emaFast: 50, emaSlow: 200, volMult: 1.5, slAtr: 2, trailAtr: 3, beMinR: 0.5, maxOpen: Infinity };   // maxOpen：同時持倉上限（Infinity＝不限，有訊號就推）
 
   const emaArr = (v, n) => { const o = Array(v.length).fill(null), k = 2 / (n + 1); let e = null, s = 0; for (let i = 0; i < v.length; i++) { if (i < n - 1) { s += v[i]; continue; } if (e === null) e = (s + v[i]) / n; else e = v[i] * k + e * (1 - k); o[i] = e; } return o; };
   const smaArr = (v, n) => { const o = Array(v.length).fill(null); let s = 0; for (let i = 0; i < v.length; i++) { s += v[i]; if (i >= n) s -= v[i - n]; if (i >= n - 1) o[i] = s / n; } return o; };
