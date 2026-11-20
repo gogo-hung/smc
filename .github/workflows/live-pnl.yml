@@ -1,0 +1,21 @@
+name: live-pnl
+on:
+  push:
+    branches: [research]
+    paths: ['tools/live-pnl.py', '.github/workflows/live-pnl.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          U=https://smc-scanner-krbg.onrender.com
+          for i in 1 2 3; do curl -sf -m 100 "$U/api/ping" && break; sleep 20; done
+          curl -sf -m 120 "$U/api/stats?all=1" -o /tmp/stats.json
+          curl -sf -m 120 "$U/api/market" -o /tmp/market.json
+          mkdir -p results && python3 tools/live-pnl.py /tmp/stats.json /tmp/market.json
+          git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
+          git add results && git commit -m "live pnl" && git pull --rebase && git push
