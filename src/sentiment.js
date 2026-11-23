@@ -1,7 +1,7 @@
 // 市場情緒三個儀表：市場平均 RSI（掃描中的幣，日線 RSI14）、恐懼貪婪指數（alternative.me）、整體市場漲跌家數（BingX 全部 USDT 永續 24h 漲跌）
 const SMC = require('./smc');
 
-const state = { rsi: null, fng: null, breadth: null, ls: null, oi: null, funding: null, updatedAt: null, fngAt: 0, derivAt: 0 };
+const state = { rsi: null, fng: null, breadth: null, ls: null, oi: null, funding: null, stable: null, btc: null, analyst: null, updatedAt: null, fngAt: 0, derivAt: 0, stableAt: 0 };
 
 function rsiLast(closes, n = 14) {   // Wilder RSI，回傳最後一根
   if (closes.length <= n) return null;
@@ -33,8 +33,17 @@ function update(market, tickers) {
     const total = up + flat + down, pct = up + down ? up / (up + down) * 100 : 50;   // 上漲佔「有動的」家數（平盤不算），才不會被平盤拉低
     state.breadth = { up, flat, down, total, pct: Math.round(pct), label: pct >= 60 ? '偏多' : pct <= 40 ? '偏空' : '中性' };
   }
+  // BTC 4H／日線趨勢（分析師用）
+  const B = market.BTC;
+  if (B && B.htf && B.htf.length > 220) {
+    const c4 = B.htf.map(b => b.c), last = isFinite(B.price) ? B.price : c4[c4.length - 1];
+    const e50 = emaLast(c4, 50), e200 = emaLast(c4, 200), d = SMC.toDaily(B.htf).map(b => b.c), d50 = emaLast(d, Math.min(50, d.length - 5));
+    const t = (tickers || []).find(x => x.symbol === 'BTC-USDT');
+    state.btc = { price: last, e50, e200, d50, h4: e50 > e200 && last > e50 ? 1 : e50 < e200 && last < e50 ? -1 : 0, d1: last > d50 ? 1 : -1, chg24: t ? t.change : null };
+  }
   state.updatedAt = Date.now();
 }
+function emaLast(a, n) { if (!a.length || n < 2) return null; const k = 2 / (n + 1); let e = a.slice(0, n).reduce((x, y) => x + y, 0) / Math.min(n, a.length); for (let i = n; i < a.length; i++) e = a[i] * k + e * (1 - k); return e; }
 
 // 恐懼貪婪指數：一小時抓一次（官方一天更新一次）
 async function refreshFng(force) {
@@ -86,4 +95,55 @@ async function refreshDeriv(bingxFunding, force) {
   if (err.length) state.funding.note = err.join('；');
 }
 
-module.exports = { state, update, refreshFng, refreshDeriv, rsiLast };
+
+// ---- 穩定幣：DeFiLlama 穩定幣總市值（每天）＋ CoinGecko 加密總市值 → 7 天市值變化、占比變化；30 分鐘抓一次 ----
+async function refreshStable(force) {
+  if (!force && Date.now() - state.stableAt < 30 * 60e3) return;
+  state.stableAt = Date.now();
+  try {
+    const ch = await getJson('https://stablecoins.llama.fi/stablecoincharts/all');
+    const v = r => +(r.totalCirculatingUSD && (r.totalCirculatingUSD.peggedUSD ?? Object.values(r.totalCirculatingUSD).reduce((a, b) => a + b, 0)));
+    const now = v(ch[ch.length - 1]), d1 = v(ch[ch.length - 2]), d7 = v(ch[ch.length - 8]);
+    const out = { now, chg1: +((now / d1 - 1) * 100).toFixed(2), chg7: +((now / d7 - 1) * 100).toFixed(2), series: ch.slice(-30).map(r => Math.round(v(r) / 1e6)) };
+    try {
+      const g = (await getJson('https://api.coingecko.com/api/v3/global')).data, tot = g.total_market_cap.usd, tot1 = tot / (1 + g.market_cap_change_percentage_24h_usd / 100);
+      out.share = +(now / tot * 100).toFixed(2); out.share1 = +(d1 / tot1 * 100).toFixed(2); out.total = tot;
+    } catch (e) { console.error('CoinGecko：', e.message); }
+    out.label = out.chg7 > 0.5 ? '資金流入' : out.chg7 < -0.5 ? '資金流出' : '持平';
+    state.stable = out;
+  } catch (e) { console.error('穩定幣數據：', e.message); }
+}
+
+// ---- 分析師：把上面全部數據用固定規則打分數，判斷目前多空 ----
+// 趨勢類（順勢）：BTC 4H ±2、BTC 日線 ±1、整體市場 ±1、平均 RSI ±1、OI 配合價格 ±1、穩定幣流入流出 ±1
+// 情緒類（反向）：散戶多空比擁擠 ∓1、資金費率過熱 ∓1、恐懼貪婪極端 ±1、穩定幣占比 ∓1
+function analyze() {
+  const f = [], add = (g, s, txt) => f.push({ g, s, txt });
+  const { btc, breadth: b, rsi, ls, funding: fr, oi, fng, stable: st } = state;
+  if (btc) {
+    add('趨勢', btc.h4 * 2, btc.h4 > 0 ? 'BTC 4H 多頭排列（EMA50 在 EMA200 上，價格站上 EMA50）' : btc.h4 < 0 ? 'BTC 4H 空頭排列（EMA50 在 EMA200 下，價格跌破 EMA50）' : 'BTC 4H 均線糾結，方向不明');
+    add('趨勢', btc.d1, btc.d1 > 0 ? 'BTC 日線站在 EMA50 之上' : 'BTC 日線在 EMA50 之下');
+  }
+  if (b) add('趨勢', b.pct >= 60 ? 1 : b.pct <= 40 ? -1 : 0, `全市場 ${b.pct}% 的幣在漲（${b.up} 漲／${b.down} 跌）`);
+  if (rsi) add('趨勢', rsi.now > 55 ? 1 : rsi.now < 45 ? -1 : 0, `市場平均日線 RSI ${rsi.now}${rsi.now > 70 ? '，已經超買，小心回檔' : rsi.now < 30 ? '，已經超賣，小心反彈' : ''}`);
+  if (oi && btc && btc.chg24 != null && oi.chg != null) {
+    const up = btc.chg24 > 0, oiUp = oi.chg > 1, oiDn = oi.chg < -1;
+    add('趨勢', oiUp ? (up ? 1 : -1) : 0, oiUp ? (up ? `BTC 漲 ${btc.chg24}%＋未平倉增加 ${oi.chg}%：新資金在推升` : `BTC 跌 ${btc.chg24}%＋未平倉增加 ${oi.chg}%：新空單在進場`) : oiDn ? `未平倉減少 ${oi.chg}%：${up ? '空單回補推升，力道偏弱' : '多單停損平倉'}` : `未平倉變化不大（${oi.chg}%）`);
+  }
+  if (st) add('趨勢', st.chg7 > 0.5 ? 1 : st.chg7 < -0.5 ? -1 : 0, `穩定幣總市值 7 天 ${st.chg7 >= 0 ? '+' : ''}${st.chg7}%（${st.label}）`);
+  if (ls) { const p = ls.global.long; add('情緒', p >= 60 ? -1 : p <= 40 ? 1 : 0, `散戶 ${p}% 做多${p >= 60 ? '，太擁擠，容易被反向洗' : p <= 40 ? '，空方擁擠，容易軋空' : ''}`); }
+  if (fr && fr.avg != null) add('情緒', fr.avg > 0.03 ? -1 : fr.avg < -0.01 ? 1 : 0, `全市場平均資金費率 ${fr.avg > 0 ? '+' : ''}${fr.avg}%（${fr.label}）`);
+  if (fng) add('情緒', fng.now <= 20 ? 1 : fng.now >= 80 ? -1 : 0, `恐懼貪婪 ${fng.now}（${fng.label}）${fng.now <= 20 ? '，極度恐懼常是階段低點' : fng.now >= 80 ? '，極度貪婪要小心追高' : ''}`);
+  if (st && st.share != null && st.share1 != null) { const d = +(st.share - st.share1).toFixed(2); add('情緒', d > 0.1 ? -1 : d < -0.1 ? 1 : 0, `穩定幣占總市值 ${st.share}%（24h ${d >= 0 ? '+' : ''}${d}）${d > 0.1 ? '，資金換成 U 避險' : d < -0.1 ? '，資金從 U 換回幣' : ''}`); }
+  if (!f.length) { state.analyst = null; return; }
+  const score = f.reduce((a, x) => a + x.s, 0), max = f.reduce((a, x) => a + (x.txt.startsWith('BTC 4H') ? 2 : 1), 0);
+  const trend = f.filter(x => x.g === '趨勢').reduce((a, x) => a + x.s, 0), mood = f.filter(x => x.g === '情緒').reduce((a, x) => a + x.s, 0);
+  const verdict = score >= 4 ? '偏多' : score >= 2 ? '略偏多' : score <= -4 ? '偏空' : score <= -2 ? '略偏空' : '震盪';
+  const dir = score >= 2 ? 1 : score <= -2 ? -1 : 0;
+  let advice = dir > 0 ? '策略①的做多訊號比較可信；做空訊號要更小心，可以降低倉位或跳過。' : dir < 0 ? '策略①的做空訊號比較可信；做多訊號要更小心，可以降低倉位或跳過。' : '多空沒有明顯優勢，容易來回掃止損，訊號可以挑著做、倉位放小。';
+  if (trend > 0 && mood < 0) advice += '　趨勢偏多但情緒過熱，追多要留意急殺。';
+  if (trend < 0 && mood > 0) advice += '　趨勢偏空但情緒已經很悲觀，空單要留意反彈。';
+  state.analyst = { score, max, verdict, dir, trend, mood, advice, factors: f, at: Date.now() };
+}
+
+module.exports = { state, update, refreshFng, refreshDeriv, refreshStable, analyze, rsiLast };
