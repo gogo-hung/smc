@@ -1,38 +1,5 @@
 == api/health
-{"ok":true,"lastScan":1792811183176,"scanning":false,"lastError":null,"symbols":60,"errors":[],"upSince":1792811173486,"lastPing":null,"pings":0}
-== trend.js
-// 策略①：4H 趨勢＋MACD 金叉＋爆量，市價進場，ATR 止損＋移動止損，1H 結構延續（同向 BOS）且已賺 0.5R 就保本
-// 回測（OKX 56 幣，2025/1 ～ 2026/10，同時最多 5 筆）：兩年都賺，卡瑪約 1.8
-(function (root) {
-  const SM = typeof require === 'function' ? require('./smc') : (typeof SMC !== 'undefined' ? SMC : root.SMC);   // 瀏覽器：smc.js 宣告的全域 SMC
-  const P = { emaFast: 50, emaSlow: 200, volMult: 1.5, slAtr: 2, trailAtr: 3, beMinR: 0.5, maxOpen: 5 };
-
-  const emaArr = (v, n) => { const o = Array(v.length).fill(null), k = 2 / (n + 1); let e = null, s = 0; for (let i = 0; i < v.length; i++) { if (i < n - 1) { s += v[i]; continue; } if (e === null) e = (s + v[i]) / n; else e = v[i] * k + e * (1 - k); o[i] = e; } return o; };
-  const smaArr = (v, n) => { const o = Array(v.length).fill(null); let s = 0; for (let i = 0; i < v.length; i++) { s += v[i]; if (i >= n) s -= v[i - n]; if (i >= n - 1) o[i] = s / n; } return o; };
-  function atrArr(b, n = 14) { const o = Array(b.length).fill(null); let a = null; for (let i = 1; i < b.length; i++) { const tr = Math.max(b[i].h - b[i].l, Math.abs(b[i].h - b[i - 1].c), Math.abs(b[i].l - b[i - 1].c)); a = a === null ? tr : (a * (n - 1) + tr) / n; if (i >= n) o[i] = a; } return o; }
-
-  // 4H 指標＋每根的訊號（只用到那根為止的資料）
-  function indicators(h4) {
-    const c = h4.map(b => b.c), v = h4.map(b => b.v);
-    const e50 = emaArr(c, P.emaFast), e200 = emaArr(c, P.emaSlow), atr = atrArr(h4, 14), vma = smaArr(v, 20);
-    const m12 = emaArr(c, 12), m26 = emaArr(c, 26), macd = c.map((_, i) => m12[i] != null && m26[i] != null ? m12[i] - m26[i] : null);
-    const sg = emaArr(macd.map(x => x ?? 0), 9), hist = macd.map((x, i) => x == null ? null : x - sg[i]);
-    return { c, v, e50, e200, atr, vma, hist };
-  }
-  function signalAt(I, i) {
-    if (i < 1 || I.atr[i] == null || I.hist[i - 1] == null || I.e200[i] == null || I.vma[i] == null) return 0;
-    const up = I.e50[i] > I.e200[i] && I.c[i] > I.e50[i], dn = I.e50[i] < I.e200[i] && I.c[i] < I.e50[i], vol = I.v[i] > P.volMult * I.vma[i];
-    if (up && I.hist[i - 1] <= 0 && I.hist[i] > 0 && vol) return 1;
-    if (dn && I.hist[i - 1] >= 0 && I.hist[i] < 0 && vol) return -1;
-    return 0;
-  }
-  function signals(h4) { const I = indicators(h4), out = []; for (let i = 210; i < h4.length; i++) { const d = signalAt(I, i); if (d) out.push({ i, t: h4[i].t, dir: d, atr: I.atr[i] }); } return out; }
-
-  // 看板用：目前 4H 狀態＋最後一根 4H 是不是訊號
-  function analyze(sym, h4) {
-    const n = h4.length, H4 = 4 * 3600e3;
-    if (n < 210) return { sym, model: 'trend', state: 'nodata' };
-    const I = indicators(h4), i = n - 1, d = signalAt(I, i);
-    const trend = I.e50[i] > I.e200[i] && I.c[i] > I.e50[i] ? 1 : I.e50[i] < I.e200[i] && I.c[i] < I.e50[i] ? -1 : 0;
-    return { sym, model: 'trend', trend, sig: d, sigT: h4[i].t + H4, atr: I.atr[i], close: I.c[i], hist: I.hist[i], 
-"trend":[{"sym":"BTC","model":"trend","trend":0,"sig":0,"sigT":1792800000000,"atr":786.1987093179321,"close":81155.3,"hist":-166.00429578862475,"volRatio":0.8627558344543471,"e50":82218.86477618573,"e200":81934.1933232822,"state":"idle"},{"sym":"ETH","model":"trend","trend":-1,"sig":0,"sigT":1792800000000,"atr":34.591905688425705,"close":2386.57,"hist":-4.480079742991192,"volRatio":1.0085994124307662,"e50":2431.115667814858,"e200":2495.052817291015,"state":"idle"},{"sym":"SOL","model":"trend","trend":-1,"sig":0,"sigT":1792800000000,"atr":1.665690168440258,"close":102.798,"hist":-0.25174918410117664,"vo
+{"ok":true,"lastScan":1795454121589,"scanning":false,"lastError":null,"symbols":61,"errors":[],"upSince":1795453970596,"lastPing":null,"pings":0}
+== api/sentiment
+{"rsi":{"now":36.8,"yday":30.7,"label":"偏弱","n":61},"fng":{"now":11,"yday":11,"label":"極度恐懼"},"breadth":{"up":441,"flat":51,"down":60,"total":552,"pct":88,"label":"偏多"},"ls":{"src":"Binance","global":{"long":71.5,"ratio":2.51,"yday":69.4,"label":"偏多擁擠"},"top":{"long":63,"ratio":1.7,"yday":62.4,"label":"偏多擁擠"}},"oi":{"src":"Binance","now":5771752539.369297,"chg":0.08,"series":[5766866538,5692580418,5687850078,5684904117,5695510776,5672516884,5668817672,5704440869,5709301507,5657986884,5595045670,5572002542,5597045141,5681501324,5676050946,5673427555,5669524528,5675536342,5681061527,5685925957,5683551870,5861524734,5847797620,5860359618,5771752539]},"funding":{"src":"Binance","btc":0.0034,"eth":-0.0012,"avg":0.0045,"pos":462,"neg":125,"n":908,"label":"多方付費"},"stable":{"now":282764363673.69,"chg1":0.1,"chg7":-1.51,"series":[300465,300148,299449,299465,297963,297638,296989,296392,295653,294693,293836,293348,292331,291448,291493,291223,290376,289481,289065,287772,287052,287095,287098,286443,286257,285227,283441,282512,282495,282764],"share":13.24,"share1":13.23,"total":2135014997547.3604,"label":"資金流出"},"analyst":{"score":-4,"max":11,"verdict":"偏空","dir":-1,"trend":-4,"mood":0,"advice":"策略①的做空訊號比較可信；做多訊號要更小心，可以降低倉位或跳過。","factors":[{"g":"趨勢","s":-2,"txt":"BTC 4H 空頭排列（EMA50 在 EMA200 下，價格跌破 EMA50）"},{"g":"趨勢","s":-1,"txt":"BTC 日線在 EMA50 之下"},{"g":"趨勢","s":1,"txt":"全市場 88% 的幣在漲（441 漲／60 跌）"},{"g":"趨勢","s":-1,"txt":"市場平均日線 RSI 36.8"},{"g":"趨勢","s":0,"txt":"未平倉變化不大（0.08%）"},{"g":"趨勢","s":-1,"txt":"穩定幣總市值 7 天 -1.51%（資金流出）"},{"g":"情緒","s":-1,"txt":"散戶 71.5% 做多，太擁擠，容易被反向洗"},{"g":"情緒","s":0,"txt":"全市場平均資金費率 +0.0045%（多方付費）"},{"g":"情緒","s":1,"txt":"恐懼貪婪 11（極度恐懼），極度恐懼常是階段低點"},{"g":"情緒","s":0,"txt":"穩定幣占總市值 13.24%（24h +0.01）"}],"at":1795454121393},"updatedAt":1795454121393}
+"trend":[{"sym":"BTC","model":"trend","trend":-1,"sig":0,"sigT":1795449600000,"atr":1457.3344846449947,"close":62866.1,"hist":503.4963178446077,"volRatio":2.0968773076479925,"e50":62873.18907249482,"e200":71078.60271782697,"state":"watch"},{"sym":"ETH","model":"trend","trend":0,"sig":0,"sigT":1795449600000,"atr":46.07894362164853,"close":1772.86,"hist":14.965321505243132,"volRatio":1.8098325252269707,"e50":1769.22139662539,"e200":2051.819699534018,"state":"idle"},{"sym":"SOL","model":"trend","trend":0,"sig":0,"sigT":1795449600000,"atr":1.9769332104294655,"close":75.642,"hist":0.7018735454772737,"volRat
