@@ -24,7 +24,7 @@ SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建�
 - `src/scanner.js`：每 15 分鐘掃描（挑幣 → 抓 1H/4H K 線 → 策略 → 市場情緒 → tracker）
 - `src/tracker.js`：建單、追蹤（保本／移動止損／出場）、成績單、推播文字（`onTrend`）
 - `src/notify.js`：Discord Webhook／Telegram；卡片顏色依標題文字決定
-- `src/sentiment.js`：右側情緒卡（市場平均 RSI、恐懼貪婪、整體市場、BTC 多空比／未平倉量／資金費率；Binance 失敗改 OKX）
+- `src/sentiment.js`：右側情緒卡（市場平均 RSI、恐懼貪婪、整體市場、BTC 多空比／未平倉量、穩定幣、資金費率；Binance 失敗改 OKX）＋「分析師」頁（`analyze()` 把以上數據用固定規則打分判斷多空，頁首「分析師」按鈕打開）
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
 - `public/index.html`、`public/app.js`：前端（推薦幣種＝策略①看板、詳情 4H 圖、情緒卡）
 - `.github/workflows/keepalive.yml`：每 10 分鐘叫醒 Render；掃描超過 40 分鐘沒更新會失敗並寄信

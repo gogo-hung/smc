@@ -301,6 +301,21 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 @media (max-width:1099px){ .sent{order:-1;max-width:460px;width:100%;justify-self:center;position:relative} }
 .sent{padding:14px 14px 12px;display:grid;gap:6px}
 .sent[hidden]{display:none}
+.an-body{padding:16px 18px 20px;display:grid;gap:14px}
+.an-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;align-items:center}
+@media (max-width:640px){.an-top{grid-template-columns:1fr}}
+.an-verdict{text-align:center}
+.an-verdict .v{font-family:var(--f-display);font-size:44px;font-weight:700;line-height:1.1}
+.an-verdict .s{font-weight:700;font-size:13.5px;margin-top:4px}
+.an-meter{position:relative;height:10px;border-radius:5px;margin:12px 4px 4px;background:linear-gradient(90deg,var(--short),var(--accent),var(--long))}
+.an-meter i{position:absolute;top:-5px;width:4px;height:20px;margin-left:-2px;border-radius:2px;background:var(--fg)}
+.an-advice{font-size:14px;line-height:1.65;padding:12px 14px;border-radius:10px;background:var(--raise)}
+.an-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.an-cols{grid-template-columns:1fr}}
+.an-cols h3{font-size:13px;margin:0 0 8px;color:var(--muted);font-weight:700}
+.an-cols ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.an-cols li{display:grid;grid-template-columns:26px 1fr;gap:6px;font-size:13px;line-height:1.5;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.an-foot{font-size:12px;color:var(--muted);line-height:1.6}
 .sent-hd{display:grid;grid-template-columns:28px 1fr 28px;align-items:center;text-align:center}
 .sent-hd b{font-family:var(--f-display);font-size:14px;font-weight:600}
 .sent-hd button{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px;border-radius:6px}
@@ -334,6 +349,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
       <button class="btn tgl icon" id="alertsBtn" type="button" aria-expanded="false" aria-controls="alertsPane" aria-label="提醒中心"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge hot" id="alertBadge" hidden></span></button>
+      <button class="btn" id="anBtn" type="button" hidden>分析師<span class="badge" id="anBadge" hidden></span></button>
       <button class="btn tgl" id="btBtn" type="button" aria-expanded="false" aria-controls="btPane">回測</button>
       <button class="btn tgl" id="statsBtn" type="button" aria-expanded="false" aria-controls="statsPane">成績單</button>
       <button class="btn tgl" id="journalBtn" type="button" aria-expanded="false" aria-controls="journalPane">交易紀錄</button>
@@ -579,7 +595,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 
     <!-- 市場情緒：平均 RSI／恐懼貪婪／整體市場 -->
     <aside class="pane sent" id="sentPane" aria-label="市場情緒" hidden>
-      <div class="sent-hd"><button type="button" id="sentPrev" aria-label="上一個">‹</button><b id="sentT">分析師判斷</b><button type="button" id="sentNext" aria-label="下一個">›</button></div>
+      <div class="sent-hd"><button type="button" id="sentPrev" aria-label="上一個">‹</button><b id="sentT">市場平均 RSI</b><button type="button" id="sentNext" aria-label="下一個">›</button></div>
       <span class="sent-help" id="sentHelp" title="">?</span>
       <div id="sentBody"></div>
       <div class="dots" id="sentDots" role="tablist" aria-label="切換指標"></div>
@@ -628,6 +644,12 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         </div>
       </div>
     </section>
+</div>
+<div class="modal" id="anModal" hidden role="dialog" aria-modal="true" aria-labelledby="anT">
+  <div class="modal-card" style="width:min(760px,100%)">
+    <div class="drawer-hd"><span class="t" id="anT">分析師判斷</span><span class="next muted" id="anAt">目前大盤多空</span><button class="x" type="button" id="anClose" aria-label="關閉">×</button></div>
+    <div class="an-body" id="anBody"><p class="muted">資料準備中…</p></div>
+  </div>
 </div>
 <div class="modal" id="postModal" hidden role="dialog" aria-modal="true" aria-labelledby="postT">
   <div class="modal-card">

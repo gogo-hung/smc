@@ -668,7 +668,6 @@ $('postCopy').onclick=()=>{ $('postCanvas').toBlob(async b=>{ try{ await navigat
 // ---- 市場情緒儀表（右側）：市場平均 RSI／恐懼貪婪指數／整體市場 ----
 const Sent={i:+(store.get('smc-sent-i2')||0)||0, d:null};
 const SENT=[
-  {k:'analyst',t:'分析師判斷',help:'把右邊所有數據用固定規則打分數：趨勢類（BTC 4H／日線、整體市場、平均 RSI、未平倉配合價格、穩定幣流入流出）順勢加減分；情緒類（散戶多空比、資金費率、恐懼貪婪、穩定幣占比）太極端時反向加減分。總分 ≥4 偏多、2～3 略偏多、−1～1 震盪、−2～−3 略偏空、≤−4 偏空。每 15 分鐘隨掃描更新，只是大方向參考，不是投資建議。'},
   {k:'rsi',t:'市場平均 RSI',help:'掃描中幣種的日線 RSI(14) 平均。低於 30 超賣、高於 70 超買；「昨日」是昨天日線收盤時的數值。',
    scale:[[30,'超賣','#2fbf9b'],[45,'偏弱','#9bd146'],[55,'中性','#e5c33a'],[70,'偏強','#ee9a3a'],[100,'超買','#ee6a6a']]},
   {k:'fng',t:'恐懼貪婪指數',help:'alternative.me 的加密貨幣恐懼貪婪指數（0–100），每天更新一次。極度恐懼常是情緒低點，極度貪婪要小心追高。',
@@ -708,18 +707,24 @@ function derivHtml(k,x){
     <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:#ee9a3a">正費率 ${x.pos} 個</span><span style="color:var(--long)">負費率 ${x.neg} 個</span></div></div><div class="tot">資料：${x.src}</div>`;
 }
 function analystHtml(a){
-  const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)', m=Math.max(a.max,1), pos=((a.score+m)/(2*m)*100).toFixed(1);
+  const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)', m=Math.max(a.max,1), pos=((a.score+m)/(2*m)*100).toFixed(1), sg=v=>`${v>0?'+':''}${v}`;
   const ic=v=> v>0?`<b style="color:var(--long)">▲${v>1?v:''}</b>`: v<0?`<b style="color:var(--short)">▼${v<-1?-v:''}</b>`:'<b class="muted">－</b>';
-  const grp=g=>a.factors.filter(x=>x.g===g).map(x=>`<li style="display:grid;grid-template-columns:22px 1fr;gap:4px;font-size:12px;line-height:1.45">${ic(x.s)}<span>${esc(x.txt)}</span></li>`).join('');
-  return `<div class="big" style="color:${col};font-size:34px;margin-top:6px">${a.verdict}</div>
-    <div class="lbl" style="color:${col}">總分 ${a.score>0?'+':''}${a.score}（趨勢 ${a.trend>0?'+':''}${a.trend}｜情緒 ${a.mood>0?'+':''}${a.mood}）</div>
-    <div style="position:relative;height:8px;border-radius:4px;margin:8px 6px 2px;background:linear-gradient(90deg,var(--short),var(--accent),var(--long));opacity:.85"><i style="position:absolute;left:${pos}%;top:-4px;width:4px;height:16px;margin-left:-2px;border-radius:2px;background:var(--fg)"></i></div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;margin:0 6px" class="muted"><span>偏空</span><span>震盪</span><span>偏多</span></div>
-    <p style="font-size:12.5px;line-height:1.5;margin:8px 2px 4px;padding:8px 10px;border-radius:8px;background:var(--raise)">${esc(a.advice)}</p>
-    <div style="font-size:11.5px;font-weight:700;margin:4px 2px 2px" class="muted">趨勢（順勢）</div><ul style="list-style:none;margin:0;padding:0 2px;display:grid;gap:4px">${grp('趨勢')}</ul>
-    <div style="font-size:11.5px;font-weight:700;margin:6px 2px 2px" class="muted">情緒（太極端時反向）</div><ul style="list-style:none;margin:0;padding:0 2px;display:grid;gap:4px">${grp('情緒')}</ul>
-    <div class="tot" style="margin-top:6px">更新：${new Date(a.at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}｜僅供參考，非投資建議</div>`;
+  const grp=g=>a.factors.filter(x=>x.g===g).map(x=>`<li>${ic(x.s)}<span>${esc(x.txt)}</span></li>`).join('');
+  return `<div class="an-top"><div class="an-verdict"><div class="v" style="color:${col}">${a.verdict}</div>
+      <div class="s" style="color:${col}">總分 ${sg(a.score)}／滿分 ±${a.max}</div>
+      <div class="an-meter"><i style="left:${pos}%"></i></div>
+      <div style="display:flex;justify-content:space-between;font-size:11.5px" class="muted"><span>偏空</span><span>震盪</span><span>偏多</span></div>
+      <div class="muted" style="font-size:12.5px;margin-top:6px">趨勢 ${sg(a.trend)}｜情緒 ${sg(a.mood)}</div></div>
+    <div class="an-advice"><b>操作建議</b><br>${esc(a.advice).replace(/　/g,'<br>')}</div></div>
+    <div class="an-cols"><div><h3>趨勢（順勢加減分）</h3><ul>${grp('趨勢')}</ul></div><div><h3>情緒（太極端時反向）</h3><ul>${grp('情緒')}</ul></div></div>
+    <div class="an-foot">判斷方式：BTC 4H 均線 ±2，其他每項 ±1。總分 ≥4 偏多、2～3 略偏多、−1～1 震盪、−2～−3 略偏空、≤−4 偏空。資料：BingX、Binance／OKX、alternative.me、DeFiLlama、CoinGecko，每 15 分鐘隨掃描更新。只是大方向參考，不是投資建議。</div>`;
 }
+function renderAnalyst(){ const a=Sent.d&&Sent.d.analyst; if(!a) return;
+  $('anBtn').hidden=false; const b=$('anBadge'); b.hidden=false; b.textContent=a.verdict; b.style.background=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; b.style.color='#0b0f17';
+  if(!$('anModal').hidden){ $('anBody').innerHTML=analystHtml(a); $('anAt').textContent=`更新 ${new Date(a.at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`; } }
+$('anBtn').onclick=()=>{ $('anModal').hidden=false; renderAnalyst(); loadSent(); };
+$('anClose').onclick=()=>{ $('anModal').hidden=true; };
+$('anModal').addEventListener('click',e=>{ if(e.target===$('anModal')) $('anModal').hidden=true; });
 function stableHtml(x){
   const up=x.chg7>=0, col=x.chg7>0.5?'var(--long)':x.chg7<-0.5?'var(--short)':'var(--accent)', sr=x.series||[], lo=Math.min(...sr), hi=Math.max(...sr);
   const pts=sr.map((v,i)=>`${(10+i*(180/Math.max(1,sr.length-1))).toFixed(1)},${(70-(hi>lo?(v-lo)/(hi-lo):.5)*55).toFixed(1)}`).join(' ');
@@ -739,7 +744,7 @@ function renderSent(){
       <text x="100" y="62" text-anchor="middle" font-size="26" font-weight="700" fill="${col}" font-family="var(--f-mono)">${b.pct}%</text><text x="100" y="82" text-anchor="middle" font-size="11" font-weight="700" fill="${col}">${b.label}</text></svg>
       <div class="bars">${[['漲',b.up,'var(--long)'],['平',b.flat,'var(--accent)'],['跌',b.down,'var(--short)']].map(([k,n,c])=>`<div class="bar"><span style="color:${c};font-weight:700">${k}</span><i><b style="width:${(n/mx*100).toFixed(0)}%;background:${c}"></b></i><span class="n" style="color:${c}">${n}</span></div>`).join('')}</div>
       <div class="tot">共 ${b.total} 個合約</div>`; return; }
-  if(S.k==='analyst'||S.k==='stable'){ const x=d[S.k]; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…（下一輪掃描後出現）</p>'; return; } $('sentBody').innerHTML=S.k==='analyst'?analystHtml(x):stableHtml(x); return; }
+  if(S.k==='stable'){ const x=d.stable; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…（下一輪掃描後出現）</p>'; return; } $('sentBody').innerHTML=stableHtml(x); return; }
   if(S.k==='ls'||S.k==='oi'||S.k==='funding'){ const x=d[S.k]; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…（合約數據每 10 分鐘更新）</p>'; return; } $('sentBody').innerHTML=derivHtml(S.k,x); return; }
   const x=d[S.k]; if(!x){ $('sentBody').innerHTML='<p class="yd">資料準備中…</p>'; return; }
   const cur=S.scale.find(z=>x.now<=z[0])||S.scale[S.scale.length-1], diff=x.yday!=null? x.now-x.yday : null;
@@ -751,7 +756,7 @@ function renderSent(){
 const sentGo=i=>{ Sent.i=(i+SENT.length)%SENT.length; store.set('smc-sent-i2',Sent.i); renderSent(); };
 $('sentPrev').onclick=()=>sentGo(Sent.i-1); $('sentNext').onclick=()=>sentGo(Sent.i+1);
 $('sentDots').addEventListener('click',e=>{ const i=e.target.dataset&&e.target.dataset.i; if(i!=null) sentGo(+i); });
-async function loadSent(){ try{ const r=await fetch('api/sentiment',{cache:'no-store'}); if(!r.ok) return; Sent.d=await r.json(); $('sentPane').hidden=false; renderSent(); }catch(e){} }
+async function loadSent(){ try{ const r=await fetch('api/sentiment',{cache:'no-store'}); if(!r.ok) return; Sent.d=await r.json(); $('sentPane').hidden=false; renderSent(); renderAnalyst(); }catch(e){} }
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{
   await DataSource.init();
