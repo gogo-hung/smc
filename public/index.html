@@ -52,7 +52,7 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 /* ---- 版面：左側選單＋主內容 ---- */
 body{margin:0}
 .app{display:grid;grid-template-columns:208px minmax(0,1fr);min-height:100vh}
-.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:2px;padding:18px 12px;border-right:1px solid var(--line);background:color-mix(in srgb,var(--bg) 70%,#000 30%);overflow-y:auto}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:2px;padding:18px 12px;border-right:1px solid var(--line);background:var(--surface);overflow-y:auto}
 .side-brand{font-family:var(--f-display);font-size:24px;font-weight:700;padding:2px 12px 18px}
 .nav{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:500 14px var(--f-body);text-align:left;cursor:pointer;text-decoration:none}
 .nav:hover{background:var(--raise);color:var(--fg)}
@@ -60,7 +60,7 @@ body{margin:0}
 .nav .badge{margin-left:auto}
 .side-me{margin-top:auto;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:4px}
 .side-me button{align-self:flex-start;border:0;background:none;color:var(--accent);padding:2px 0;cursor:pointer;font:inherit}
-.app > .wrap{max-width:1500px;width:100%;margin:0 auto}
+.app > .wrap{max-width:1680px;width:100%;margin:0;padding-inline:24px;box-sizing:border-box}
 @media (max-width:900px){
   .app{grid-template-columns:minmax(0,1fr)}
   .side{position:sticky;top:0;z-index:15;height:auto;flex-direction:row;align-items:center;overflow-x:auto;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg)}
@@ -450,7 +450,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <h2 id="heroHi">歡迎回來</h2>
       <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
       <div class="summary">
-        <div class="stat t"><div class="label">持倉中 / 剛觸發</div><div class="n mono" id="nT">0</div></div>
+        <div class="stat t"><div class="label">剛觸發</div><div class="n mono" id="nT">0</div></div>
         <div class="stat w"><div class="label">等待 MACD 交叉</div><div class="n mono" id="nW">0</div></div>
         <div class="stat"><div class="label">BTC 4H</div><div class="n" id="nBtc">—</div></div>
         <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
@@ -682,11 +682,11 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   <div class="grid">
     <!-- SIGNAL BOARD -->
     <main class="pane board" aria-labelledby="boardT">
-      <h2 id="boardT">推薦幣種
+      <h2 id="boardT">訊號看板
         <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
         <span class="filters" role="group" aria-label="篩選">
-          <button class="seg" type="button" data-f="trigger" aria-pressed="true">持倉／觸發</button>
-          <button class="seg" type="button" data-f="watch" aria-pressed="false">等金叉</button>
+          <button class="seg" type="button" data-f="watch" aria-pressed="true">等交叉</button>
+          <button class="seg" type="button" data-f="trigger" aria-pressed="false">剛觸發</button>
           <button class="seg" type="button" data-f="all" aria-pressed="false">全部</button>
           <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
           <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>

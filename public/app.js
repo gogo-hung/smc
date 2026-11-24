@@ -71,7 +71,7 @@ function renderSum(){
 function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v11',rules); renderSum(); }
 
 // ---- state ----
-let results=[], selected=null, filt='trigger', dirF=0, tf='htf', prevTrig=null, q='';
+let results=[], selected=null, filt='watch', dirF=0, tf='htf', prevTrig=null, q='';
 const STAGES=[['htf','H4 趨勢'],['poi','回到 4H OB / FVG'],['choch','15M CHoCH 換方向'],['fvg15','15M 推動有 FVG'],['bos','1H 順勢 BOS'],['pd','折價 / 溢價區'],['live','掛單有效'],['ob','1H OB'],['engulf','1H 型態'],['rr','RR 達標'],['fib','斐波便宜區'],['ema','EMA 順勢'],['fvg','OB 帶 FVG'],['sweep','掃流動性'],['daily','日線同向']];
 const stagesOf=r=>STAGES.filter(([k])=>r.need.includes(k)||(r.bonus||[]).includes(k));
 
@@ -101,7 +101,7 @@ function scan(){
   const trig=new Set(results.filter(r=>r.status==='trigger').map(r=>r.sym));
   if(prevTrig){ [...trig].filter(s=>!prevTrig.has(s)).forEach(s=>{ const r=results.find(x=>x.sym===s); showToast(`${s} ${r.dir>0?'做多':'做空'}：${r.kind==='pos'?'已進場':'4H 觸發'}`); }); }
   prevTrig=trig;
-  $('nT').textContent=trig.size; $('nW').textContent=results.filter(r=>r.status==='watch').length; $('nA').textContent=results.length;
+  $('nT').textContent=results.filter(r=>r.status==='trigger'&&r.kind!=='pos').length; $('nW').textContent=results.filter(r=>r.status==='watch').length; $('nA').textContent=results.length;
   $('lastScan').textContent= DataSource.mode==='live' ? (DataSource.updatedAt? hhmm(new Date(DataSource.updatedAt)) : '掃描中') : hhmm(new Date());
   renderRows(); if(!$('detailModal').hidden && results.find(r=>r.sym===selected)) renderDetail();
   updateHero();
@@ -136,7 +136,7 @@ function spark(r){
   return `<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">${lvl}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
 }
 function renderRows(){
-  const view=results.filter(r=>(q ? r.sym.includes(q) : (filt==='all' || r.status===filt)) && (!dirF || r.dir===dirF));
+  const view=results.filter(r=>(q ? r.sym.includes(q) : (filt==='all' || (r.status===filt && !(filt==='trigger' && r.kind==='pos')))) && (!dirF || r.dir===dirF));   // 持倉已經在上面的持倉卡，看板的「剛觸發」不重複顯示
   const H4=4*3600e3;
   $('rows').innerHTML = view.map(r=>{
     const stages=TSTAGES.map(([k,n])=>`<i class="${r.st[k]?'on':''}" title="${n}"></i>`).join('');
@@ -167,7 +167,7 @@ function renderRows(){
   const nWatch=results.filter(r=>r.status==='watch').length;
   $('showWatch').hidden = !(!q && filt==='trigger' && nWatch);
   if(!$('showWatch').hidden) $('showWatch').textContent=`看等待金叉的 ${nWatch} 個幣`;
-  $('emptyTxt').textContent = !q ? (filt==='trigger' ? '目前沒有持倉或剛觸發的幣。4H 收盤出現「趨勢＋MACD 金叉＋爆量」時會出現在這裡，也會推到 Discord。' : '目前沒有符合篩選的幣。')
+  $('emptyTxt').textContent = !q ? (filt==='trigger' ? '目前沒有剛觸發的幣（持倉在上面的持倉卡）。4H 收盤出現「趨勢＋MACD 交叉＋爆量」時會出現在這裡，也會推到 Discord。' : '目前沒有符合篩選的幣。')
     : canAdd ? `${q} 不在目前的掃描名單裡。` : results.some(r=>r.sym.includes(q)) ? `有符合「${q}」的幣，但被「只看多 / 只看空」擋住了。` : `找不到「${q}」。`;
   $('addBtn').hidden=!canAdd; if(canAdd) $('addBtn').textContent=`把 ${q} 加入掃描`;
 }
