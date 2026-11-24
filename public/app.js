@@ -12,6 +12,7 @@ const DataSource = {
   async init(){
     let r;
     try{ r=await fetch('api/market',{cache:'no-store'}); }catch(e){ return; }
+    if(r.status===401){ location.replace('/login'); return new Promise(()=>{}); }
     if(!r.ok || !(r.headers.get('content-type')||'').includes('json')) return;
     this.mode='live'; this.list=[]; this.series={};
     await this.apply(await r.json());
@@ -21,7 +22,7 @@ const DataSource = {
     this.list=(j.symbols||[]).map(x=>x.sym);
     for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); if(x.m15) this.m15s[x.sym]=unpack(x.m15); }
   },
-  async refresh(){ const r=await fetch('api/market',{cache:'no-store'}); if(r.ok) await this.apply(await r.json()); },
+  async refresh(){ const r=await fetch('api/market',{cache:'no-store'}); if(r.status===401) return location.replace('/login'); if(r.ok) await this.apply(await r.json()); },
   ltf(sym){ if(this.mode==='demo'){ if(!this.series[sym]) this.series[sym]=SMC.genSeries(sym,BASE[sym],1920,SEED[sym]||1); return SMC.aggregate(this.series[sym],4); } return this.series[sym]; }, // 示範：15M 合成 1H
   htf(sym){ return this.mode==='live'? this.htfs[sym] : undefined; },
   m15(sym){ if(this.mode==='demo'){ this.ltf(sym); return this.series[sym]; } return this.m15s[sym]; },
@@ -757,6 +758,10 @@ const sentGo=i=>{ Sent.i=(i+SENT.length)%SENT.length; store.set('smc-sent-i2',Se
 $('sentPrev').onclick=()=>sentGo(Sent.i-1); $('sentNext').onclick=()=>sentGo(Sent.i+1);
 $('sentDots').addEventListener('click',e=>{ const i=e.target.dataset&&e.target.dataset.i; if(i!=null) sentGo(+i); });
 async function loadSent(){ try{ const r=await fetch('api/sentiment',{cache:'no-store'}); if(!r.ok) return; Sent.d=await r.json(); $('sentPane').hidden=false; renderSent(); renderAnalyst(); }catch(e){} }
+// ---- 會員：右上角顯示 UID、登出；管理員多一個「會員審核」 ----
+fetch('api/member/me',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(m=>{ if(!m) return;
+  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; $('adminLink').hidden=!m.admin; }).catch(()=>{});
+$('logoutBtn').onclick=async()=>{ await fetch('api/member/logout',{method:'POST'}).catch(()=>{}); location.replace('/login'); };
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{
   await DataSource.init();

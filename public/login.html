@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>聚寶盆｜會員登入</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0e1422;--line:#222c44;--fg:#e8edf7;--muted:#9fb2d9;--dim:#6d7da3;--gold:#f0b44c;--green:#2fbf9b;--red:#ee6a6a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Noto Sans TC',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+a{color:var(--gold)}a:hover{color:#ffd27a}
+.wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:40px;padding:56px 0 64px}
+.hero{display:flex;flex-direction:column;align-items:center;gap:12px;padding:0 24px;text-align:center}
+.live{margin:0;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--green)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.4s infinite}
+h1{margin:0;font-size:52px;font-weight:900;line-height:1.15}
+.sub{margin:0;font-size:17px;color:var(--muted)}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes drop{0%{transform:translate(0,-140px);opacity:0}15%{opacity:1}80%{opacity:1}100%{transform:translate(0,0);opacity:0}}
+@keyframes fill{0%{height:8%}100%{height:92%}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.chain{position:relative;width:100%;padding-top:40px;display:flex;align-items:center;gap:18px}
+.view{flex:1;min-width:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%);mask-image:linear-gradient(90deg,transparent,#000 12%)}
+.track{display:flex;gap:18px;width:max-content;animation:slide 36s linear infinite}
+.blk{width:190px;flex:0 0 auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px;position:relative}
+.blk::after{content:"";position:absolute;right:-19px;top:50%;width:18px;height:2px;background:#2b3756}
+.h{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px}
+.x{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--dim)}
+.t{font-size:12px;color:var(--muted)}
+.pend{position:relative;width:190px;flex:0 0 auto;margin-right:6%;padding:16px;border-radius:12px;border:1px dashed var(--gold);background:#140f05;display:flex;flex-direction:column;gap:8px}
+.bar{position:relative;height:34px;border-radius:6px;background:#241a08;overflow:hidden}
+.bar i{position:absolute;left:0;bottom:0;width:100%;background:var(--gold);opacity:.35;animation:fill 6s linear infinite}
+.tx{position:absolute;top:0;width:10px;height:10px;border-radius:3px;animation:drop 2.4s ease-in infinite}
+@media (max-width:700px){.pend{display:none}h1{font-size:40px}}
+@media (prefers-reduced-motion:reduce){.track,.tx,.bar i,.live i{animation:none}}
+.card{width:min(440px,calc(100% - 48px));display:flex;flex-direction:column;gap:14px;padding:28px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border-radius:10px;background:#070b14}
+.tabs button{height:40px;border:0;border-radius:8px;background:transparent;color:var(--muted);font:700 15px 'Noto Sans TC',sans-serif;cursor:pointer}
+.tabs button[aria-selected="true"]{background:#1a2238;color:var(--fg)}
+label{font-size:13px;color:var(--muted)}
+.hint{font-size:12px;color:var(--dim);margin-top:-8px}
+input{height:46px;padding:0 14px;border-radius:10px;border:1px solid #2a3550;background:#070b14;color:var(--fg);font-size:15px;font-family:inherit;width:100%}
+input:focus{outline:2px solid var(--gold);outline-offset:1px;border-color:transparent}
+.go{height:48px;margin-top:6px;border:0;border-radius:10px;background:var(--gold);color:#1a1205;font:900 16px 'Noto Sans TC',sans-serif;cursor:pointer}
+.go:disabled{opacity:.6;cursor:wait}
+.msg{margin:0;font-size:14px;line-height:1.6;padding:10px 12px;border-radius:8px}
+.msg.ok{background:rgba(47,191,155,.12);color:#7fe0c4}.msg.bad{background:rgba(238,106,106,.12);color:#ffb0b0}
+.foot{margin:0;text-align:center;font-size:13px;color:var(--dim)}
+.foot button{border:0;background:none;color:var(--dim);text-decoration:underline;cursor:pointer;font:inherit;padding:4px}
+.f[hidden]{display:none}
+.f{display:flex;flex-direction:column;gap:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <p class="live"><i></i>LIVE · 鏈上區塊持續產生中</p>
+    <h1>聚寶盆</h1>
+    <p class="sub">市場每秒都在出新區塊，訊號一觸發就推到你的 Discord</p>
+  </div>
+
+  <div class="chain" aria-hidden="true">
+    <div class="view"><div class="track" id="track"></div></div>
+    <div class="pend">
+      <span class="x" style="color:var(--gold)">打包中…</span>
+      <span class="h" style="color:var(--gold)" id="pendH">#—</span>
+      <div class="bar"><i></i></div>
+      <span class="t" style="color:#d8b679">收集交易中</span>
+      <span class="tx" style="left:30px;background:#2fbf9b"></span>
+      <span class="tx" style="left:70px;background:#8aa4ff;animation-delay:.5s"></span>
+      <span class="tx" style="left:110px;background:#f0b44c;animation-delay:1s"></span>
+      <span class="tx" style="left:150px;background:#ee6a6a;animation-delay:1.5s"></span>
+      <span class="tx" style="left:90px;background:#6ec6ff;animation-delay:2s"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
+      <button type="button" role="tab" id="tabApply" aria-selected="false">申請會員</button>
+    </div>
+
+    <form class="f" id="fLogin">
+      <label for="lUid">BingX UID</label>
+      <input id="lUid" inputmode="numeric" autocomplete="username" placeholder="例：123456789" required>
+      <label for="lPw">密碼</label>
+      <input id="lPw" type="password" autocomplete="current-password" required>
+      <button class="go" type="submit">登入</button>
+    </form>
+
+    <form class="f" id="fApply" hidden>
+      <label for="aUid">BingX UID</label>
+      <input id="aUid" inputmode="numeric" autocomplete="username" placeholder="例：123456789" required>
+      <p class="hint">BingX App →「我的」→ 頭像下方的 UID，可以直接複製</p>
+      <label for="aName">Discord 名稱</label>
+      <input id="aName" maxlength="40" placeholder="方便審核後在 DC 找到你">
+      <label for="aPw">設定登入密碼</label>
+      <input id="aPw" type="password" autocomplete="new-password" minlength="6" placeholder="至少 6 個字" required>
+      <button class="go" type="submit">送出申請</button>
+    </form>
+
+    <form class="f" id="fAdmin" hidden>
+      <label for="adPw">管理員密碼</label>
+      <input id="adPw" type="password" autocomplete="current-password" required>
+      <button class="go" type="submit">管理員登入</button>
+    </form>
+
+    <p class="msg" id="msg" role="status" hidden></p>
+    <p class="foot"><button type="button" id="adminLink">管理員登入</button></p>
+  </div>
+</div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  // 區塊輸送帶
+  let n = 21804113 + Math.floor((Date.now() - 1.79e12) / 12000) % 900000;
+  const hex = () => '0x' + Math.random().toString(16).slice(2, 6) + '…' + Math.random().toString(16).slice(2, 6);
+  const blocks = Array.from({ length: 6 }, (_, i) => `<div class="blk"><span class="x">BLOCK</span><span class="h">#${(n + i).toLocaleString('en-US')}</span><span class="x">${hex()}</span><span class="t">${(800 + Math.floor(Math.random() * 800)).toLocaleString('en-US')} 筆交易</span></div>`).join('');
+  $('track').innerHTML = blocks + blocks;
+  $('pendH').textContent = '#' + (n + 6).toLocaleString('en-US');
+
+  const forms = { login: $('fLogin'), apply: $('fApply'), admin: $('fAdmin') };
+  const show = k => { for (const [x, f] of Object.entries(forms)) f.hidden = x !== k; $('tabLogin').setAttribute('aria-selected', k === 'login'); $('tabApply').setAttribute('aria-selected', k === 'apply'); $('msg').hidden = true; };
+  $('tabLogin').onclick = () => show('login'); $('tabApply').onclick = () => show('apply');
+  $('adminLink').onclick = () => show(forms.admin.hidden ? 'admin' : 'login');
+  const say = (t, ok) => { const m = $('msg'); m.textContent = t; m.className = 'msg ' + (ok ? 'ok' : 'bad'); m.hidden = false; };
+  async function post(url, body, btn) {
+    btn.disabled = true;
+    try { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return { ok: r.ok, j: await r.json().catch(() => ({})) }; }
+    catch (e) { return { ok: false, j: { error: '連不到伺服器，請稍後再試' } }; }
+    finally { btn.disabled = false; }
+  }
+  const next = () => location.replace(new URLSearchParams(location.search).get('next') === 'admin' ? '/admin' : '/');
+  forms.login.onsubmit = async e => { e.preventDefault(); const r = await post('/api/member/login', { uid: $('lUid').value, password: $('lPw').value }, e.submitter || forms.login.querySelector('button'));
+    if (r.ok) return next(); say(r.j.error || '登入失敗', r.j.status === 'pending'); };
+  forms.apply.onsubmit = async e => { e.preventDefault(); const r = await post('/api/member/apply', { uid: $('aUid').value, name: $('aName').value, password: $('aPw').value }, forms.apply.querySelector('button'));
+    if (r.ok) { show('login'); $('lUid').value = $('aUid').value; say('申請已送出！審核通過後就能用 UID 和剛剛設定的密碼登入。', true); } else say(r.j.error || '申請失敗'); };
+  forms.admin.onsubmit = async e => { e.preventDefault(); const r = await post('/api/member/login', { admin: true, password: $('adPw').value }, forms.admin.querySelector('button'));
+    if (r.ok) return location.replace('/admin'); say(r.j.error || '登入失敗'); };
+  if (new URLSearchParams(location.search).get('next') === 'admin') show('admin');
+  fetch('/api/member/me').then(r => { if (r.ok) location.replace('/'); }).catch(() => {});
+})();
+</script>
+</body>
+</html>

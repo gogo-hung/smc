@@ -1,6 +1,6 @@
 // 離線測試：用假的 BingX / 日曆 / 財報回應跑完整流程（不需要網路）
 // npm test
-Object.assign(process.env, { HISTORY_PAGE: '100', TELEGRAM_BOT_TOKEN: '', TOP_N: '20', REQUEST_GAP_MS: '0', PORT: '0', ALERT_MAX_AGE_BARS: '0', ADMIN_TOKEN: 'pw', EARNINGS_TICKERS: 'NVDA' });
+Object.assign(process.env, { HISTORY_PAGE: '100', TELEGRAM_BOT_TOKEN: '', TOP_N: '20', REQUEST_GAP_MS: '0', PORT: '0', ALERT_MAX_AGE_BARS: '0', ADMIN_TOKEN: 'pw', EARNINGS_TICKERS: 'NVDA', MEMBER_GATE: 'off' });
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');

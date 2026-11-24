@@ -11,8 +11,12 @@ const journal = require('./journal');
 const earnings = require('./earnings');
 const store = require('./store');
 const notify = require('./notify');
+const members = require('./members');
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+// 會員門禁：預設開啟；MEMBER_GATE=off 關掉（測試用）
+const GATE = process.env.MEMBER_GATE !== 'off';
+const OPEN_API = new Set(['/api/health', '/api/ping', '/api/cron']);   // 叫醒用，不用登入
 const PUBLIC_DIR = path.join(cfg.ROOT, 'public');
 const STATIC = {
   '/': [path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8'],
@@ -20,7 +24,15 @@ const STATIC = {
   '/app.js': [path.join(PUBLIC_DIR, 'app.js'), 'text/javascript; charset=utf-8'],
   '/smc.js': [path.join(__dirname, 'smc.js'), 'text/javascript; charset=utf-8'],
   '/trend.js': [path.join(__dirname, 'trend.js'), 'text/javascript; charset=utf-8'],
+  '/login': [path.join(PUBLIC_DIR, 'login.html'), 'text/html; charset=utf-8'],
+  '/admin': [path.join(PUBLIC_DIR, 'admin.html'), 'text/html; charset=utf-8'],
 };
+const cookieOf = req => { const m = /(?:^|;\s*)jbp=([a-f0-9]{48})/.exec(req.headers.cookie || ''); return m ? m[1] : null; };
+const ipOf = req => String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+function setCookie(res, token, req) {
+  const secure = (req.headers['x-forwarded-proto'] || '') === 'https' ? '; Secure' : '';
+  res.setHeader('Set-Cookie', token ? `jbp=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${30 * 86400}${secure}` : `jbp=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
+}
 
 const pack = bars => bars.map(b => [b.t, b.o, b.h, b.l, b.c, b.v]);
 const brief = r => ({
@@ -61,6 +73,30 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const s = scanner.state;
   try {
+    await members.init();
+    const me = members.who(cookieOf(req)) || (ADMIN_TOKEN && req.headers['x-admin-token'] === ADMIN_TOKEN ? { uid: 'admin', admin: true } : null);
+    // ---- 會員 API ----
+    if (url.pathname === '/api/member/apply' && req.method === 'POST') {
+      try { return send(res, 200, await members.apply(await readBody(req))); } catch (e) { return send(res, e.code || 500, { error: e.message }); }
+    }
+    if (url.pathname === '/api/member/login' && req.method === 'POST') {
+      try {
+        const b = await readBody(req);
+        const token = b.admin ? (ADMIN_TOKEN && b.password === ADMIN_TOKEN ? await members.newSession('admin') : (() => { throw Object.assign(new Error('管理員密碼錯誤'), { code: 401 }); })()) : await members.login(b, ipOf(req));
+        setCookie(res, token, req); return send(res, 200, { ok: true });
+      } catch (e) { return send(res, e.code || 500, { error: e.message, ...(e.extra || {}) }); }
+    }
+    if (url.pathname === '/api/member/logout' && req.method === 'POST') { await members.logout(cookieOf(req)); setCookie(res, null, req); return send(res, 200, { ok: true }); }
+    if (url.pathname === '/api/member/me') return me ? send(res, 200, { ...me, gate: GATE }) : send(res, 401, { error: '沒有登入', gate: GATE });
+    if (url.pathname === '/api/admin/members') {
+      if (!authorized(req) && !(me && me.admin)) return send(res, 401, { error: '需要管理員密碼' });
+      try { return send(res, 200, req.method === 'POST' ? await members.act(await readBody(req)) : await members.list()); } catch (e) { return fail(res, e); }
+    }
+    // ---- 門禁：沒登入只能看登入頁 ----
+    if (GATE && !me) {
+      if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) { res.writeHead(302, { Location: '/login', 'Cache-Control': 'no-store' }); return res.end(); }
+      if (url.pathname.startsWith('/api/') && !OPEN_API.has(url.pathname)) return send(res, 401, { error: '請先登入會員' });
+    }
     if (req.method === 'GET' && STATIC[url.pathname]) {
       const [file, type] = STATIC[url.pathname];
       return send(res, 200, fs.readFileSync(file), type);

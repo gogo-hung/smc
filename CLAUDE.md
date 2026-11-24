@@ -25,6 +25,8 @@ SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建�
 - `src/tracker.js`：建單、追蹤（保本／移動止損／出場）、成績單、推播文字（`onTrend`）
 - `src/notify.js`：Discord Webhook／Telegram；卡片顏色依標題文字決定
 - `src/sentiment.js`：右側情緒卡（市場平均 RSI、恐懼貪婪、整體市場、BTC 多空比／未平倉量、穩定幣、資金費率；Binance 失敗改 OKX）＋「分析師」頁（`analyze()` 把以上數據用固定規則打分判斷多空，頁首「分析師」按鈕打開）
+- `src/members.js`：會員（BingX UID＋自設密碼申請 → `/admin` 後台審核通過才能登入）；session 存 cookie `jbp`（30 天）。`MEMBER_GATE` 預設開：沒登入的人首頁導到 `/login`、`/api/*` 回 401（`/api/ping`、`/api/health`、`/api/cron` 例外）。管理員在登入頁按「管理員登入」輸入 `ADMIN_TOKEN`
+- `public/login.html`（登入頁，區塊輸送帶動畫）、`public/admin.html`（會員審核）
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
 - `public/index.html`、`public/app.js`：前端（推薦幣種＝策略①看板、詳情 4H 圖、情緒卡）
 - `.github/workflows/keepalive.yml`：每 10 分鐘叫醒 Render；掃描超過 40 分鐘沒更新會失敗並寄信
@@ -42,7 +44,7 @@ TP2: 移動止損出場（…）
 
 ## 開發
 - `npm start` 本機跑（需要 `.env`：`DISCORD_WEBHOOK_URL`、`ADMIN_TOKEN`、`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`，對照 Render 的 Environment）
-- `npm test`：`test/mock-test.js`（假 BingX 跑完整流程）＋ `test/trend-test.js`（策略①建單→保本→移動止損→出場）。改完一定要跑。
+- `npm test`：`test/mock-test.js`（假 BingX 跑完整流程，`MEMBER_GATE=off`）＋ `test/trend-test.js`（策略①建單→保本→移動止損→出場）＋ `test/member-test.js`（申請→審核→登入→門禁→停用）。改完一定要跑。
 - 改策略規則前先在 `research` 分支回測，兩年（2025、2026）都要賺、回撤要用「同時持倉」的方式看，才上線。
 
 ## 研究結論（避免重做）

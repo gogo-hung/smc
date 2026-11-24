@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>聚寶盆｜會員審核</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06090f;--card:#0e1422;--line:#222c44;--fg:#e8edf7;--muted:#9fb2d9;--dim:#6d7da3;--gold:#f0b44c;--green:#2fbf9b;--red:#ee6a6a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Noto Sans TC',system-ui,sans-serif}
+a{color:var(--gold)}
+.wrap{max-width:960px;margin:0 auto;padding:32px 16px 64px;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}
+h1{margin:0;font-size:26px;font-weight:900}
+.stats{display:flex;flex-wrap:wrap;gap:10px}
+.stat{padding:10px 16px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-size:13px;color:var(--muted)}
+.stat b{display:block;font-size:22px;color:var(--fg);font-family:'JetBrains Mono',monospace}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filters button,.btn{height:38px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--muted);font:700 14px 'Noto Sans TC',sans-serif;cursor:pointer}
+.filters button[aria-pressed="true"]{background:#1a2238;color:var(--fg);border-color:#3a4870}
+.list{display:flex;flex-direction:column;gap:10px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding:14px 16px;border-radius:12px;background:var(--card);border:1px solid var(--line)}
+.uid{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700}
+.meta{font-size:12.5px;color:var(--dim);margin-top:4px;line-height:1.6}
+.tag{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;vertical-align:2px}
+.tag.pending{background:rgba(240,180,76,.15);color:var(--gold)}.tag.approved{background:rgba(47,191,155,.15);color:var(--green)}.tag.rejected{background:rgba(238,106,106,.15);color:var(--red)}
+.acts{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.btn.ok{background:var(--green);color:#04201a;border-color:transparent}
+.btn.no{color:var(--red)}
+.empty{padding:40px;text-align:center;color:var(--dim);border:1px dashed var(--line);border-radius:12px}
+.copy{margin-left:6px;border:0;background:none;color:var(--dim);cursor:pointer;font-size:12px;text-decoration:underline;padding:2px}
+@media (max-width:560px){.row{grid-template-columns:1fr}.acts{justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>會員審核</h1>
+    <div style="display:flex;gap:8px"><a class="btn" href="/" style="display:inline-flex;align-items:center;text-decoration:none">回網站</a><button class="btn" type="button" id="refresh">重新整理</button></div>
+  </header>
+  <p style="margin:0;color:var(--muted);font-size:14px;line-height:1.7">到 BingX 代理後台的「邀請用戶」確認 UID 是你邀請的，再按「通過」。通過後對方就能用 UID 和自己設的密碼登入；「停用」會立刻把他登出。</p>
+  <div class="stats" id="stats"></div>
+  <div class="filters" id="filters"></div>
+  <div class="list" id="list"><div class="empty">載入中…</div></div>
+</div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ZH = { pending: '待審核', approved: '已開通', rejected: '未通過／停用' };
+  const ft = t => t ? new Date(t).toLocaleString('zh-TW', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  let all = [], filter = 'pending';
+  async function api(body) {
+    const r = await fetch('/api/admin/members', body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+    if (r.status === 401) { location.replace('/login?next=admin'); return null; }
+    const j = await r.json().catch(() => ({})); if (!r.ok) { alert(j.error || '失敗'); return null; } return j;
+  }
+  function render() {
+    const c = s => all.filter(m => m.status === s).length;
+    $('stats').innerHTML = [['待審核', c('pending')], ['已開通', c('approved')], ['未通過／停用', c('rejected')]].map(([k, v]) => `<div class="stat">${k}<b>${v}</b></div>`).join('');
+    $('filters').innerHTML = [['pending', '待審核'], ['approved', '已開通'], ['rejected', '未通過／停用'], ['all', '全部']].map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${filter === k}">${t}</button>`).join('');
+    const rows = all.filter(m => filter === 'all' || m.status === filter);
+    $('list').innerHTML = rows.length ? rows.map(m => `<div class="row"><div>
+        <span class="uid">${esc(m.uid)}</span><button class="copy" type="button" data-copy="${esc(m.uid)}">複製</button><span class="tag ${m.status}">${ZH[m.status]}</span>
+        <div class="meta">Discord：${esc(m.name) || '—'}｜申請 ${ft(m.at)}${m.approvedAt ? `｜開通 ${ft(m.approvedAt)}` : ''}${m.lastLogin ? `｜最後登入 ${ft(m.lastLogin)}` : ''}${m.note ? `｜原因：${esc(m.note)}` : ''}</div></div>
+        <div class="acts">${m.status !== 'approved' ? `<button class="btn ok" type="button" data-a="approve" data-u="${esc(m.uid)}">通過</button>` : ''}
+          ${m.status === 'pending' ? `<button class="btn no" type="button" data-a="reject" data-u="${esc(m.uid)}">不通過</button>` : ''}
+          ${m.status === 'approved' ? `<button class="btn no" type="button" data-a="revoke" data-u="${esc(m.uid)}">停用</button>` : ''}
+          <button class="btn" type="button" data-a="delete" data-u="${esc(m.uid)}">刪除</button></div></div>`).join('')
+      : `<div class="empty">${filter === 'pending' ? '目前沒有待審核的申請' : '沒有資料'}</div>`;
+  }
+  async function load() { const j = await api(); if (j) { all = j; render(); } }
+  $('filters').onclick = e => { const f = e.target.dataset.f; if (f) { filter = f; render(); } };
+  $('list').onclick = async e => {
+    const cp = e.target.dataset.copy; if (cp) { navigator.clipboard && navigator.clipboard.writeText(cp); e.target.textContent = '已複製'; return; }
+    const a = e.target.dataset.a, uid = e.target.dataset.u; if (!a) return;
+    let note = '';
+    if (a === 'reject' || a === 'revoke') { note = prompt(a === 'reject' ? '不通過的原因（會顯示給對方，可留空）：' : '停用原因（可留空）：', a === 'reject' ? '不是用推薦碼註冊' : ''); if (note === null) return; }
+    if (a === 'delete' && !confirm(`確定刪除 ${uid}？對方要重新申請。`)) return;
+    const j = await api({ uid, action: a, note }); if (j) { all = j; render(); }
+  };
+  $('refresh').onclick = load;
+  load(); setInterval(load, 60000);
+})();
+</script>
+</body>
+</html>
