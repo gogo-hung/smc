@@ -23,7 +23,7 @@ function trendSeries(h4) { const c = h4.map(b => b.c), e50 = ema(c, 50), e200 = 
 function aligner(hi, tfHi) { let j = -1; return closeT => { while (j + 1 < hi.length && hi[j + 1].t + tfHi <= closeT) j++; return j; }; }
 
 // ---- 模擬：訊號在第 i 根收盤，下一根開盤進場；同一根同時碰止損和止盈算止損 ----
-function simulate(bars, sigs, tf) {
+function simulate(bars, sigs, tf, fee = FEE) {
   const out = []; let busy = -1;
   for (const s of sigs) {
     if (s.i <= busy || s.i + 1 >= bars.length) continue;
@@ -37,7 +37,7 @@ function simulate(bars, sigs, tf) {
       if (s.flip && s.flip(j)) { exit = b.c; break; }
     }
     if (exit == null) { j = last; exit = bars[last].c; }
-    const R = s.dir * (exit - e) / risk - 2 * FEE * e / risk;
+    const R = s.dir * (exit - e) / risk - 2 * fee * e / risk;
     out.push({ inT: bars[s.i + 1].t, t: bars[j].t + tf, R, dir: s.dir, hold: (bars[j].t + tf - bars[s.i + 1].t) / H });
     busy = j;
   }
@@ -45,7 +45,41 @@ function simulate(bars, sigs, tf) {
 }
 
 // ---- 策略 ----
+function stStrat(n, k, rr, fee) { return (d) => {
+  const b = d.ltf, A = atr(b), st = supertrend(b, n, k), tr = trendSeries(d.htf), al = aligner(d.htf, H4), sigs = [];
+  for (let i = 210; i < b.length; i++) { const j = al(b[i].t + H); if (j < 0) continue; const dir = tr[j]; if (!dir) continue;
+    if (st.dir[i] === dir && st.dir[i - 1] === -dir) { const dist = Math.max(Math.abs(b[i].c - st.line[i]), 0.5 * A[i]); sigs.push({ i, dir, riskAbs: dist, rr, maxBars: 24, flip: kk => st.dir[kk] === -dir }); } }
+  return simulate(b, sigs, H, fee);
+}; }
+// ICT：亞洲盤（UTC 0–8）高低點被掃 → 15M 收盤破掉掃之前最後一個反向擺動點（CHoCH）→ 進場，止損在掃的極值外，當天平倉
+function ictSweep(filter, rr) { return (d) => {
+  const b = d.m15; if (!b) return [];
+  const A = atr(b), tr = trendSeries(d.htf), al = aligner(d.htf, H4), sigs = [];
+  let day = -1, hi = -Infinity, lo = Infinity, sw = null, done = false;
+  for (let i = 6; i < b.length; i++) {
+    const dd = Math.floor(b[i].t / DAY), hr = (b[i].t % DAY) / H;
+    if (dd !== day) { day = dd; hi = -Infinity; lo = Infinity; sw = null; done = false; }
+    if (hr < 8) { hi = Math.max(hi, b[i].h); lo = Math.min(lo, b[i].l); continue; }
+    if (done || hr >= 16 || !isFinite(hi)) continue;
+    if (!sw) {
+      if (b[i].l < lo) sw = { dir: 1, ext: b[i].l, lvl: Math.max(...b.slice(i - 6, i).map(x => x.h)), at: i };
+      else if (b[i].h > hi) sw = { dir: -1, ext: b[i].h, lvl: Math.min(...b.slice(i - 6, i).map(x => x.l)), at: i };
+      continue;
+    }
+    if (sw.dir > 0) sw.ext = Math.min(sw.ext, b[i].l); else sw.ext = Math.max(sw.ext, b[i].h);
+    if (i - sw.at > 16) { sw = null; continue; }
+    const choch = sw.dir > 0 ? b[i].c > sw.lvl : b[i].c < sw.lvl; if (!choch) continue;
+    if (filter) { const j = al(b[i].t + M15); if (j < 0 || tr[j] !== sw.dir) { sw = null; continue; } }
+    done = true;
+    sigs.push({ i, dir: sw.dir, stop: sw.ext - sw.dir * 0.1 * A[i], rr, maxBars: 96, exitAt: (day + 1) * DAY - M15 });
+  }
+  return simulate(b, sigs, M15);
+}; }
+
 const S = {
+  'F｜ICT 亞洲盤掃流動性＋15M CHoCH（不分方向）｜2R': ictSweep(false, 2),
+  'F｜ICT 亞洲盤掃流動性＋15M CHoCH（4H 順勢才做）｜2R': ictSweep(true, 2),
+  'F｜ICT 亞洲盤掃流動性＋15M CHoCH（4H 順勢才做）｜3R': ictSweep(true, 3),
   'A｜1H 動能（4H 順勢＋1H MACD 交叉＋爆量）': (d) => {
     const b = d.ltf, c = b.map(x => x.c), h = macdHist(c), v = sma(b.map(x => x.v), 20), A = atr(b), e50 = ema(c, 50), tr = trendSeries(d.htf), al = aligner(d.htf, H4), sigs = [];
     for (let i = 210; i < b.length; i++) { const j = al(b[i].t + H); if (j < 0) continue; const dir = tr[j]; if (!dir) continue;
@@ -128,6 +162,19 @@ const f = (x, d = 1) => (x >= 0 ? '+' : '') + x.toFixed(d);
     }
     console.log(name, 'done', all.length);
   }
+  // ---- C 穩定度測試 ----
+  md += `\n## C（1H Supertrend）穩定度\n\n### 1. 換參數（同時 5 筆）\n\n| Supertrend | 止盈 | 手續費 | 筆數 | 2025 | 2026 | 合計 | 回撤 | 平均每筆 |\n|---|---|---|---|---|---|---|---|---|\n`;
+  const runAll = fn => { let all = []; for (const s of syms) all = all.concat(fn(data[s])); return all; };
+  for (const [n, k] of [[10, 2], [10, 3], [14, 3], [10, 4], [20, 3]]) for (const rr of [1.5, 2, 3, 99]) for (const fee of rr === 2 && n === 10 && k === 3 ? [FEE, 0.05 / 100] : [FEE]) {
+    const x = stat(cap(runAll(stStrat(n, k, rr, fee)), 5), t0); if (!x) continue;
+    md += `| (${n}, ${k}) | ${rr === 99 ? '翻色才出' : rr + 'R'} | ${(fee * 100).toFixed(3)}% | ${x.n} | ${f(x.y25)}R | ${f(x.y26)}R | ${f(x.tot)}R | ${x.dd.toFixed(1)}R | ${f(x.avg, 3)}R |\n`;
+  }
+  { const all = runAll(stStrat(10, 3, 2, FEE)).filter(r => r.inT >= t0); let pos = 0, both = 0; const tots = [];
+    for (let k = 0; k < 200; k++) { const sh = all.map(r => ({ ...r, key: r.inT + Math.random() * H * 0.999 })).sort((a, b) => a.key - b.key); const acc = [], open = [];
+      for (const r of sh) { while (open.length && open[0] <= r.inT) open.shift(); if (open.length >= 5) continue; acc.push(r); open.push(r.t); open.sort((a, b) => a - b); }
+      const x = stat(acc, t0); tots.push(x.tot); if (x.tot > 0) pos++; if (x.y25 > 0 && x.y26 > 0) both++; }
+    tots.sort((a, b) => a - b);
+    md += `\n### 2. 同一小時內誰先進場隨機打亂 200 次（同時 5 筆）\n\n合計賺錢 ${pos}/200 次、兩年都賺 ${both}/200 次；合計 R 的中位數 ${f(tots[100])}R，最差 5% ${f(tots[10])}R，最好 5% ${f(tots[189])}R\n`; }
   const ok = rows.filter(r => r.g === '同時 5 筆' && r.y25 > 0 && r.y26 > 0);
   md += `\n**兩年都賺（同時 5 筆）**：${ok.length ? ok.map(r => r.name).join('、') : '沒有'}\n`;
   console.log(md); fs.writeFileSync(OUT, md);
