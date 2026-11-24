@@ -48,6 +48,7 @@ const server = require('../src/server');
   assert.strictEqual((await req('GET', '/api/member/me', null, { cookie: c })).json().uid, '12345678');
   assert.notStrictEqual((await req('GET', '/api/sentiment', null, { cookie: c })).status, 401);
   assert.strictEqual((await req('GET', '/api/admin/members', null, { cookie: c })).status, 401, '一般會員不能進後台');
+  assert.strictEqual((await req('GET', '/api/history?sym=BTC&days=7', null, { cookie: c })).status, 403, '一般會員不能用回測');
 
   // 停用 → 立刻登出
   await req('POST', '/api/admin/members', { uid: '12345678', action: 'revoke', note: '測試' }, { cookie: adminCk });

@@ -25,7 +25,7 @@ SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建�
 - `src/tracker.js`：建單、追蹤（保本／移動止損／出場）、成績單、推播文字（`onTrend`）
 - `src/notify.js`：Discord Webhook／Telegram；卡片顏色依標題文字決定
 - `src/sentiment.js`：右側情緒卡（市場平均 RSI、恐懼貪婪、整體市場、BTC 多空比／未平倉量、穩定幣、資金費率；Binance 失敗改 OKX）＋「分析師」頁（`analyze()` 把以上數據用固定規則打分判斷多空，頁首「分析師」按鈕打開）
-- `src/members.js`：會員（不開放註冊；超級管理者在 `/admin` 新增會員＝BingX UID＋初始密碼，可停用／重設密碼）；session 存 cookie `jbp`（30 天）。`MEMBER_GATE` 預設開：沒登入的人首頁導到 `/login`、`/api/*` 回 401（`/api/ping`、`/api/health`、`/api/cron` 例外）。超級管理者帳號 `admin`，密碼只存雜湊（`SUPER_HASH`，可用環境變數 `SUPER_ADMIN_HASH` 換）；密碼填 `ADMIN_TOKEN` 也能登入
+- `src/members.js`：會員（回測頁和 `/api/history` 只有管理員能用；不開放註冊；超級管理者在 `/admin` 新增會員＝BingX UID＋初始密碼，可停用／重設密碼）；session 存 cookie `jbp`（30 天）。`MEMBER_GATE` 預設開：沒登入的人首頁導到 `/login`、`/api/*` 回 401（`/api/ping`、`/api/health`、`/api/cron` 例外）。超級管理者帳號 `admin`，密碼只存雜湊（`SUPER_HASH`，可用環境變數 `SUPER_ADMIN_HASH` 換）；密碼填 `ADMIN_TOKEN` 也能登入
 - `public/login.html`（登入頁，區塊輸送帶動畫）、`public/admin.html`（會員管理）
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
 - `public/index.html`、`public/app.js`：前端（交易室版面：左側選單，每個按鈕是一個分頁（`go()`，網址 `#stats`、`#analyst`、`#globe`…，上一頁可回）；總覽＝歡迎卡／分析師＋6 個情緒小卡＋持倉卡（止損→TP1 軌道）＋推薦幣種看板＋右欄「今天的重要數據／最新推播／情緒卡」；「資金流地球」是獨立全螢幕頁，可拖曳旋轉、滾輪縮放；整頁滑鼠光暈）

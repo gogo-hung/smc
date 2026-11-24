@@ -331,7 +331,7 @@ const PANE2VIEW=Object.fromEntries(Object.entries(VIEWS).filter(([,v])=>v[1]).ma
 const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal(), anView:()=>{ renderAnalyst(); loadSent(); }};
 let view='home';
 function go(v,push=true){
-  if(!VIEWS[v]) v='home'; view=v; document.querySelector('.wrap').dataset.view=v;
+  if(!VIEWS[v] || (v==='bt' && $('btBtn').hidden)) v='home'; view=v; document.querySelector('.wrap').dataset.view=v;
   for(const [k,[bt,el]] of Object.entries(VIEWS)){ const on=k===v; if(el) $(el).hidden=!on; const b=$(bt); if(b){ b.removeAttribute('aria-expanded'); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); } }
   if(typeof Globe!=='undefined'){ if(v==='globe') Globe.show(); else Globe.hide(); }
   const el=VIEWS[v][1]; if(el&&onOpen[el]) onOpen[el]();
@@ -884,7 +884,7 @@ go(location.hash.slice(1)||'home',false);   // 直接打開 #stats 這種網址�
 })();
 // ---- 會員：右上角顯示 UID、登出；管理員多一個「會員審核」 ----
 fetch('api/member/me',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(m=>{ if(!m) return;
-  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; { const h=new Date().getHours(), hi=h<5?'夜深了':h<11?'早安':h<18?'午安':'晚安'; $('heroHi').textContent=m.admin?`${hi}，管理員`:`${hi}${m.name?'，'+m.name:''}`; } $('adminLink').hidden=!m.admin; }).catch(()=>{});
+  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; $('btBtn').hidden=!m.admin; if(!m.admin && view==='bt') go('home'); { const h=new Date().getHours(), hi=h<5?'夜深了':h<11?'早安':h<18?'午安':'晚安'; $('heroHi').textContent=m.admin?`${hi}，管理員`:`${hi}${m.name?'，'+m.name:''}`; } $('adminLink').hidden=!m.admin; }).catch(()=>{});
 $('logoutBtn').onclick=async()=>{ await fetch('api/member/logout',{method:'POST'}).catch(()=>{}); location.replace('/login'); };
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{

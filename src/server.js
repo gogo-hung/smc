@@ -162,6 +162,7 @@ const server = http.createServer(async (req, res) => {
       } catch (e) { return fail(res, e); }
     }
     if (url.pathname === '/api/history' && req.method === 'GET') {
+      if (GATE && !(me && me.admin)) return send(res, 403, { error: '回測只有管理員可以用' });
       if (url.searchParams.get('fresh') === '1') histCache.clear();
       const sym = String(url.searchParams.get('sym') || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
       const days = Math.min(180, Math.max(7, +url.searchParams.get('days') || 90));
