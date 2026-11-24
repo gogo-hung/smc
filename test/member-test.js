@@ -1,4 +1,4 @@
-// 會員：申請 → 審核 → 登入 → 門禁 → 停用（不需要網路）
+// 會員：管理者新增 → 登入 → 門禁 → 停用／重設密碼（不需要網路）
 Object.assign(process.env, { ADMIN_TOKEN: 'pw', PORT: '0', TELEGRAM_BOT_TOKEN: '', DISCORD_WEBHOOK_URL: '', UPSTASH_REDIS_REST_URL: '' });
 delete process.env.MEMBER_GATE;
 const fs = require('fs'), path = require('path'), assert = require('assert'), http = require('http');
@@ -23,23 +23,22 @@ const server = require('../src/server');
   assert.strictEqual((await req('GET', '/api/ping')).status, 200, 'ping 不用登入');
   assert.strictEqual((await req('GET', '/api/health')).status, 200);
 
-  // 申請
-  assert.strictEqual((await req('POST', '/api/member/apply', { uid: 'abc', password: '123456' })).status, 400, 'UID 要數字');
-  assert.strictEqual((await req('POST', '/api/member/apply', { uid: '12345678', password: '12' })).status, 400, '密碼太短');
-  assert.strictEqual((await req('POST', '/api/member/apply', { uid: '12345678', name: 'tester', password: 'secret1' })).status, 200);
-  assert.strictEqual((await req('POST', '/api/member/apply', { uid: '12345678', password: 'secret1' })).status, 409, '重複申請');
+  // 不開放註冊
+  assert.strictEqual((await req('POST', '/api/member/apply', { uid: '12345678', password: 'secret1' })).status, 401, '註冊已關閉');
 
-  // 審核前不能登入
-  r = await req('POST', '/api/member/login', { uid: '12345678', password: 'secret1' }); assert.strictEqual(r.status, 403); assert.strictEqual(r.json().status, 'pending');
-  assert.strictEqual((await req('POST', '/api/member/login', { uid: '12345678', password: 'wrong!' })).status, 401);
-
-  // 後台
-  assert.strictEqual((await req('GET', '/api/admin/members')).status, 401, '後台要密碼');
-  r = await req('POST', '/api/member/login', { admin: true, password: 'pw' }); assert.strictEqual(r.status, 200);
+  // 超級管理者登入（測試用 ADMIN_TOKEN 當密碼）
+  assert.strictEqual((await req('POST', '/api/member/login', { uid: 'admin', password: 'wrong' })).status, 401);
+  r = await req('POST', '/api/member/login', { uid: 'admin', password: 'pw' }); assert.strictEqual(r.status, 200);
   const adminCk = ck(r);
-  let list = (await req('GET', '/api/admin/members', null, { cookie: adminCk })).json();
-  assert.strictEqual(list[0].status, 'pending'); assert(!('pw' in list[0]), '不能回傳密碼');
-  await req('POST', '/api/admin/members', { uid: '12345678', action: 'approve' }, { token: 'pw' });
+  assert.strictEqual((await req('GET', '/api/admin/members')).status, 401, '後台要登入');
+
+  // 管理者新增會員
+  assert.strictEqual((await req('POST', '/api/admin/members', { action: 'create', uid: 'abc', password: 'secret1' }, { cookie: adminCk })).status, 400, 'UID 要數字');
+  assert.strictEqual((await req('POST', '/api/admin/members', { action: 'create', uid: '12345678', password: '12' }, { cookie: adminCk })).status, 400, '密碼太短');
+  let list = (await req('POST', '/api/admin/members', { action: 'create', uid: '12345678', name: 'tester', password: 'secret1' }, { cookie: adminCk })).json();
+  assert.strictEqual(list[0].status, 'approved'); assert(!('pw' in list[0]), '不能回傳密碼');
+  assert.strictEqual((await req('POST', '/api/admin/members', { action: 'create', uid: '12345678', password: 'secret1' }, { token: 'pw' })).status, 409, '重複新增');
+  assert.strictEqual((await req('POST', '/api/member/login', { uid: '12345678', password: 'wrong!' })).status, 401);
 
   // 通過後登入
   r = await req('POST', '/api/member/login', { uid: '12345678', password: 'secret1' }); assert.strictEqual(r.status, 200);
@@ -54,8 +53,11 @@ const server = require('../src/server');
   await req('POST', '/api/admin/members', { uid: '12345678', action: 'revoke', note: '測試' }, { cookie: adminCk });
   assert.strictEqual((await req('GET', '/api/member/me', null, { cookie: c })).status, 401);
   r = await req('POST', '/api/member/login', { uid: '12345678', password: 'secret1' }); assert.strictEqual(r.status, 403); assert(/測試/.test(r.json().error));
-  // 未通過可以重新申請
-  assert.strictEqual((await req('POST', '/api/member/apply', { uid: '12345678', password: 'newpass' })).status, 200);
+  // 恢復＋重設密碼
+  await req('POST', '/api/admin/members', { uid: '12345678', action: 'approve' }, { cookie: adminCk });
+  await req('POST', '/api/admin/members', { uid: '12345678', action: 'reset', note: 'newpass1' }, { cookie: adminCk });
+  assert.strictEqual((await req('POST', '/api/member/login', { uid: '12345678', password: 'secret1' })).status, 401, '舊密碼失效');
+  assert.strictEqual((await req('POST', '/api/member/login', { uid: '12345678', password: 'newpass1' })).status, 200);
 
   // 登出
   await req('POST', '/api/member/logout', null, { cookie: adminCk });

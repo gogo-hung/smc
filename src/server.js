@@ -76,13 +76,10 @@ const server = http.createServer(async (req, res) => {
     await members.init();
     const me = members.who(cookieOf(req)) || (ADMIN_TOKEN && req.headers['x-admin-token'] === ADMIN_TOKEN ? { uid: 'admin', admin: true } : null);
     // ---- 會員 API ----
-    if (url.pathname === '/api/member/apply' && req.method === 'POST') {
-      try { return send(res, 200, await members.apply(await readBody(req))); } catch (e) { return send(res, e.code || 500, { error: e.message }); }
-    }
     if (url.pathname === '/api/member/login' && req.method === 'POST') {
       try {
         const b = await readBody(req);
-        const token = b.admin ? (ADMIN_TOKEN && b.password === ADMIN_TOKEN ? await members.newSession('admin') : (() => { throw Object.assign(new Error('管理員密碼錯誤'), { code: 401 }); })()) : await members.login(b, ipOf(req));
+        const token = await members.login(b, ipOf(req), ADMIN_TOKEN);
         setCookie(res, token, req); return send(res, 200, { ok: true });
       } catch (e) { return send(res, e.code || 500, { error: e.message, ...(e.extra || {}) }); }
     }
@@ -90,7 +87,7 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/member/me') return me ? send(res, 200, { ...me, gate: GATE }) : send(res, 401, { error: '沒有登入', gate: GATE });
     if (url.pathname === '/api/admin/members') {
       if (!authorized(req) && !(me && me.admin)) return send(res, 401, { error: '需要管理員密碼' });
-      try { return send(res, 200, req.method === 'POST' ? await members.act(await readBody(req)) : await members.list()); } catch (e) { return fail(res, e); }
+      try { if (req.method === 'POST') { const b = await readBody(req); return send(res, 200, b.action === 'create' ? await members.create(b) : await members.act(b)); } return send(res, 200, await members.list()); } catch (e) { return fail(res, e); }
     }
     // ---- 門禁：沒登入只能看登入頁 ----
     if (GATE && !me) {

@@ -1,9 +1,12 @@
-// 會員：用 BingX UID 申請 → 後台審核通過 → 用 UID＋密碼登入
+// 會員：不開放註冊，由超級管理者在 /admin 新增（BingX UID＋初始密碼），會員用 UID＋密碼登入
+// 超級管理者：帳號 admin，密碼的雜湊在 SUPER_HASH（可用環境變數 SUPER_ADMIN_HASH 換掉）
 // 資料存在 store（有 Upstash 就永久保存）：members = { [uid]: {...} }、sessions = { [token]: { uid, exp } }
 const crypto = require('crypto');
 const store = require('./store');
 
 const DAY = 86400e3, SESSION_DAYS = 30;
+const SUPER_USER = 'admin';
+const SUPER_HASH = process.env.SUPER_ADMIN_HASH || '23c804aa912c2afeddea9cb2e5888c0c:d9a57baabc9279142ad3a38f364d02e9038e393db33d079896f7c5c1db33dfda';
 const state = { members: {}, sessions: {}, loaded: false };
 const tries = new Map();   // 登入失敗次數（每個 IP）
 
@@ -27,27 +30,30 @@ function check(pw, stored) {
 const cleanUid = v => String(v ?? '').trim();
 const pub = m => ({ uid: m.uid, name: m.name, status: m.status, at: m.at, approvedAt: m.approvedAt || null, lastLogin: m.lastLogin || null, note: m.note || '' });
 
-async function apply({ uid, name, password }) {
+// 管理者新增會員（直接開通）
+async function create({ uid, name, password }) {
   await init(); uid = cleanUid(uid); name = String(name || '').trim().slice(0, 40);
-  if (!/^\d{6,15}$/.test(uid)) throw err('UID 要是 6～15 位數字（BingX 個人頁面可以複製）');
+  if (!/^\d{6,15}$/.test(uid)) throw err('UID 要是 6～15 位數字');
   if (String(password || '').length < 6) throw err('密碼至少 6 個字');
-  const old = state.members[uid];
-  if (old && old.status !== 'rejected') throw err(old.status === 'approved' ? '這個 UID 已經開通，請直接登入' : '這個 UID 已經申請過，審核中', 409);
-  state.members[uid] = { uid, name, pw: hash(password), status: 'pending', at: Date.now() };
+  if (state.members[uid]) throw err('這個 UID 已經在名單裡', 409);
+  state.members[uid] = { uid, name, pw: hash(password), status: 'approved', at: Date.now(), approvedAt: Date.now() };
   await saveM();
-  return pub(state.members[uid]);
+  return list();
 }
 
 function limited(ip) { const t = tries.get(ip); return t && t.n >= 8 && Date.now() - t.at < 15 * 60e3; }
 function fail(ip) { const t = tries.get(ip); tries.set(ip, { n: t && Date.now() - t.at < 15 * 60e3 ? t.n + 1 : 1, at: Date.now() }); }
 
-async function login({ uid, password }, ip) {
+async function login({ uid, password }, ip, adminToken) {
   await init(); uid = cleanUid(uid);
   if (limited(ip)) throw err('嘗試太多次，請 15 分鐘後再試', 429);
+  if (uid.toLowerCase() === SUPER_USER) {
+    if (check(password, SUPER_HASH) || (adminToken && String(password) === adminToken)) { tries.delete(ip); return newSession('admin'); }
+    fail(ip); throw err('帳號或密碼錯誤', 401);
+  }
   const m = state.members[uid];
-  if (!m || !check(password, m.pw)) { fail(ip); throw err('UID 或密碼錯誤', 401); }
-  if (m.status === 'pending') throw err('還在審核中，開通後就能登入', 403, { status: 'pending' });
-  if (m.status === 'rejected') throw err(`申請沒有通過${m.note ? `：${m.note}` : ''}，可以重新申請`, 403, { status: 'rejected' });
+  if (!m || !check(password, m.pw)) { fail(ip); throw err('帳號或密碼錯誤', 401); }
+  if (m.status !== 'approved') throw err(`帳號已停用${m.note ? `：${m.note}` : ''}`, 403, { status: m.status });
   tries.delete(ip);
   return newSession(uid);
 }
@@ -79,10 +85,11 @@ async function act({ uid, action, note }) {
     for (const [k, v] of Object.entries(state.sessions)) if (v.uid === uid) delete state.sessions[k];
     await saveS();
   }
+  else if (action === 'reset') { if (String(note || '').length < 6) throw err('新密碼至少 6 個字'); m.pw = hash(note); for (const [k, v] of Object.entries(state.sessions)) if (v.uid === uid) delete state.sessions[k]; await saveS(); }
   else if (action === 'delete') { delete state.members[uid]; for (const [k, v] of Object.entries(state.sessions)) if (v.uid === uid) delete state.sessions[k]; await saveS(); }
   else throw err('不認得的動作');
   await saveM();
   return list();
 }
 
-module.exports = { init, apply, login, logout, who, list, act, newSession, state };
+module.exports = { init, create, login, logout, who, list, act, newSession, state };
