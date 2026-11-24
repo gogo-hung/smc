@@ -104,6 +104,7 @@ function scan(){
   $('nT').textContent=trig.size; $('nW').textContent=results.filter(r=>r.status==='watch').length; $('nA').textContent=results.length;
   $('lastScan').textContent= DataSource.mode==='live' ? (DataSource.updatedAt? hhmm(new Date(DataSource.updatedAt)) : '掃描中') : hhmm(new Date());
   renderRows(); if(!$('detailModal').hidden && results.find(r=>r.sym===selected)) renderDetail();
+  updateHero();
 }
 
 function alertNew(r){
@@ -720,7 +721,7 @@ function analystHtml(a){
     <div class="an-cols"><div><h3>趨勢（順勢加減分）</h3><ul>${grp('趨勢')}</ul></div><div><h3>情緒（太極端時反向）</h3><ul>${grp('情緒')}</ul></div></div>
     <div class="an-foot">判斷方式：BTC 4H 均線 ±2，其他每項 ±1。總分 ≥4 偏多、2～3 略偏多、−1～1 震盪、−2～−3 略偏空、≤−4 偏空。資料：BingX、Binance／OKX、alternative.me、DeFiLlama、CoinGecko，每 15 分鐘隨掃描更新。只是大方向參考，不是投資建議。</div>`;
 }
-function renderAnalyst(){ const a=Sent.d&&Sent.d.analyst; if(!a) return;
+function renderAnalyst(){ const a=Sent.d&&Sent.d.analyst; updateHero(); if(!a) return;
   $('anBtn').hidden=false; const b=$('anBadge'); b.hidden=false; b.textContent=a.verdict; b.style.background=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; b.style.color='#0b0f17';
   if(!$('anModal').hidden){ $('anBody').innerHTML=analystHtml(a); $('anAt').textContent=`更新 ${new Date(a.at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`; } }
 $('anBtn').onclick=()=>{ $('anModal').hidden=false; renderAnalyst(); loadSent(); };
@@ -758,9 +759,65 @@ const sentGo=i=>{ Sent.i=(i+SENT.length)%SENT.length; store.set('smc-sent-i2',Se
 $('sentPrev').onclick=()=>sentGo(Sent.i-1); $('sentNext').onclick=()=>sentGo(Sent.i+1);
 $('sentDots').addEventListener('click',e=>{ const i=e.target.dataset&&e.target.dataset.i; if(i!=null) sentGo(+i); });
 async function loadSent(){ try{ const r=await fetch('api/sentiment',{cache:'no-store'}); if(!r.ok) return; Sent.d=await r.json(); $('sentPane').hidden=false; renderSent(); renderAnalyst(); }catch(e){} }
+// ---- 首頁主視覺：數字 ----
+function updateHero(){
+  const a=Sent.d&&Sent.d.analyst, v=$('hVerdict');
+  if(a){ v.textContent=a.verdict; v.style.color=a.dir>0?'#2fbf9b':a.dir<0?'#ee6a6a':'#f0b44c'; }
+  const ps=DataSource.positions||[]; $('hPos').textContent=DataSource.mode==='live'?`${ps.length} 筆`:'—';
+  const btc=(typeof results!=='undefined'&&results||[]).find(r=>r.sym==='BTC'), bd=btc?btc.trend:0, b=$('hBtc');
+  b.textContent=btc?(bd>0?'多頭':bd<0?'空頭':'盤整'):'—'; b.style.color=bd>0?'#2fbf9b':bd<0?'#ee6a6a':'#f0b44c';
+}
+// ---- 首頁主視覺：3D 地球＋跨鏈光束（看不到時暫停，省電） ----
+(function globe(){
+  const c=$('globe'); if(!c||!c.getContext) return;
+  const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pts=[], N=1100, ga=Math.PI*(3-Math.sqrt(5));
+  for(let i=0;i<N;i++){ const y=1-(i/(N-1))*2, r=Math.sqrt(1-y*y), t=ga*i; pts.push([Math.cos(t)*r,y,Math.sin(t)*r]); }
+  const cities=[[25,121],[35,139],[1,103],[22,114],[37,127],[51,0],[40,-74],[37,-122],[-33,151],[48,2],[25,55],[19,72],[-23,-46],[52,13],[55,37]];
+  const v=([la,lo])=>{ const a=la*Math.PI/180, b=lo*Math.PI/180; return [Math.cos(a)*Math.cos(b),Math.sin(a),Math.cos(a)*Math.sin(b)]; };
+  const COLS=['#f0b44c','#2fbf9b','#8aa4ff','#6ec6ff'], arcs=[];
+  const add=()=>{ let a=Math.floor(Math.random()*cities.length), b; do{ b=Math.floor(Math.random()*cities.length); }while(b===a); arcs.push({a:v(cities[a]),b:v(cities[b]),t:0,sp:.004+Math.random()*.004,c:COLS[Math.floor(Math.random()*4)]}); };
+  for(let i=0;i<7;i++){ add(); arcs[i].t=Math.random(); }
+  let rot=0, vis=true, raf=0, W=0, H=0, dpr=1;
+  const size=()=>{ dpr=Math.min(2,devicePixelRatio||1); W=c.clientWidth; H=c.clientHeight; c.width=W*dpr; c.height=H*dpr; };
+  size(); addEventListener('resize',size);
+  const draw=()=>{
+    const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+    const R=Math.max(140,Math.min(W*.24,H*.95,300)), cx=W<700?W*.5:W-R*1.25, cy=H*.5+R*.32;
+    rot+=.0025; const cr=Math.cos(rot), sr=Math.sin(rot), ct=Math.cos(.38), st=Math.sin(.38);
+    const proj=p=>{ const x=p[0]*cr-p[2]*sr, z=p[0]*sr+p[2]*cr, y=p[1]; return [cx+x*R, cy-(y*ct-z*st)*R, y*st+z*ct]; };
+    g.beginPath(); g.arc(cx,cy,R,0,Math.PI*2); g.fillStyle='rgba(12,26,51,.6)'; g.fill(); g.strokeStyle='rgba(110,198,255,.22)'; g.lineWidth=1; g.stroke();
+    for(const p of pts){ const q=proj(p); if(q[2]<0) continue; g.fillStyle=`rgba(140,170,230,${.12+q[2]*.55})`; g.fillRect(q[0]-.9,q[1]-.9,1.8,1.8); }
+    for(const ar of arcs){
+      ar.t+=ar.sp; const head=Math.min(1,ar.t*1.4), tail=Math.max(0,ar.t*1.4-.45);
+      const pt=s=>{ const m=[0,1,2].map(k=>ar.a[k]*(1-s)+ar.b[k]*s), l=Math.hypot(...m), h=1+Math.sin(s*Math.PI)*.32; return proj(m.map(x=>x/l*h)); };
+      g.beginPath(); for(let i=0;i<=40;i++){ const q=pt(tail+(head-tail)*i/40); i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]); }
+      g.strokeStyle=ar.c; g.lineWidth=1.8; g.shadowColor=ar.c; g.shadowBlur=12; g.stroke(); g.shadowBlur=0;
+      const hq=pt(head); g.beginPath(); g.arc(hq[0],hq[1],2.6,0,Math.PI*2); g.fillStyle='#fff'; g.fill();
+      for(const e of [ar.a,ar.b]){ const q=proj(e); if(q[2]>0){ g.beginPath(); g.arc(q[0],q[1],2.6,0,Math.PI*2); g.fillStyle=ar.c; g.fill(); } }
+    }
+    for(let i=arcs.length-1;i>=0;i--) if(arcs[i].t>1.05){ arcs.splice(i,1); add(); }
+  };
+  const loop=()=>{ draw(); raf=vis&&!document.hidden&&!still?requestAnimationFrame(loop):0; };
+  const kick=()=>{ if(!raf&&vis&&!document.hidden) raf=requestAnimationFrame(loop); };
+  if('IntersectionObserver' in window) new IntersectionObserver(es=>{ vis=es[0].isIntersecting; kick(); }).observe(c);
+  document.addEventListener('visibilitychange',kick);
+  still? draw() : kick();
+})();
+// ---- 滑鼠光暈：更新背景與卡片邊框的光點位置 ----
+(function glow(){
+  if(matchMedia('(hover: none)').matches) return;
+  let mx=-999, my=-999, queued=false;
+  const apply=()=>{ queued=false; const root=document.documentElement; root.style.setProperty('--mx',mx+'px'); root.style.setProperty('--my',my+'px');
+    for(const el of document.querySelectorAll('.pane')){ if(!el.offsetParent) continue; const r=el.getBoundingClientRect();
+      if(mx<r.left-260||mx>r.right+260||my<r.top-260||my>r.bottom+260){ el.style.setProperty('--px','-999px'); continue; }
+      el.style.setProperty('--px',(mx-r.left)+'px'); el.style.setProperty('--py',(my-r.top)+'px'); } };
+  addEventListener('pointermove',e=>{ mx=e.clientX; my=e.clientY; if(!queued){ queued=true; requestAnimationFrame(apply); } },{passive:true});
+  addEventListener('scroll',()=>{ if(!queued){ queued=true; requestAnimationFrame(apply); } },{passive:true});
+})();
 // ---- 會員：右上角顯示 UID、登出；管理員多一個「會員審核」 ----
 fetch('api/member/me',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(m=>{ if(!m) return;
-  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; $('adminLink').hidden=!m.admin; }).catch(()=>{});
+  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; $('heroHi').textContent=m.admin?'歡迎回來，管理員':`歡迎回來${m.name?'，'+m.name:''}`; $('adminLink').hidden=!m.admin; }).catch(()=>{});
 $('logoutBtn').onclick=async()=>{ await fetch('api/member/logout',{method:'POST'}).catch(()=>{}); location.replace('/login'); };
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{
