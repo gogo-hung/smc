@@ -49,6 +49,77 @@ header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .toggle{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
 
+/* ---- 版面：左側選單＋主內容 ---- */
+body{margin:0}
+.app{display:grid;grid-template-columns:208px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:2px;padding:18px 12px;border-right:1px solid var(--line);background:color-mix(in srgb,var(--bg) 70%,#000 30%);overflow-y:auto}
+.side-brand{font-family:var(--f-display);font-size:24px;font-weight:700;padding:2px 12px 18px}
+.nav{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:500 14px var(--f-body);text-align:left;cursor:pointer;text-decoration:none}
+.nav:hover{background:var(--raise);color:var(--fg)}
+.nav[aria-current="page"],.nav[aria-expanded="true"]{background:var(--raise);color:var(--fg);font-weight:700}
+.nav .badge{margin-left:auto}
+.side-me{margin-top:auto;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:4px}
+.side-me button{align-self:flex-start;border:0;background:none;color:var(--accent);padding:2px 0;cursor:pointer;font:inherit}
+.app > .wrap{max-width:1500px;width:100%;margin:0 auto}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:sticky;top:0;z-index:15;height:auto;flex-direction:row;align-items:center;overflow-x:auto;padding:8px 10px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg)}
+  .side-brand{padding:0 10px 0 4px;font-size:18px;flex:0 0 auto}
+  .nav{width:auto;flex:0 0 auto;white-space:nowrap}
+  .side-me{margin:0 0 0 8px;flex-direction:row;align-items:center;padding:6px 10px;flex:0 0 auto}
+}
+/* 歡迎卡 */
+.greet{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:stretch}
+.greet-l{display:flex;flex-direction:column;gap:6px;padding:4px 0}
+.greet-l h2{margin:0;font-family:var(--f-display);font-size:28px;font-weight:700}
+.greet-l p{margin:0}
+.greet .summary{margin-top:8px}
+.greet-r{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);text-align:left;cursor:pointer;font:inherit;color:inherit;position:relative}
+.greet-r:hover{border-color:var(--muted)}
+.greet-r b{font-family:var(--f-display);font-size:34px;line-height:1.1}
+.g-bar{position:relative;display:block;height:8px;border-radius:4px;margin-top:4px;background:linear-gradient(90deg,var(--short),var(--accent),var(--long))}
+.g-bar i{position:absolute;top:-5px;left:50%;width:4px;height:18px;margin-left:-2px;border-radius:2px;background:var(--fg);transition:left .8s}
+.g-lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+@media (max-width:760px){.greet{grid-template-columns:minmax(0,1fr)}}
+/* 情緒小卡 */
+.minis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.mcard{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.mcard:hover{border-color:var(--muted)}
+.mcard .k{font-size:12px;color:var(--muted)}
+.mcard b{font-family:var(--f-mono);font-size:19px;white-space:nowrap}
+.mcard .s{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1100px){.minis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:520px){.minis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* 持倉卡 */
+.sec-h{margin:0 0 10px;font-family:var(--f-display);font-size:17px}
+.pos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.pcard{padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:12px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.pcard:hover{border-color:var(--muted)}
+.pcard .hd{display:flex;justify-content:space-between;align-items:center}
+.pcard .r{font-family:var(--f-mono);font-size:20px;font-weight:700}
+.ptrack{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,color-mix(in srgb,var(--short) 35%,transparent) 0 25%,color-mix(in srgb,var(--long) 25%,transparent) 25% 100%)}
+.ptrack .tp{position:absolute;left:50%;top:-5px;width:3px;height:18px;margin-left:-1.5px;border-radius:2px;background:var(--accent)}
+.ptrack .sl{position:absolute;top:-4px;width:2px;height:16px;margin-left:-1px;background:var(--short)}
+.ptrack .dot{position:absolute;top:-6px;width:20px;height:20px;margin-left:-10px;border-radius:50%;background:var(--bg);border:3px solid var(--long);transition:left .8s}
+.pcard .ft{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-family:var(--f-mono)}
+/* 右欄 */
+.side-col{display:grid;gap:16px;align-content:start;min-width:0}
+.box-body{padding:10px 16px 14px;display:flex;flex-direction:column;gap:10px;font-size:13px}
+.box-body p{margin:0}
+.box-row{display:flex;justify-content:space-between;gap:10px}
+.box-row .imp{font-weight:700;flex:0 0 auto}
+/* 資金流地球（獨立頁） */
+.globe-modal{position:fixed;inset:0;z-index:40;background:radial-gradient(900px 600px at 60% 60%,#0c1a33,#03060c 75%);color:#e8edf7}
+.globe-modal canvas{position:absolute;inset:0;width:100%!important;height:100%!important;background:transparent!important;border-radius:0!important;cursor:grab;touch-action:none}
+.globe-modal canvas:active{cursor:grabbing}
+.gm-top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:24px 28px;pointer-events:none}
+.gm-top > *{pointer-events:auto}
+.gm-k{margin:0;font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;color:#f0b44c}
+.gm-top h2{margin:4px 0;font-family:var(--f-display);font-size:30px}
+.gm-s{margin:0;color:#9fb2d9;max-width:34em}
+#globeClose{width:44px;height:44px;border-radius:50%;border:1px solid #2a3550;background:rgba(6,10,19,.7);color:#e8edf7;font-size:24px;cursor:pointer}
+.gm-legend{position:absolute;left:28px;bottom:24px;display:flex;flex-wrap:wrap;gap:8px;max-width:min(720px,calc(100% - 56px))}
+.gm-legend span{padding:5px 10px;border-radius:999px;background:rgba(6,10,19,.75);border:1px solid #24304a;font-family:var(--f-mono);font-size:12px}
 /* summary */
 .summary{display:flex;flex-wrap:wrap;gap:28px;padding-block:4px}
 .stat .n{font-family:var(--f-display);font-size:30px;font-weight:600;line-height:1.1}
@@ -64,18 +135,6 @@ body{background-image:radial-gradient(520px circle at var(--mx,-999px) var(--my,
   background:radial-gradient(260px circle at var(--px,-999px) var(--py,-999px),rgba(229,161,58,.8),transparent 70%);
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 @media (hover:none),(prefers-reduced-motion:reduce){.pane::before{display:none}body{background-image:none}}
-/* 首頁主視覺 */
-.hero{position:relative;height:240px;border-radius:14px;overflow:hidden;border:1px solid #1d2a44;background:radial-gradient(600px 320px at 72% 70%,#0c1a33 0%,#060a13 75%);color:#e8edf7;isolation:isolate}
-.hero canvas{position:absolute;inset:0;width:100%!important;height:100%!important;z-index:-1;background:transparent!important;border-radius:0!important}
-.hero-txt{height:100%;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:0 32px;max-width:560px}
-.hero-k{margin:0;font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;color:#f0b44c}
-.hero-h{margin:0;font-family:var(--f-display);font-size:30px;font-weight:700;line-height:1.2}
-.hero-s{margin:0;color:#9fb2d9;font-size:14px}
-.hero-stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
-.hero-stats div{padding:8px 14px;border-radius:10px;background:rgba(6,10,19,.7);border:1px solid #24304a;display:flex;flex-direction:column;gap:2px;min-width:96px;backdrop-filter:blur(4px)}
-.hero-stats span{font-size:11.5px;color:#9fb2d9}
-.hero-stats b{font-family:var(--f-mono);font-size:17px}
-@media (max-width:700px){.hero{height:auto}.hero-txt{padding:24px 18px}.hero canvas{opacity:.45}}
 .pane > h2{font-family:var(--f-display);font-size:15px;font-weight:600;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}
 
 /* rules: collapsible bar */
@@ -315,8 +374,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 .toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.4}}}
 /* 市場情緒儀表（右側） */
-@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 300px} .sent{position:sticky;top:16px} }
-@media (max-width:1099px){ .sent{order:-1;max-width:460px;width:100%;justify-self:center;position:relative} }
+@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 320px} .side-col{position:sticky;top:16px} }
+@media (max-width:1099px){ .sent{position:relative} }
 .sent{padding:14px 14px 12px;display:grid;gap:6px}
 .sent[hidden]{display:none}
 #meBox[hidden],#adminLink[hidden]{display:none!important}
@@ -358,40 +417,59 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 </style>
 </head>
 <body>
+<div class="app">
+<nav class="side" aria-label="主選單">
+  <div class="side-brand">聚寶盆</div>
+  <button class="nav" id="homeBtn" type="button" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>總覽</span></button>
+  <button class="nav" id="anBtn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span>分析師</span><span class="badge" id="anBadge" hidden></span></button>
+  <button class="nav" id="globeBtn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><span>資金流地球</span></button>
+  <button class="nav tgl" id="statsBtn" type="button" aria-expanded="false" aria-controls="statsPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/></svg><span>成績單</span></button>
+  <button class="nav tgl" id="journalBtn" type="button" aria-expanded="false" aria-controls="journalPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg><span>交易紀錄</span></button>
+  <button class="nav tgl" id="calBtn" type="button" aria-expanded="false" aria-controls="calPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v16H3zM3 9h18M8 3v4M16 3v4"/></svg><span>數據日曆</span><span class="badge" id="calBadge" hidden></span></button>
+  <button class="nav tgl" id="btBtn" type="button" aria-expanded="false" aria-controls="btPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 109-9M3 4v5h5M12 7v5l3 3"/></svg><span>回測</span></button>
+  <button class="nav tgl" id="alertsBtn" type="button" aria-expanded="false" aria-controls="alertsPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 003.4 0"/></svg><span>提醒中心</span><span class="badge hot" id="alertBadge" hidden></span></button>
+  <button class="nav tgl" id="rulesBtn" type="button" aria-expanded="false" aria-controls="rulesPane" style="display:none">策略參數</button>
+  <a class="nav" id="adminLink" href="/admin" hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-8 0v2M12 11a4 4 0 100-8 4 4 0 000 8M19 8v6M22 11h-6"/></svg><span>會員管理</span></a>
+  <div class="side-me" id="meBox" hidden><span class="muted" style="font-size:12px">登入中</span><b class="mono" id="meName"></b><button type="button" id="logoutBtn">登出</button></div>
+</nav>
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>聚寶盆</h1>
       <span class="chip" id="srcChip"><span class="dot"></span><span id="srcTxt">示範資料，非實際行情</span></span>
       <span class="chip mono" id="scanInfo">BingX USDT 永續 · 1H / H4</span>
     </div>
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
-      <button class="btn tgl icon" id="alertsBtn" type="button" aria-expanded="false" aria-controls="alertsPane" aria-label="提醒中心"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge hot" id="alertBadge" hidden></span></button>
-      <button class="btn" id="anBtn" type="button" hidden>分析師<span class="badge" id="anBadge" hidden></span></button>
-      <button class="btn tgl" id="btBtn" type="button" aria-expanded="false" aria-controls="btPane">回測</button>
-      <button class="btn tgl" id="statsBtn" type="button" aria-expanded="false" aria-controls="statsPane">成績單</button>
-      <button class="btn tgl" id="journalBtn" type="button" aria-expanded="false" aria-controls="journalPane">交易紀錄</button>
-      <button class="btn tgl" id="calBtn" type="button" aria-expanded="false" aria-controls="calPane">數據日曆<span class="badge" id="calBadge" hidden></span></button>
-      <button class="btn tgl" id="rulesBtn" type="button" aria-expanded="false" aria-controls="rulesPane" style="display:none">策略參數</button>
       <button class="btn primary" id="scanBtn" type="button">立即掃描</button>
-      <span id="meBox" hidden style="display:inline-flex;align-items:center;gap:6px"><a class="btn" id="adminLink" href="/admin" hidden style="text-decoration:none;display:inline-flex;align-items:center">會員管理</a><span class="chip mono" id="meName"></span><button class="btn" type="button" id="logoutBtn">登出</button></span>
     </div>
   </header>
 
-  <!-- 首頁主視覺：3D 地球＋跨鏈光束（登入後才看得到） -->
-  <section class="hero" id="hero" aria-label="歡迎">
-    <canvas id="globe" aria-hidden="true"></canvas>
-    <div class="hero-txt">
-      <p class="hero-k">GLOBAL FLOW · 策略① 即時監控</p>
-      <h2 class="hero-h" id="heroHi">歡迎回來</h2>
-      <p class="hero-s">全球資金正在流動，訊號一觸發就推到你的 Discord</p>
-      <div class="hero-stats">
-        <div><span>大盤判斷</span><b id="hVerdict">—</b></div>
-        <div><span>持倉中</span><b id="hPos">—</b></div>
-        <div><span>BTC 4H</span><b id="hBtc">—</b></div>
+  <!-- 歡迎＋分析師 -->
+  <section class="greet" aria-label="總覽">
+    <div class="greet-l">
+      <h2 id="heroHi">歡迎回來</h2>
+      <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
+      <div class="summary">
+        <div class="stat t"><div class="label">持倉中 / 剛觸發</div><div class="n mono" id="nT">0</div></div>
+        <div class="stat w"><div class="label">等待 MACD 交叉</div><div class="n mono" id="nW">0</div></div>
+        <div class="stat"><div class="label">BTC 4H</div><div class="n" id="nBtc">—</div></div>
+        <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
       </div>
     </div>
+    <button class="greet-r" id="greetAn" type="button" aria-label="打開分析師判斷">
+      <span class="muted">分析師判斷</span>
+      <b id="hVerdict">—</b>
+      <span class="muted" id="hScore"></span>
+      <span class="g-bar"><i id="hKnot"></i></span>
+      <span class="g-lbl"><span>偏空</span><span>震盪</span><span>偏多</span></span>
+    </button>
+  </section>
+
+  <div class="minis" id="minis" aria-label="市場情緒摘要"></div>
+
+  <section class="pos-sec" id="posSec" hidden aria-labelledby="posH">
+    <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
+    <div class="pos-grid" id="posGrid"></div>
   </section>
 
   <div class="lockbar" id="lockBar" hidden></div>
@@ -601,14 +679,6 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </form>
   </section>
 
-  <section class="summary" aria-label="掃描摘要">
-    <div class="stat t"><div class="label">持倉中 / 剛觸發</div><div class="n mono" id="nT">0</div></div>
-    <div class="stat w"><div class="label">等待 MACD 金叉</div><div class="n mono" id="nW">0</div></div>
-    <div class="stat"><div class="label">BTC 4H 趨勢</div><div class="n" id="nBtc">—</div></div>
-    <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
-    <div class="stat"><div class="label">上次掃描</div><div class="n mono" id="lastScan" style="font-size:20px;padding-top:6px">--:--</div></div>
-  </section>
-
   <div class="grid">
     <!-- SIGNAL BOARD -->
     <main class="pane board" aria-labelledby="boardT">
@@ -628,6 +698,9 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <button class="btn" type="button" id="showWatch" hidden></button></div>
     </main>
 
+    <div class="side-col">
+    <section class="pane box" aria-labelledby="todayH"><h2 id="todayH">今天的重要數據</h2><div class="box-body" id="todayBox"><p class="muted">載入中…</p></div></section>
+    <section class="pane box" aria-labelledby="feedH"><h2 id="feedH">最新推播</h2><div class="box-body" id="feedBox"><p class="muted">載入中…</p></div></section>
     <!-- 市場情緒：平均 RSI／恐懼貪婪／整體市場 -->
     <aside class="pane sent" id="sentPane" aria-label="市場情緒" hidden>
       <div class="sent-hd"><button type="button" id="sentPrev" aria-label="上一個">‹</button><b id="sentT">市場平均 RSI</b><button type="button" id="sentNext" aria-label="下一個">›</button></div>
@@ -635,10 +708,20 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <div id="sentBody"></div>
       <div class="dots" id="sentDots" role="tablist" aria-label="切換指標"></div>
     </aside>
+    </div>
   </div>
 
 
   <p class="note" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Discord。</p>
+</div>
+</div>
+<div class="globe-modal" id="globeModal" hidden role="dialog" aria-modal="true" aria-labelledby="gmT">
+  <canvas id="globeCv" aria-hidden="true"></canvas>
+  <div class="gm-top">
+    <div><p class="gm-k">GLOBAL FLOW</p><h2 id="gmT">資金流地球</h2><p class="gm-s">拖曳可以轉動、滾輪可以縮放。每一道光束是一個幣，標籤是它 24 小時的漲跌。</p></div>
+    <button type="button" id="globeClose" aria-label="關閉">×</button>
+  </div>
+  <div class="gm-legend" id="globeLegend"></div>
 </div>
 <div class="modal" id="detailModal" hidden role="dialog" aria-modal="true" aria-labelledby="detT">
   <section class="pane detail modal-card" aria-labelledby="detT">

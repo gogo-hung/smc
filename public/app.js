@@ -296,7 +296,7 @@ async function loadCal(){
   try{ const r=await fetch('api/calendar',{cache:'no-store'}); if(!r.ok||!(r.headers.get('content-type')||'').includes('json')) throw 0;
     const j=await r.json(); Cal.events=j.events||[]; Cal.ok=true; Cal.error=j.error; }
   catch(e){ Cal.ok=false; }
-  renderCal();
+  renderCal(); renderToday();
 }
 function calView(){ return Cal.events.filter(e=>(Cal.cc==='ALL'||e.country===Cal.cc) && e.rank>=Cal.imp); }
 function renderCal(){
@@ -363,6 +363,7 @@ function browserNotify(){
     showToast(fresh[fresh.length-1].title); }
 }
 function renderAlerts(){
+  renderFeedBox();
   const unread=Feed.items.filter(i=>i.t>Feed.seen).length;
   $('alertBadge').hidden=!unread; $('alertBadge').textContent=unread>99?'99+':unread;
   const st=Feed.settings;
@@ -722,7 +723,7 @@ function analystHtml(a){
     <div class="an-foot">判斷方式：BTC 4H 均線 ±2，其他每項 ±1。總分 ≥4 偏多、2～3 略偏多、−1～1 震盪、−2～−3 略偏空、≤−4 偏空。資料：BingX、Binance／OKX、alternative.me、DeFiLlama、CoinGecko，每 15 分鐘隨掃描更新。只是大方向參考，不是投資建議。</div>`;
 }
 function renderAnalyst(){ const a=Sent.d&&Sent.d.analyst; updateHero(); if(!a) return;
-  $('anBtn').hidden=false; const b=$('anBadge'); b.hidden=false; b.textContent=a.verdict; b.style.background=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; b.style.color='#0b0f17';
+  const b=$('anBadge'); b.hidden=false; b.textContent=a.verdict; b.style.background=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; b.style.color='#0b0f17';
   if(!$('anModal').hidden){ $('anBody').innerHTML=analystHtml(a); $('anAt').textContent=`更新 ${new Date(a.at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`; } }
 $('anBtn').onclick=()=>{ $('anModal').hidden=false; renderAnalyst(); loadSent(); };
 $('anClose').onclick=()=>{ $('anModal').hidden=true; };
@@ -759,51 +760,111 @@ const sentGo=i=>{ Sent.i=(i+SENT.length)%SENT.length; store.set('smc-sent-i2',Se
 $('sentPrev').onclick=()=>sentGo(Sent.i-1); $('sentNext').onclick=()=>sentGo(Sent.i+1);
 $('sentDots').addEventListener('click',e=>{ const i=e.target.dataset&&e.target.dataset.i; if(i!=null) sentGo(+i); });
 async function loadSent(){ try{ const r=await fetch('api/sentiment',{cache:'no-store'}); if(!r.ok) return; Sent.d=await r.json(); $('sentPane').hidden=false; renderSent(); renderAnalyst(); }catch(e){} }
-// ---- 首頁主視覺：數字 ----
+// ---- 總覽：歡迎卡、分析師、情緒小卡、持倉卡、右欄 ----
 function updateHero(){
   const a=Sent.d&&Sent.d.analyst, v=$('hVerdict');
-  if(a){ v.textContent=a.verdict; v.style.color=a.dir>0?'#2fbf9b':a.dir<0?'#ee6a6a':'#f0b44c'; }
-  const ps=DataSource.positions||[]; $('hPos').textContent=DataSource.mode==='live'?`${ps.length} 筆`:'—';
-  const btc=(typeof results!=='undefined'&&results||[]).find(r=>r.sym==='BTC'), bd=btc?btc.trend:0, b=$('hBtc');
-  b.textContent=btc?(bd>0?'多頭':bd<0?'空頭':'盤整'):'—'; b.style.color=bd>0?'#2fbf9b':bd<0?'#ee6a6a':'#f0b44c';
+  if(a){ const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; v.textContent=a.verdict; v.style.color=col;
+    $('hScore').textContent=`總分 ${a.score>0?'+':''}${a.score}（趨勢 ${a.trend>0?'+':''}${a.trend}｜情緒 ${a.mood>0?'+':''}${a.mood}）`;
+    $('hKnot').style.left=`${(a.score+a.max)/(2*a.max)*100}%`; }
+  renderMinis(); renderPositions();
 }
-// ---- 首頁主視覺：3D 地球＋跨鏈光束（看不到時暫停，省電） ----
-(function globe(){
-  const c=$('globe'); if(!c||!c.getContext) return;
-  const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const pts=[], N=1100, ga=Math.PI*(3-Math.sqrt(5));
+function renderMinis(){
+  const d=Sent.d; if(!d){ $('minis').innerHTML=''; return; }
+  const sg=v=>v>0?'+':'', items=[
+    [0,'平均 RSI', d.rsi&&Math.round(d.rsi.now), d.rsi&&d.rsi.label, d.rsi&&(d.rsi.now<45?'var(--short)':d.rsi.now>55?'var(--long)':'var(--accent)')],
+    [1,'恐懼貪婪', d.fng&&d.fng.now, d.fng&&d.fng.label, d.fng&&(d.fng.now<46?'var(--short)':d.fng.now>54?'var(--long)':'var(--accent)')],
+    [2,'整體市場', d.breadth&&d.breadth.pct+'%', d.breadth&&`${d.breadth.up} 漲／${d.breadth.down} 跌`, d.breadth&&(d.breadth.pct>=60?'var(--long)':d.breadth.pct<=40?'var(--short)':'var(--accent)')],
+    [3,'BTC 多空比', d.ls&&d.ls.global.ratio, d.ls&&`散戶${d.ls.global.label}`, d.ls&&(d.ls.global.long>=60?'var(--short)':'var(--fg)')],
+    [6,'資金費率', d.funding&&d.funding.avg!=null&&`${sg(d.funding.avg)}${d.funding.avg.toFixed(3)}%`, d.funding&&d.funding.label, 'var(--accent)'],
+    [5,'穩定幣 7 天', d.stable&&`${sg(d.stable.chg7)}${d.stable.chg7}%`, d.stable&&d.stable.label, d.stable&&(d.stable.chg7>0.5?'var(--long)':d.stable.chg7<-0.5?'var(--short)':'var(--accent)')],
+  ];
+  $('minis').innerHTML=items.map(([i,k,v,sub,col])=>`<button type="button" class="mcard" data-i="${i}" title="在右邊情緒卡看詳細"><span class="k">${k}</span><b style="color:${col||'var(--fg)'}">${v??'—'}</b><span class="s">${esc(sub||'資料準備中')}</span></button>`).join('');
+}
+$('minis').addEventListener('click',e=>{ const b=e.target.closest('.mcard'); if(!b) return; sentGo(+b.dataset.i); $('sentPane').scrollIntoView({behavior:'smooth',block:'nearest'}); });
+function renderPositions(){
+  const ps=DataSource.mode==='live'?(DataSource.positions||[]):[];
+  $('posSec').hidden=!ps.length; if(!ps.length) return;
+  $('posN').textContent=`${ps.length} 筆`;
+  const P=r=>Math.max(0,Math.min(100,(r+1)/4*100));
+  $('posGrid').innerHTML=ps.map(p=>{
+    const s=DataSource.series[p.sym], px=s&&s.length?s[s.length-1].c:p.entry, risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(px-p.entry)/risk, slR=p.dir*(p.stop-p.entry)/risk, col=r>=0?'var(--long)':'var(--short)';
+    const hrs=p.filledAt?Math.round((Date.now()-p.filledAt)/3600e3):null, age=hrs==null?'':hrs<24?`${hrs} 小時`:`${Math.floor(hrs/24)} 天 ${hrs%24} 小時`;
+    return `<button type="button" class="pcard" data-sym="${esc(p.sym)}"><span class="hd"><span style="display:flex;gap:8px;align-items:center"><b class="mono" style="font-size:18px">${esc(p.sym)}</b><span class="dir ${p.dir>0?'L':'S'}">${p.dir>0?'多':'空'}</span>${p.be?'<span class="chip" style="font-size:11px">已保本</span>':''}</span><span class="r" style="color:${col}">${r>=0?'+':''}${r.toFixed(2)}R</span></span>
+      <span class="ptrack" aria-hidden="true"><i class="sl" style="left:${P(slR)}%"></i><i class="tp"></i><i class="dot" style="left:${P(r)}%;border-color:${col}"></i></span>
+      <span class="ft"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:var(--accent)">TP1 ${fp(p.tp1)}</span></span>
+      <span class="ft" style="font-family:var(--f-body)"><span>現價 ${fp(px)}</span><span>${age?'持倉 '+age:''}</span></span></button>`; }).join('');
+}
+$('posGrid').addEventListener('click',e=>{ const b=e.target.closest('.pcard'); if(!b) return; selected=b.dataset.sym; openDetail(); });
+function renderToday(){
+  const box=$('todayBox'); if(!Cal.ok){ box.innerHTML='<p class="muted">數據日曆暫時抓不到</p>'; return; }
+  const now=Date.now(), list=Cal.events.filter(e=>e.ts>=now-3600e3 && e.ts<=now+36*3600e3 && e.rank>=2).slice(0,5);
+  if(!list.length){ box.innerHTML='<p class="muted">接下來 36 小時沒有重要數據</p>'; return; }
+  box.innerHTML=list.map(e=>{ const t=new Date(e.ts), day=t.toDateString()===new Date().toDateString()?'':'明天 ';
+    return `<div class="box-row"><span>${day}${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} ${esc(e.countryZh||e.country)} ${esc(e.titleZh||e.title)}</span><span class="imp" style="color:${e.rank>=3?'var(--short)':'var(--accent)'}">${e.rank>=3?'高':'中'}</span></div>`; }).join('')
+    +'<button type="button" class="link" id="todayMore" style="align-self:flex-start;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;font:inherit">看完整日曆 →</button>';
+  $('todayMore').onclick=()=>openDrawer('calPane');
+}
+function renderFeedBox(){
+  const box=$('feedBox'), list=Feed.items.slice(0,4);
+  if(!list.length){ box.innerHTML='<p class="muted">還沒有推播</p>'; return; }
+  const ago=t=>{ const m=Math.max(0,Math.round((Date.now()-t)/60e3)); return m<60?`${m} 分鐘前`:m<1440?`${Math.round(m/60)} 小時前`:`${Math.round(m/1440)} 天前`; };
+  box.innerHTML=list.map(i=>`<div style="display:flex;flex-direction:column;gap:2px"><b style="font-size:13px">${esc(String(i.title||'').replace(/<[^>]+>/g,'').replace(/\*/g,''))}</b><span class="muted" style="font-size:12px">${ago(i.t)}</span></div>`).join('')
+    +'<button type="button" id="feedMore" style="align-self:flex-start;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;font:inherit">打開提醒中心 →</button>';
+  $('feedMore').onclick=()=>openDrawer('alertsPane');
+}
+$('homeBtn').onclick=()=>{ for(const [bt,pn] of Object.entries(drawers)){ $(pn).hidden=true; $(bt).setAttribute('aria-expanded',false); } scrollTo({top:0,behavior:'smooth'}); };
+$('greetAn').onclick=()=>$('anBtn').click();
+
+// ---- 資金流地球：獨立全螢幕頁，可以拖曳旋轉、滾輪縮放 ----
+const Globe=(()=>{
+  const c=$('globeCv'), pts=[], N=1800, ga=Math.PI*(3-Math.sqrt(5));
   for(let i=0;i<N;i++){ const y=1-(i/(N-1))*2, r=Math.sqrt(1-y*y), t=ga*i; pts.push([Math.cos(t)*r,y,Math.sin(t)*r]); }
-  const cities=[[25,121],[35,139],[1,103],[22,114],[37,127],[51,0],[40,-74],[37,-122],[-33,151],[48,2],[25,55],[19,72],[-23,-46],[52,13],[55,37]];
+  const cities=[[25,121],[35,139],[1,103],[22,114],[37,127],[51,0],[40,-74],[37,-122],[-33,151],[48,2],[25,55],[19,72],[-23,-46],[52,13],[55,37],[13,100],[-6,106],[43,-79]];
   const v=([la,lo])=>{ const a=la*Math.PI/180, b=lo*Math.PI/180; return [Math.cos(a)*Math.cos(b),Math.sin(a),Math.cos(a)*Math.sin(b)]; };
-  const COLS=['#f0b44c','#2fbf9b','#8aa4ff','#6ec6ff'], arcs=[];
-  const add=()=>{ let a=Math.floor(Math.random()*cities.length), b; do{ b=Math.floor(Math.random()*cities.length); }while(b===a); arcs.push({a:v(cities[a]),b:v(cities[b]),t:0,sp:.004+Math.random()*.004,c:COLS[Math.floor(Math.random()*4)]}); };
-  for(let i=0;i<7;i++){ add(); arcs[i].t=Math.random(); }
-  let rot=0, vis=true, raf=0, W=0, H=0, dpr=1;
+  let arcs=[], coins=[], rot=0, tilt=.38, zoom=1, raf=0, W=0, H=0, dpr=1, drag=null, idle=0, open=false;
+  const pickCoins=()=>{ coins=(DataSource.list||[]).map(sym=>{ const s=DataSource.series[sym]; if(!s||s.length<25) return null; const a=s[s.length-25].c, b=s[s.length-1].c; return {sym,chg:(b/a-1)*100}; }).filter(Boolean);
+    if(!coins.length) coins=['BTC','ETH','SOL','BNB','XRP','DOGE'].map(sym=>({sym,chg:(Math.random()-.5)*10})); };
+  const add=()=>{ let a=Math.floor(Math.random()*cities.length), b; do{ b=Math.floor(Math.random()*cities.length); }while(b===a); const k=coins[Math.floor(Math.random()*coins.length)];
+    arcs.push({a:v(cities[a]),b:v(cities[b]),t:0,sp:.003+Math.random()*.004,k,c:k.chg>=0?'#2fbf9b':'#ee6a6a'}); };
   const size=()=>{ dpr=Math.min(2,devicePixelRatio||1); W=c.clientWidth; H=c.clientHeight; c.width=W*dpr; c.height=H*dpr; };
-  size(); addEventListener('resize',size);
   const draw=()=>{
     const g=c.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
-    const R=Math.max(140,Math.min(W*.24,H*.95,300)), cx=W<700?W*.5:W-R*1.25, cy=H*.5+R*.32;
-    rot+=.0025; const cr=Math.cos(rot), sr=Math.sin(rot), ct=Math.cos(.38), st=Math.sin(.38);
+    const R=Math.min(W,H)*.36*zoom, cx=W/2, cy=H*.54;
+    if(!drag){ idle++; if(idle>90) rot+=.0018; }
+    const cr=Math.cos(rot), sr=Math.sin(rot), ct=Math.cos(tilt), st=Math.sin(tilt);
     const proj=p=>{ const x=p[0]*cr-p[2]*sr, z=p[0]*sr+p[2]*cr, y=p[1]; return [cx+x*R, cy-(y*ct-z*st)*R, y*st+z*ct]; };
-    g.beginPath(); g.arc(cx,cy,R,0,Math.PI*2); g.fillStyle='rgba(12,26,51,.6)'; g.fill(); g.strokeStyle='rgba(110,198,255,.22)'; g.lineWidth=1; g.stroke();
-    for(const p of pts){ const q=proj(p); if(q[2]<0) continue; g.fillStyle=`rgba(140,170,230,${.12+q[2]*.55})`; g.fillRect(q[0]-.9,q[1]-.9,1.8,1.8); }
+    const glow=g.createRadialGradient(cx,cy,R*.9,cx,cy,R*1.25); glow.addColorStop(0,'rgba(80,140,255,.18)'); glow.addColorStop(1,'rgba(80,140,255,0)'); g.fillStyle=glow; g.fillRect(0,0,W,H);
+    g.beginPath(); g.arc(cx,cy,R,0,Math.PI*2); g.fillStyle='rgba(10,22,44,.85)'; g.fill(); g.strokeStyle='rgba(110,198,255,.3)'; g.lineWidth=1.2; g.stroke();
+    for(const p of pts){ const q=proj(p); if(q[2]<0) continue; g.fillStyle=`rgba(140,175,235,${.1+q[2]*.6})`; g.fillRect(q[0]-1.1,q[1]-1.1,2.2,2.2); }
+    for(const cy2 of cities){ const q=proj(v(cy2)); if(q[2]>0){ g.beginPath(); g.arc(q[0],q[1],2.4,0,Math.PI*2); g.fillStyle='rgba(240,180,76,.8)'; g.fill(); } }
+    g.font='700 12px "JetBrains Mono",monospace'; g.textBaseline='middle';
     for(const ar of arcs){
-      ar.t+=ar.sp; const head=Math.min(1,ar.t*1.4), tail=Math.max(0,ar.t*1.4-.45);
-      const pt=s=>{ const m=[0,1,2].map(k=>ar.a[k]*(1-s)+ar.b[k]*s), l=Math.hypot(...m), h=1+Math.sin(s*Math.PI)*.32; return proj(m.map(x=>x/l*h)); };
-      g.beginPath(); for(let i=0;i<=40;i++){ const q=pt(tail+(head-tail)*i/40); i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]); }
-      g.strokeStyle=ar.c; g.lineWidth=1.8; g.shadowColor=ar.c; g.shadowBlur=12; g.stroke(); g.shadowBlur=0;
-      const hq=pt(head); g.beginPath(); g.arc(hq[0],hq[1],2.6,0,Math.PI*2); g.fillStyle='#fff'; g.fill();
-      for(const e of [ar.a,ar.b]){ const q=proj(e); if(q[2]>0){ g.beginPath(); g.arc(q[0],q[1],2.6,0,Math.PI*2); g.fillStyle=ar.c; g.fill(); } }
+      ar.t+=ar.sp; const head=Math.min(1,ar.t*1.35), tail=Math.max(0,ar.t*1.35-.5);
+      const pt=s=>{ const m=[0,1,2].map(k=>ar.a[k]*(1-s)+ar.b[k]*s), l=Math.hypot(...m), h=1+Math.sin(s*Math.PI)*.38; return proj(m.map(x=>x/l*h)); };
+      g.beginPath(); for(let i=0;i<=48;i++){ const q=pt(tail+(head-tail)*i/48); i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]); }
+      g.strokeStyle=ar.c; g.lineWidth=2; g.shadowColor=ar.c; g.shadowBlur=14; g.stroke(); g.shadowBlur=0;
+      const hq=pt(head); if(hq[2]>-.2){ g.beginPath(); g.arc(hq[0],hq[1],3.2,0,Math.PI*2); g.fillStyle='#fff'; g.fill();
+        if(ar.t<.78){ const txt=`${ar.k.sym} ${ar.k.chg>=0?'+':''}${ar.k.chg.toFixed(1)}%`, w=g.measureText(txt).width+12; g.fillStyle='rgba(6,10,19,.85)'; g.fillRect(hq[0]+8,hq[1]-10,w,20); g.fillStyle=ar.c; g.fillText(txt,hq[0]+14,hq[1]); } }
     }
     for(let i=arcs.length-1;i>=0;i--) if(arcs[i].t>1.05){ arcs.splice(i,1); add(); }
+    raf=open?requestAnimationFrame(draw):0;
   };
-  const loop=()=>{ draw(); raf=vis&&!document.hidden&&!still?requestAnimationFrame(loop):0; };
-  const kick=()=>{ if(!raf&&vis&&!document.hidden) raf=requestAnimationFrame(loop); };
-  if('IntersectionObserver' in window) new IntersectionObserver(es=>{ vis=es[0].isIntersecting; kick(); }).observe(c);
-  document.addEventListener('visibilitychange',kick);
-  still? draw() : kick();
+  c.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,rot,tilt}; idle=0; c.setPointerCapture(e.pointerId); });
+  c.addEventListener('pointermove',e=>{ if(!drag) return; rot=drag.rot-(e.clientX-drag.x)*.006; tilt=Math.max(-1.2,Math.min(1.2,drag.tilt+(e.clientY-drag.y)*.004)); });
+  c.addEventListener('pointerup',()=>{ drag=null; idle=0; }); c.addEventListener('pointercancel',()=>{ drag=null; });
+  c.addEventListener('wheel',e=>{ e.preventDefault(); zoom=Math.max(.6,Math.min(2.2,zoom*(e.deltaY>0?.92:1.08))); },{passive:false});
+  addEventListener('resize',()=>{ if(open) size(); });
+  return {
+    show(){ $('globeModal').hidden=false; open=true; size(); pickCoins(); arcs=[]; for(let i=0;i<12;i++){ add(); arcs[i].t=Math.random()*.9; }
+      const up=coins.filter(x=>x.chg>=0).length; $('globeLegend').innerHTML=`<span style="color:#2fbf9b">綠光 = 24h 上漲（${up} 個）</span><span style="color:#ee6a6a">紅光 = 24h 下跌（${coins.length-up} 個）</span><span>資料：BingX 掃描中的幣</span>`;
+      if(!raf) raf=requestAnimationFrame(draw); $('globeClose').focus(); },
+    hide(){ $('globeModal').hidden=true; open=false; },
+    get open(){ return open; }
+  };
 })();
+$('globeBtn').onclick=()=>Globe.show();
+$('globeClose').onclick=()=>Globe.hide();
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && Globe.open) Globe.hide(); });
 // ---- 滑鼠光暈：更新背景與卡片邊框的光點位置 ----
 (function glow(){
   if(matchMedia('(hover: none)').matches) return;
@@ -817,7 +878,7 @@ function updateHero(){
 })();
 // ---- 會員：右上角顯示 UID、登出；管理員多一個「會員審核」 ----
 fetch('api/member/me',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(m=>{ if(!m) return;
-  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; $('heroHi').textContent=m.admin?'歡迎回來，管理員':`歡迎回來${m.name?'，'+m.name:''}`; $('adminLink').hidden=!m.admin; }).catch(()=>{});
+  $('meBox').hidden=false; $('meName').textContent=m.admin?'管理員':`UID ${m.uid}`; { const h=new Date().getHours(), hi=h<5?'夜深了':h<11?'早安':h<18?'午安':'晚安'; $('heroHi').textContent=m.admin?`${hi}，管理員`:`${hi}${m.name?'，'+m.name:''}`; } $('adminLink').hidden=!m.admin; }).catch(()=>{});
 $('logoutBtn').onclick=async()=>{ await fetch('api/member/logout',{method:'POST'}).catch(()=>{}); location.replace('/login'); };
 const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value=c.rp; $('margin').value=c.mg; }
 (async()=>{
