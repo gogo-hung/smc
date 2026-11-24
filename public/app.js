@@ -325,12 +325,24 @@ function renderCal(){
   $('calBody').innerHTML=html; renderCalWarn();
 }
 // ---- 上方按鈕開關面板（一次只開一個） ----
-const drawers={alertsBtn:'alertsPane',btBtn:'btPane',statsBtn:'statsPane',journalBtn:'journalPane',calBtn:'calPane',rulesBtn:'rulesPane'};
-const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal()};
-function openDrawer(id){ for(const [bt,pn] of Object.entries(drawers)){ const on=pn===id && $(pn).hidden; $(pn).hidden=!on; $(bt).setAttribute('aria-expanded',on); if(on&&onOpen[pn]) onOpen[pn](); } }
-for(const [bt,pn] of Object.entries(drawers)) $(bt).onclick=()=>openDrawer(pn);
-document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{ $(b.dataset.close).hidden=true; for(const [bt,pn] of Object.entries(drawers)) if(pn===b.dataset.close) $(bt).setAttribute('aria-expanded',false); });
-document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('postModal').hidden){ $('postModal').hidden=true; return; } if(!$('detailModal').hidden){ closeDetail(); return; } for(const [bt,pn] of Object.entries(drawers)){ $(pn).hidden=true; $(bt).setAttribute('aria-expanded',false); } });
+// ---- 分頁：左側選單每個按鈕一頁（網址 #stats 這種，上一頁可以回去） ----
+const VIEWS={home:['homeBtn',null],analyst:['anBtn','anView'],globe:['globeBtn','globeModal'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],rules:['rulesBtn','rulesPane']};
+const PANE2VIEW=Object.fromEntries(Object.entries(VIEWS).filter(([,v])=>v[1]).map(([k,v])=>[v[1],k]));
+const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal(), anView:()=>{ renderAnalyst(); loadSent(); }};
+let view='home';
+function go(v,push=true){
+  if(!VIEWS[v]) v='home'; view=v; document.querySelector('.wrap').dataset.view=v;
+  for(const [k,[bt,el]] of Object.entries(VIEWS)){ const on=k===v; if(el) $(el).hidden=!on; const b=$(bt); if(b){ b.removeAttribute('aria-expanded'); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); } }
+  if(typeof Globe!=='undefined'){ if(v==='globe') Globe.show(); else Globe.hide(); }
+  const el=VIEWS[v][1]; if(el&&onOpen[el]) onOpen[el]();
+  if(push){ const h=v==='home'?'':'#'+v; if(location.hash!==h) history.pushState(null,'',h||location.pathname); }
+  scrollTo({top:0});
+}
+function openDrawer(id){ go(PANE2VIEW[id]||'home'); }
+for(const [k,[bt]] of Object.entries(VIEWS)) if($(bt)) $(bt).onclick=()=>go(k);
+addEventListener('popstate',()=>go(location.hash.slice(1)||'home',false));
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>go('home'));
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('postModal').hidden){ $('postModal').hidden=true; return; } if(!$('detailModal').hidden){ closeDetail(); return; } if(view!=='home') go('home'); });
 
 // 下單前自檢：一小時內有美國高影響數據就提醒
 function renderCalWarn(){
@@ -724,10 +736,7 @@ function analystHtml(a){
 }
 function renderAnalyst(){ const a=Sent.d&&Sent.d.analyst; updateHero(); if(!a) return;
   const b=$('anBadge'); b.hidden=false; b.textContent=a.verdict; b.style.background=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; b.style.color='#0b0f17';
-  if(!$('anModal').hidden){ $('anBody').innerHTML=analystHtml(a); $('anAt').textContent=`更新 ${new Date(a.at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`; } }
-$('anBtn').onclick=()=>{ $('anModal').hidden=false; renderAnalyst(); loadSent(); };
-$('anClose').onclick=()=>{ $('anModal').hidden=true; };
-$('anModal').addEventListener('click',e=>{ if(e.target===$('anModal')) $('anModal').hidden=true; });
+  if(!$('anView').hidden){ $('anBody').innerHTML=analystHtml(a); $('anAt').textContent=`更新 ${new Date(a.at).toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false})}`; } }
 function stableHtml(x){
   const up=x.chg7>=0, col=x.chg7>0.5?'var(--long)':x.chg7<-0.5?'var(--short)':'var(--accent)', sr=x.series||[], lo=Math.min(...sr), hi=Math.max(...sr);
   const pts=sr.map((v,i)=>`${(10+i*(180/Math.max(1,sr.length-1))).toFixed(1)},${(70-(hi>lo?(v-lo)/(hi-lo):.5)*55).toFixed(1)}`).join(' ');
@@ -812,8 +821,7 @@ function renderFeedBox(){
     +'<button type="button" id="feedMore" style="align-self:flex-start;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;font:inherit">打開提醒中心 →</button>';
   $('feedMore').onclick=()=>openDrawer('alertsPane');
 }
-$('homeBtn').onclick=()=>{ for(const [bt,pn] of Object.entries(drawers)){ $(pn).hidden=true; $(bt).setAttribute('aria-expanded',false); } scrollTo({top:0,behavior:'smooth'}); };
-$('greetAn').onclick=()=>$('anBtn').click();
+$('greetAn').onclick=()=>go('analyst');
 
 // ---- 資金流地球：獨立全螢幕頁，可以拖曳旋轉、滾輪縮放 ----
 const Globe=(()=>{
@@ -855,16 +863,14 @@ const Globe=(()=>{
   c.addEventListener('wheel',e=>{ e.preventDefault(); zoom=Math.max(.6,Math.min(2.2,zoom*(e.deltaY>0?.92:1.08))); },{passive:false});
   addEventListener('resize',()=>{ if(open) size(); });
   return {
-    show(){ $('globeModal').hidden=false; open=true; size(); pickCoins(); arcs=[]; for(let i=0;i<12;i++){ add(); arcs[i].t=Math.random()*.9; }
+    show(){ open=true; size(); pickCoins(); arcs=[]; for(let i=0;i<12;i++){ add(); arcs[i].t=Math.random()*.9; }
       const up=coins.filter(x=>x.chg>=0).length; $('globeLegend').innerHTML=`<span style="color:#2fbf9b">綠光 = 24h 上漲（${up} 個）</span><span style="color:#ee6a6a">紅光 = 24h 下跌（${coins.length-up} 個）</span><span>資料：BingX 掃描中的幣</span>`;
-      if(!raf) raf=requestAnimationFrame(draw); $('globeClose').focus(); },
-    hide(){ $('globeModal').hidden=true; open=false; },
+      if(!raf) raf=requestAnimationFrame(draw); },
+    hide(){ open=false; },
     get open(){ return open; }
   };
 })();
-$('globeBtn').onclick=()=>Globe.show();
-$('globeClose').onclick=()=>Globe.hide();
-document.addEventListener('keydown',e=>{ if(e.key==='Escape' && Globe.open) Globe.hide(); });
+go(location.hash.slice(1)||'home',false);   // 直接打開 #stats 這種網址也能到對的分頁
 // ---- 滑鼠光暈：更新背景與卡片邊框的光點位置 ----
 (function glow(){
   if(matchMedia('(hover: none)').matches) return;
