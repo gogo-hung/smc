@@ -335,7 +335,7 @@ function go(v,push=true){
   if(!VIEWS[v] || (v==='bt' && $('btBtn').hidden)) v='home'; view=v; document.querySelector('.wrap').dataset.view=v;
   for(const [k,[bt,el]] of Object.entries(VIEWS)){ const on=k===v; if(el) $(el).hidden=!on; const b=$(bt); if(b){ b.removeAttribute('aria-expanded'); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); } }
   if(typeof Globe!=='undefined'){ if(v==='home') Globe.show(); else Globe.hide(); }
-  const el=VIEWS[v][1]; if(el&&onOpen[el]) onOpen[el]();
+  const el=VIEWS[v][1]; if(el&&onOpen[el]) onOpen[el](); if(v==='room') requestAnimationFrame(()=>alignSide());
   if(push){ const h=v==='home'?'':'#'+v; if(location.hash!==h) history.pushState(null,'',h||location.pathname); }
   scrollTo({top:0});
 }
@@ -776,8 +776,13 @@ function updateHero(){
   if(a){ const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; v.textContent=a.verdict; v.style.color=col;
     $('hScore').textContent=`總分 ${a.score>0?'+':''}${a.score}（趨勢 ${a.trend>0?'+':''}${a.trend}｜情緒 ${a.mood>0?'+':''}${a.mood}）`;
     $('hKnot').style.left=`${(a.score+a.max)/(2*a.max)*100}%`; }
-  renderMinis(); renderPositions(); if(typeof Globe!=='undefined') Globe.refresh();
+  renderMinis(); renderPositions(); if(typeof Globe!=='undefined') Globe.refresh(); alignSide();
 }
+// 右欄的分析師卡片跟左邊「數字卡＋情緒小卡」一樣高，兩欄上下對齊
+function alignSide(){ const g=$('greetAn'), k=document.querySelector('.kpis'), m=$('minis'); if(!g||!k||!m) return;
+  if(innerWidth<1100 || !k.offsetParent){ g.style.minHeight=''; return; }
+  g.style.minHeight=Math.max(0,m.getBoundingClientRect().bottom-k.getBoundingClientRect().top)+'px'; }
+addEventListener('resize',alignSide);
 function renderMinis(){
   const d=Sent.d; if(!d){ $('minis').innerHTML=''; return; }
   const sg=v=>v>0?'+':'', items=[

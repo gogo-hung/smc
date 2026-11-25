@@ -89,7 +89,9 @@ body{margin:0}
 .g-lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
 @media (max-width:760px){.greet{grid-template-columns:minmax(0,1fr)}}
 /* 交易室：左邊主欄＋右邊固定欄 */
-.room-main{display:grid;gap:16px;min-width:0;align-content:start}
+.room-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.room-main > .board{flex:1 1 auto}
+.room-only.grid{align-items:stretch}
 .room-hd h2{margin:0;font-family:var(--f-display);font-size:28px;font-weight:700}
 .room-hd p{margin:2px 0 0}
 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
@@ -396,7 +398,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 .toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.4}}}
 /* 市場情緒儀表（右側） */
-@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 340px} .side-col{position:sticky;top:16px} }
+@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 340px} }
 @media (max-width:1099px){ .sent{position:relative} }
 .sent{padding:14px 14px 12px;display:grid;gap:6px}
 .sent[hidden]{display:none}
@@ -689,12 +691,12 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </form>
   </section>
 
+  <div class="room-hd room-only">
+    <h2 id="heroHi">歡迎回來</h2>
+    <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
+  </div>
   <div class="grid room-only">
     <div class="room-main">
-      <div class="room-hd">
-        <h2 id="heroHi">歡迎回來</h2>
-        <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
-      </div>
       <div class="kpis">
         <div class="stat kpi"><div class="label">持倉中</div><div class="n mono" id="nP">0</div></div>
         <div class="stat kpi t"><div class="label">剛觸發</div><div class="n mono" id="nT">0</div></div>
