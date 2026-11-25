@@ -793,7 +793,7 @@ function renderMinis(){
 $('minis').addEventListener('click',e=>{ const b=e.target.closest('.mcard'); if(!b) return; sentGo(+b.dataset.i); $('sentPane').scrollIntoView({behavior:'smooth',block:'nearest'}); });
 function renderPositions(){
   const ps=DataSource.mode==='live'?(DataSource.positions||[]):[];
-  $('posSec').hidden=!ps.length; if(!ps.length) return;
+  $('nP').textContent=ps.length; $('posSec').hidden=!ps.length; if(!ps.length) return;
   $('posN').textContent=`${ps.length} 筆`;
   const P=r=>Math.max(0,Math.min(100,(r+1)/4*100));
   $('posGrid').innerHTML=ps.map(p=>{

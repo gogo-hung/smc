@@ -88,6 +88,14 @@ body{margin:0}
 .g-bar i{position:absolute;top:-5px;left:50%;width:4px;height:18px;margin-left:-2px;border-radius:2px;background:var(--fg);transition:left .8s}
 .g-lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
 @media (max-width:760px){.greet{grid-template-columns:minmax(0,1fr)}}
+/* 交易室：左邊主欄＋右邊固定欄 */
+.room-main{display:grid;gap:16px;min-width:0;align-content:start}
+.room-hd h2{margin:0;font-family:var(--f-display);font-size:28px;font-weight:700}
+.room-hd p{margin:2px 0 0}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.kpi{padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+.kpi .n{font-size:28px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.kpi{padding:10px 12px}.kpi .n{font-size:22px}.kpi .label{font-size:10.5px}}
 /* 情緒小卡 */
 .minis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
 .mcard{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:1px;min-width:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
@@ -95,11 +103,11 @@ body{margin:0}
 .mcard .k{font-size:12px;color:var(--muted)}
 .mcard b{font-family:var(--f-mono);font-size:19px;white-space:nowrap}
 .mcard .s{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:1100px){.minis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1300px){.minis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:520px){.minis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* 持倉卡 */
 .sec-h{margin:0 0 10px;font-family:var(--f-display);font-size:17px}
-.pos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.pos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
 .pcard{padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:12px;cursor:pointer;text-align:left;font:inherit;color:inherit}
 .pcard:hover{border-color:var(--muted)}
 .pcard .hd{display:flex;justify-content:space-between;align-items:center}
@@ -388,7 +396,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 .toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13px;max-width:calc(100vw - 32px)}
 @media (prefers-reduced-motion:no-preference){.toast{animation:pop .25s ease-out}@keyframes pop{from{transform:translateY(8px);opacity:.4}}}
 /* 市場情緒儀表（右側） */
-@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 320px} .side-col{position:sticky;top:16px} }
+@media (min-width:1100px){ .grid{grid-template-columns:minmax(0,1fr) 340px} .side-col{position:sticky;top:16px} }
 @media (max-width:1099px){ .sent{position:relative} }
 .sent{padding:14px 14px 12px;display:grid;gap:6px}
 .sent[hidden]{display:none}
@@ -457,34 +465,6 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <button class="btn primary" id="scanBtn" type="button">立即掃描</button>
     </div>
   </header>
-
-  <!-- 歡迎＋分析師 -->
-  <section class="greet room-only" aria-label="總覽">
-    <div class="greet-l">
-      <h2 id="heroHi">歡迎回來</h2>
-      <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
-      <div class="summary">
-        <div class="stat t"><div class="label">剛觸發</div><div class="n mono" id="nT">0</div></div>
-        <div class="stat w"><div class="label">等待 MACD 交叉</div><div class="n mono" id="nW">0</div></div>
-        <div class="stat"><div class="label">BTC 4H</div><div class="n" id="nBtc">—</div></div>
-        <div class="stat"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
-      </div>
-    </div>
-    <button class="greet-r" id="greetAn" type="button" aria-label="打開分析師判斷">
-      <span class="muted">分析師判斷</span>
-      <b id="hVerdict">—</b>
-      <span class="muted" id="hScore"></span>
-      <span class="g-bar"><i id="hKnot"></i></span>
-      <span class="g-lbl"><span>偏空</span><span>震盪</span><span>偏多</span></span>
-    </button>
-  </section>
-
-  <div class="minis room-only" id="minis" aria-label="市場情緒摘要"></div>
-
-  <section class="pos-sec room-only" id="posSec" hidden aria-labelledby="posH">
-    <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
-    <div class="pos-grid" id="posGrid"></div>
-  </section>
 
   <div class="lockbar" id="lockBar" hidden></div>
 
@@ -710,25 +690,50 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </section>
 
   <div class="grid room-only">
+    <div class="room-main">
+      <div class="room-hd">
+        <h2 id="heroHi">歡迎回來</h2>
+        <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
+      </div>
+      <div class="kpis">
+        <div class="stat kpi"><div class="label">持倉中</div><div class="n mono" id="nP">0</div></div>
+        <div class="stat kpi t"><div class="label">剛觸發</div><div class="n mono" id="nT">0</div></div>
+        <div class="stat kpi w"><div class="label">等待 MACD 交叉</div><div class="n mono" id="nW">0</div></div>
+        <div class="stat kpi"><div class="label">BTC 4H 趨勢</div><div class="n" id="nBtc">—</div></div>
+        <div class="stat kpi"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
+      </div>
+      <div class="minis" id="minis" aria-label="市場情緒摘要"></div>
+      <section class="pos-sec" id="posSec" hidden aria-labelledby="posH">
+        <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
+        <div class="pos-grid" id="posGrid"></div>
+      </section>
     <!-- SIGNAL BOARD -->
-    <main class="pane board" aria-labelledby="boardT">
-      <h2 id="boardT">訊號看板
-        <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
-        <span class="filters" role="group" aria-label="篩選">
-          <button class="seg" type="button" data-f="watch" aria-pressed="true">等交叉</button>
-          <button class="seg" type="button" data-f="trigger" aria-pressed="false">剛觸發</button>
-          <button class="seg" type="button" data-f="all" aria-pressed="false">全部</button>
-          <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
-          <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
-        </span>
-      </h2>
-      <div class="cards" id="rows" role="listbox" aria-label="幣種"></div>
-      <div class="empty" id="empty" hidden><span id="emptyTxt">目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</span>
-        <button class="btn primary" type="button" id="addBtn" hidden></button>
-        <button class="btn" type="button" id="showWatch" hidden></button></div>
-    </main>
+      <main class="pane board" aria-labelledby="boardT">
+        <h2 id="boardT">訊號看板
+          <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
+          <span class="filters" role="group" aria-label="篩選">
+            <button class="seg" type="button" data-f="watch" aria-pressed="true">等交叉</button>
+            <button class="seg" type="button" data-f="trigger" aria-pressed="false">剛觸發</button>
+            <button class="seg" type="button" data-f="all" aria-pressed="false">全部</button>
+            <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
+            <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
+          </span>
+        </h2>
+        <div class="cards" id="rows" role="listbox" aria-label="幣種"></div>
+        <div class="empty" id="empty" hidden><span id="emptyTxt">目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</span>
+          <button class="btn primary" type="button" id="addBtn" hidden></button>
+          <button class="btn" type="button" id="showWatch" hidden></button></div>
+      </main>
+    </div>
 
     <div class="side-col">
+    <button class="greet-r" id="greetAn" type="button" aria-label="打開分析師判斷">
+      <span class="muted">分析師判斷</span>
+      <b id="hVerdict">—</b>
+      <span class="muted" id="hScore"></span>
+      <span class="g-bar"><i id="hKnot"></i></span>
+      <span class="g-lbl"><span>偏空</span><span>震盪</span><span>偏多</span></span>
+    </button>
     <section class="pane box" aria-labelledby="todayH"><h2 id="todayH">今天的重要數據</h2><div class="box-body" id="todayBox"><p class="muted">載入中…</p></div></section>
     <section class="pane box" aria-labelledby="feedH"><h2 id="feedH">最新推播</h2><div class="box-body" id="feedBox"><p class="muted">載入中…</p></div></section>
     <!-- 市場情緒：平均 RSI／恐懼貪婪／整體市場 -->
