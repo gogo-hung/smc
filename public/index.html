@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>聚寶盆</title>
+<script>try{var t=JSON.parse(localStorage.getItem("smc-theme"));if(t&&t!=="auto")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
 <style>
 /* Layout: collapsible strategy bar on top, then two panes — signal board | selected-coin detail. Dark-first. */
@@ -16,7 +17,7 @@
   --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   color-scheme:dark;
 }
-@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+@media (prefers-color-scheme: light){ :root:not([data-theme]){
   --bg:#f3f4f7; --surface:#ffffff; --raise:#eef0f5; --line:#d9dde7;
   --fg:#161b26; --muted:#5e6779; --accent:#b8761a; --accent-ink:#fff8ec;
   --long:#12876c; --short:#c64242; --watch:#94711f; color-scheme:light } }
@@ -24,6 +25,12 @@
   --bg:#f3f4f7; --surface:#ffffff; --raise:#eef0f5; --line:#d9dde7;
   --fg:#161b26; --muted:#5e6779; --accent:#b8761a; --accent-ink:#fff8ec;
   --long:#12876c; --short:#c64242; --watch:#94711f; color-scheme:light }
+/* 其他底色（總覽頁可以切換，存在瀏覽器） */
+:root[data-theme="midnight"]{ --bg:#0a1122; --surface:#111b31; --raise:#19253f; --line:#24345a; color-scheme:dark }
+:root[data-theme="black"]{ --bg:#000000; --surface:#0d0e12; --raise:#17181e; --line:#25262e; color-scheme:dark }
+:root[data-theme="forest"]{ --bg:#0b1512; --surface:#11201b; --raise:#192d26; --line:#25403a; color-scheme:dark }
+:root[data-theme="plum"]{ --bg:#130f1c; --surface:#1b1528; --raise:#251d36; --line:#33284a; color-scheme:dark }
+:root[data-theme="cream"]{ --bg:#f6f1e7; --surface:#fffdf8; --raise:#efe8da; --line:#e0d6c2; --fg:#2a2419; --muted:#6f6552; --accent:#a8650f; --accent-ink:#fff8ec; --long:#12876c; --short:#c64242; --watch:#94711f; color-scheme:light }
 
 *{box-sizing:border-box}
 [hidden]{display:none!important} /* 讓 hidden 屬性永遠優先，不被 display:grid/flex 蓋掉 */
@@ -109,7 +116,7 @@ body{margin:0}
 .box-row{display:flex;justify-content:space-between;gap:10px}
 .box-row .imp{font-weight:700;flex:0 0 auto}
 /* 資金流地球（獨立頁） */
-.wrap:not([data-view="home"]) .home-only{display:none!important}
+.wrap:not([data-view="room"]) .room-only{display:none!important}
 .globe-view{position:relative;height:calc(100vh - 110px);min-height:520px;border-radius:14px;overflow:hidden;border:1px solid #1d2a44;background:radial-gradient(900px 600px at 60% 60%,#0c1a33,#03060c 75%);color:#e8edf7}
 .globe-view canvas{position:absolute;inset:0;width:100%!important;height:100%!important;background:transparent!important;border-radius:0!important;cursor:grab;touch-action:none}
 .globe-view canvas:active{cursor:grabbing}
@@ -118,6 +125,13 @@ body{margin:0}
 .gm-k{margin:0;font-family:var(--f-mono);font-size:12px;letter-spacing:.12em;color:#f0b44c}
 .gm-top h2{margin:4px 0;font-family:var(--f-display);font-size:30px}
 .gm-s{margin:0;color:#9fb2d9;max-width:34em}
+.theme-pick{display:flex;flex-direction:column;align-items:flex-end;gap:8px;padding:12px 14px;border-radius:12px;background:rgba(6,10,19,.75);border:1px solid #24304a}
+.theme-pick > span{font-size:12.5px;color:#9fb2d9}
+#themeSw{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;max-width:300px}
+#themeSw button{display:flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 6px;border-radius:999px;border:1px solid #2a3550;background:transparent;color:#e8edf7;font:500 12.5px var(--f-body);cursor:pointer}
+#themeSw button i{width:20px;height:20px;border-radius:50%;border:1px solid rgba(255,255,255,.35)}
+#themeSw button[aria-pressed="true"]{border-color:#f0b44c;background:rgba(240,180,76,.15)}
+@media (max-width:700px){.gm-top{flex-direction:column}.theme-pick{align-items:flex-start}#themeSw{justify-content:flex-start}}
 .gm-legend{position:absolute;left:28px;bottom:24px;display:flex;flex-wrap:wrap;gap:8px;max-width:min(720px,calc(100% - 56px))}
 .gm-legend span{padding:5px 10px;border-radius:999px;background:rgba(6,10,19,.75);border:1px solid #24304a;font-family:var(--f-mono);font-size:12px}
 /* summary */
@@ -420,9 +434,9 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 <div class="app">
 <nav class="side" aria-label="主選單">
   <div class="side-brand">聚寶盆</div>
-  <button class="nav" id="homeBtn" type="button" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>總覽</span></button>
+  <button class="nav" id="homeBtn" type="button" aria-current="page"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><span>總覽</span></button>
+  <button class="nav" id="roomBtn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg><span>交易室</span></button>
   <button class="nav" id="anBtn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span>分析師</span><span class="badge" id="anBadge" hidden></span></button>
-  <button class="nav" id="globeBtn" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zM3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><span>資金流地球</span></button>
   <button class="nav tgl" id="statsBtn" type="button" aria-expanded="false" aria-controls="statsPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/></svg><span>成績單</span></button>
   <button class="nav tgl" id="journalBtn" type="button" aria-expanded="false" aria-controls="journalPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18H6zM9 8h6M9 12h6M9 16h4"/></svg><span>交易紀錄</span></button>
   <button class="nav tgl" id="calBtn" type="button" aria-expanded="false" aria-controls="calPane"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v16H3zM3 9h18M8 3v4M16 3v4"/></svg><span>數據日曆</span><span class="badge" id="calBadge" hidden></span></button>
@@ -445,7 +459,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </header>
 
   <!-- 歡迎＋分析師 -->
-  <section class="greet home-only" aria-label="總覽">
+  <section class="greet room-only" aria-label="總覽">
     <div class="greet-l">
       <h2 id="heroHi">歡迎回來</h2>
       <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
@@ -465,9 +479,9 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </button>
   </section>
 
-  <div class="minis home-only" id="minis" aria-label="市場情緒摘要"></div>
+  <div class="minis room-only" id="minis" aria-label="市場情緒摘要"></div>
 
-  <section class="pos-sec home-only" id="posSec" hidden aria-labelledby="posH">
+  <section class="pos-sec room-only" id="posSec" hidden aria-labelledby="posH">
     <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
     <div class="pos-grid" id="posGrid"></div>
   </section>
@@ -484,7 +498,8 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   <section class="globe-view" id="globeModal" hidden aria-labelledby="gmT">
     <canvas id="globeCv" aria-hidden="true"></canvas>
     <div class="gm-top">
-      <div><p class="gm-k">GLOBAL FLOW</p><h2 id="gmT">資金流地球</h2><p class="gm-s">拖曳可以轉動、滾輪可以縮放。每一道光束是一個幣，標籤是它 24 小時的漲跌。</p></div>
+      <div><p class="gm-k">GLOBAL FLOW</p><h2 id="gmT">總覽｜資金流地球</h2><p class="gm-s">拖曳可以轉動、滾輪可以縮放。每一道光束是一個幣，標籤是它 24 小時的漲跌。</p></div>
+      <div class="theme-pick" role="group" aria-label="更改網站底色"><span>網站底色</span><div id="themeSw"></div></div>
     </div>
     <div class="gm-legend" id="globeLegend"></div>
   </section>
@@ -694,7 +709,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </form>
   </section>
 
-  <div class="grid home-only">
+  <div class="grid room-only">
     <!-- SIGNAL BOARD -->
     <main class="pane board" aria-labelledby="boardT">
       <h2 id="boardT">訊號看板
@@ -727,7 +742,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </div>
 
 
-  <p class="note home-only" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Discord。</p>
+  <p class="note room-only" id="note">目前是示範資料：K 線由程式產生，SMC 判斷邏輯是真的在跑。用 crypto-scanner 後端開啟這個頁面時，會自動改用 BingX 即時 K 線，新訊號由後端推到 Discord。</p>
 </div>
 </div>
 <div class="modal" id="detailModal" hidden role="dialog" aria-modal="true" aria-labelledby="detT">

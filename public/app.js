@@ -326,14 +326,15 @@ function renderCal(){
 }
 // ---- 上方按鈕開關面板（一次只開一個） ----
 // ---- 分頁：左側選單每個按鈕一頁（網址 #stats 這種，上一頁可以回去） ----
-const VIEWS={home:['homeBtn',null],analyst:['anBtn','anView'],globe:['globeBtn','globeModal'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],rules:['rulesBtn','rulesPane']};
+const VIEWS={home:['homeBtn','globeModal'],room:['roomBtn',null],analyst:['anBtn','anView'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],rules:['rulesBtn','rulesPane']};
 const PANE2VIEW=Object.fromEntries(Object.entries(VIEWS).filter(([,v])=>v[1]).map(([k,v])=>[v[1],k]));
 const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal(), anView:()=>{ renderAnalyst(); loadSent(); }};
 let view='home';
 function go(v,push=true){
+  if(v==='globe') v='home';
   if(!VIEWS[v] || (v==='bt' && $('btBtn').hidden)) v='home'; view=v; document.querySelector('.wrap').dataset.view=v;
   for(const [k,[bt,el]] of Object.entries(VIEWS)){ const on=k===v; if(el) $(el).hidden=!on; const b=$(bt); if(b){ b.removeAttribute('aria-expanded'); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); } }
-  if(typeof Globe!=='undefined'){ if(v==='globe') Globe.show(); else Globe.hide(); }
+  if(typeof Globe!=='undefined'){ if(v==='home') Globe.show(); else Globe.hide(); }
   const el=VIEWS[v][1]; if(el&&onOpen[el]) onOpen[el]();
   if(push){ const h=v==='home'?'':'#'+v; if(location.hash!==h) history.pushState(null,'',h||location.pathname); }
   scrollTo({top:0});
@@ -341,8 +342,8 @@ function go(v,push=true){
 function openDrawer(id){ go(PANE2VIEW[id]||'home'); }
 for(const [k,[bt]] of Object.entries(VIEWS)) if($(bt)) $(bt).onclick=()=>go(k);
 addEventListener('popstate',()=>go(location.hash.slice(1)||'home',false));
-document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>go('home'));
-document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('postModal').hidden){ $('postModal').hidden=true; return; } if(!$('detailModal').hidden){ closeDetail(); return; } if(view!=='home') go('home'); });
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>go('room'));
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape') return; if(!$('postModal').hidden){ $('postModal').hidden=true; return; } if(!$('detailModal').hidden){ closeDetail(); return; } if(view!=='home' && view!=='room') go('room'); });
 
 // 下單前自檢：一小時內有美國高影響數據就提醒
 function renderCalWarn(){
@@ -775,7 +776,7 @@ function updateHero(){
   if(a){ const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; v.textContent=a.verdict; v.style.color=col;
     $('hScore').textContent=`總分 ${a.score>0?'+':''}${a.score}（趨勢 ${a.trend>0?'+':''}${a.trend}｜情緒 ${a.mood>0?'+':''}${a.mood}）`;
     $('hKnot').style.left=`${(a.score+a.max)/(2*a.max)*100}%`; }
-  renderMinis(); renderPositions();
+  renderMinis(); renderPositions(); if(typeof Globe!=='undefined') Globe.refresh();
 }
 function renderMinis(){
   const d=Sent.d; if(!d){ $('minis').innerHTML=''; return; }
@@ -830,6 +831,7 @@ const Globe=(()=>{
   const cities=[[25,121],[35,139],[1,103],[22,114],[37,127],[51,0],[40,-74],[37,-122],[-33,151],[48,2],[25,55],[19,72],[-23,-46],[52,13],[55,37],[13,100],[-6,106],[43,-79]];
   const v=([la,lo])=>{ const a=la*Math.PI/180, b=lo*Math.PI/180; return [Math.cos(a)*Math.cos(b),Math.sin(a),Math.cos(a)*Math.sin(b)]; };
   let arcs=[], coins=[], rot=0, tilt=.38, zoom=1, raf=0, W=0, H=0, dpr=1, drag=null, idle=0, open=false;
+  const legend=()=>{ const up=coins.filter(x=>x.chg>=0).length; $('globeLegend').innerHTML=`<span style="color:#2fbf9b">綠光 = 24h 上漲（${up} 個）</span><span style="color:#ee6a6a">紅光 = 24h 下跌（${coins.length-up} 個）</span><span>資料：BingX 掃描中的幣</span>`; };
   const pickCoins=()=>{ coins=(DataSource.list||[]).map(sym=>{ const s=DataSource.series[sym]; if(!s||s.length<25) return null; const a=s[s.length-25].c, b=s[s.length-1].c; return {sym,chg:(b/a-1)*100}; }).filter(Boolean);
     if(!coins.length) coins=['BTC','ETH','SOL','BNB','XRP','DOGE'].map(sym=>({sym,chg:(Math.random()-.5)*10})); };
   const add=()=>{ let a=Math.floor(Math.random()*cities.length), b; do{ b=Math.floor(Math.random()*cities.length); }while(b===a); const k=coins[Math.floor(Math.random()*coins.length)];
@@ -864,12 +866,19 @@ const Globe=(()=>{
   addEventListener('resize',()=>{ if(open) size(); });
   return {
     show(){ open=true; size(); pickCoins(); arcs=[]; for(let i=0;i<12;i++){ add(); arcs[i].t=Math.random()*.9; }
-      const up=coins.filter(x=>x.chg>=0).length; $('globeLegend').innerHTML=`<span style="color:#2fbf9b">綠光 = 24h 上漲（${up} 個）</span><span style="color:#ee6a6a">紅光 = 24h 下跌（${coins.length-up} 個）</span><span>資料：BingX 掃描中的幣</span>`;
+      legend();
       if(!raf) raf=requestAnimationFrame(draw); },
     hide(){ open=false; },
+    refresh(){ if(open && DataSource.list && DataSource.list.length){ pickCoins(); legend(); for(const a of arcs) if(!coins.includes(a.k)) a.k=coins[Math.floor(Math.random()*coins.length)]; } },
     get open(){ return open; }
   };
 })();
+// ---- 網站底色（總覽頁切換，存在這台瀏覽器） ----
+const THEMES=[['auto','跟系統','linear-gradient(135deg,#10141d 50%,#f3f4f7 50%)'],['dark','深色','#10141d'],['midnight','午夜藍','#0a1122'],['black','純黑','#000'],['forest','墨綠','#0b1512'],['plum','深紫','#130f1c'],['light','淺色','#f3f4f7'],['cream','米白','#f6f1e7']];
+function setTheme(t){ if(t==='auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t); store.set('smc-theme',t); renderThemes(); }
+function renderThemes(){ const cur=store.get('smc-theme')||'auto'; $('themeSw').innerHTML=THEMES.map(([k,n,c])=>`<button type="button" data-t="${k}" aria-pressed="${cur===k}"><i style="background:${c}"></i>${n}</button>`).join(''); }
+$('themeSw').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setTheme(b.dataset.t); });
+renderThemes();
 go(location.hash.slice(1)||'home',false);   // 直接打開 #stats 這種網址也能到對的分頁
 // ---- 滑鼠光暈：更新背景與卡片邊框的光點位置 ----
 (function glow(){
