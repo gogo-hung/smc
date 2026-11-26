@@ -1,41 +1,7 @@
 == logs/ft3-E0V1EFt/bt.log
-             ^^^^^^^^^^^^^^^^^^^^
-  File "/home/ftuser/.local/lib/python3.12/site-packages/pandas/core/dtypes/cast.py", line 1936, in np_can_hold_element
-    raise LossySetitemError
-pandas.errors.LossySetitemError
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/freqtrade/freqtrade/main.py", line 44, in main
-    return_code = args["func"](args)
-                  ^^^^^^^^^^^^^^^^^^
-  File "/freqtrade/freqtrade/commands/optimize_commands.py", line 61, in start_backtesting
-    backtesting.start()
-  File "/freqtrade/freqtrade/optimize/backtesting.py", line 1648, in start
-    min_date, max_date = self.backtest_one_strategy(strat, data, timerange)
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/freqtrade/freqtrade/optimize/backtesting.py", line 1575, in backtest_one_strategy
-    results = self.backtest(
-              ^^^^^^^^^^^^^^
-  File "/freqtrade/freqtrade/optimize/backtesting.py", line 1456, in backtest
-    data: dict = self._get_ohlcv_as_lists(processed)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/freqtrade/freqtrade/optimize/backtesting.py", line 457, in _get_ohlcv_as_lists
-    .shift(1)
-     ^^^^^^^^
-  File "/home/ftuser/.local/lib/python3.12/site-packages/pandas/core/generic.py", line 11228, in shift
-    new_data = self._mgr.shift(periods=periods, fill_value=fill_value)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ftuser/.local/lib/python3.12/site-packages/pandas/core/internals/base.py", line 312, in shift
-    return self.apply_with_block("shift", periods=periods, fill_value=fill_value)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ftuser/.local/lib/python3.12/site-packages/pandas/core/internals/managers.py", line 363, in apply
-    applied = getattr(b, f)(**kwargs)
-              ^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ftuser/.local/lib/python3.12/site-packages/pandas/core/internals/blocks.py", line 1859, in shift
-    nb = self.coerce_to_target_dtype(fill_value)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/ftuser/.local/lib/python3.12/site-packages/pandas/core/internals/blocks.py", line 490, in coerce_to_target_dtype
-    raise AssertionError(
-AssertionError: Something has gone wrong, please report a bug at https://github.com/pandas-dev/pandas/issues
+                                                         STRATEGY SUMMARY                                                         
+┏━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ Strategy ┃ Trades ┃ Avg Profit % ┃ Tot Profit USDT ┃ Tot Profit % ┃ Avg Duration ┃  Win  Draw  Loss  Win% ┃           Drawdown ┃
+┡━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│  E0V1EFt │     32 │         0.04 │           0.099 │         0.01 │      2:38:00 │   26     0     6  81.2 │ 32.772 USDT  3.19% │
+└──────────┴────────┴──────────────┴─────────────────┴──────────────┴──────────────┴────────────────────────┴────────────────────┘
