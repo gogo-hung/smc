@@ -47,6 +47,7 @@ jobs:
       - name: 抓策略原始碼
         run: |
           set -x
+          mkdir -p tools/ft3/strategies
           git clone -q --depth 1 https://github.com/iterativv/NostalgiaForInfinity nfi || true
           ls nfi | head -30
           F=$(ls nfi/NostalgiaForInfinityX*.py | sort -V | tail -1); echo "NFI file: $F"
