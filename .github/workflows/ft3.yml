@@ -1,8 +1,5 @@
 name: freqtrade-scalp
 on:
-  push:
-    branches: [research]
-    paths: ['tools/ft3/**', '.github/workflows/ft3.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -22,7 +19,7 @@ jobs:
           key: ft3-okx-5m-v1
       - if: steps.c.outputs.cache-hit != 'true'
         run: |
-          docker build -t ft tools/ft3 && mkdir -p tools/ft3/data && chmod -R 777 tools/ft3
+          docker build --build-arg TAG=$([ ${{ matrix.st }} = NFIX ] && echo stable || echo 2024.12) -t ft tools/ft3 && mkdir -p tools/ft3/data && chmod -R 777 tools/ft3
           docker run --rm -v $PWD/tools/ft3:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures --timeframes 5m 15m 1h 4h 1d --timerange 20240801- > dl.log 2>&1 || true
           tail -20 dl.log; du -sh tools/ft3/data
       - if: steps.c.outputs.cache-hit != 'true'
@@ -37,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        st: [E0V1EFt, NFIX]
+        st: [E0V1EFt]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache/restore@v4
@@ -55,7 +52,7 @@ jobs:
           git clone -q https://github.com/remiotore/freqtrade e0 && (cd e0 && git checkout -q 44beaeb6a420cd8e9f2e4ea93e11d6cfa192ee03) && cp e0/strategies/E0V1EFt.py tools/ft3/strategies/ || true
           ls -la tools/ft3/strategies
           head -40 tools/ft3/strategies/E0V1EFt.py
-      - run: docker build -t ft tools/ft3 && mkdir -p tools/ft3/backtest_results out && chmod -R 777 tools/ft3
+      - run: docker build --build-arg TAG=$([ ${{ matrix.st }} = NFIX ] && echo stable || echo 2024.12) -t ft tools/ft3 && mkdir -p tools/ft3/backtest_results out && chmod -R 777 tools/ft3
       - name: 回測 ${{ matrix.st }}
         run: |
           ST=${{ matrix.st }}
