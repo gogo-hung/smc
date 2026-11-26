@@ -19,7 +19,7 @@ jobs:
           key: ft3-okx-5m-v1
       - if: steps.c.outputs.cache-hit != 'true'
         run: |
-          docker build --build-arg TAG=$([ ${{ matrix.st }} = NFIX ] && echo stable || echo 2024.12) -t ft tools/ft3 && mkdir -p tools/ft3/data && chmod -R 777 tools/ft3
+          docker build --build-arg TAG=$([ ${{ matrix.st }} = NFIX ] && echo stable || echo stable) -t ft tools/ft3 && mkdir -p tools/ft3/data && chmod -R 777 tools/ft3
           docker run --rm -v $PWD/tools/ft3:/freqtrade/user_data ft download-data --config user_data/config.json --trading-mode futures --timeframes 5m 15m 1h 4h 1d --timerange 20240801- > dl.log 2>&1 || true
           tail -20 dl.log; du -sh tools/ft3/data
       - if: steps.c.outputs.cache-hit != 'true'
@@ -50,9 +50,12 @@ jobs:
           F=$(ls nfi/NostalgiaForInfinityX*.py | sort -V | tail -1); echo "NFI file: $F"
           cp "$F" tools/ft3/strategies/ || true
           git clone -q https://github.com/remiotore/freqtrade e0 && (cd e0 && git checkout -q 44beaeb6a420cd8e9f2e4ea93e11d6cfa192ee03) && cp e0/strategies/E0V1EFt.py tools/ft3/strategies/ || true
+          # 原始寫法 dataframe.loc[(), [...]] = (0, 'long_out') 讓欄位變成 object，新版 pandas shift 會出錯；改成等效的整數 0
+          sed -i "s/dataframe.loc\[(), \['exit_long', 'exit_tag'\]\] = (0, 'long_out')/dataframe['exit_long'] = 0/; s/dataframe.loc\[(), \['exit_short', 'exit_tag'\]\] = (0, 'short_out')/dataframe['exit_short'] = 0/" tools/ft3/strategies/E0V1EFt.py
+          grep -n "exit_long'\] = 0\|exit_short'\] = 0" tools/ft3/strategies/E0V1EFt.py
           ls -la tools/ft3/strategies
           head -40 tools/ft3/strategies/E0V1EFt.py
-      - run: docker build --build-arg TAG=$([ ${{ matrix.st }} = NFIX ] && echo stable || echo 2024.12) -t ft tools/ft3 && mkdir -p tools/ft3/backtest_results out && chmod -R 777 tools/ft3
+      - run: docker build --build-arg TAG=$([ ${{ matrix.st }} = NFIX ] && echo stable || echo stable) -t ft tools/ft3 && mkdir -p tools/ft3/backtest_results out && chmod -R 777 tools/ft3
       - name: 回測 ${{ matrix.st }}
         run: |
           ST=${{ matrix.st }}
