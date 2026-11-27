@@ -360,6 +360,14 @@ td.num,th.num{text-align:right}
 .chase.warn{color:var(--watch);background:color-mix(in srgb,var(--watch) 14%,transparent)}
 .chase.bad{color:var(--short);background:color-mix(in srgb,var(--short) 12%,transparent)}
 .chase.mute{color:var(--muted);background:var(--raise)}
+.sizer{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:13px}
+.sizer label{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.sizer input{width:84px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font-family:var(--f-mono);font-size:13px}
+.sz-out{color:var(--muted);font-size:12.5px}
+.sz-out b{color:var(--fg);font-family:var(--f-mono)}
+.size{font-size:11.5px;color:var(--muted);line-height:1.35}
+.size b{color:var(--fg);font-family:var(--f-mono);font-weight:600}
+.size.bad{color:var(--short)}
 .done-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 .dcard{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;font:inherit;color:inherit;border-left-width:4px}
 .dcard.win{border-left-color:var(--long)}.dcard.loss{border-left-color:var(--short)}.dcard.be{border-left-color:var(--muted)}
@@ -758,6 +766,12 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <div class="stat kpi"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
       </div>
       <div class="minis" id="minis" aria-label="市場情緒摘要"></div>
+      <div class="sizer" id="sizer" aria-label="我的倉位設定">
+        <b>💰 我的倉位設定</b>
+        <label>本金 <input type="number" id="szCap" min="10" step="10" inputmode="decimal"> U</label>
+        <label>每筆風險 <input type="number" id="szPct" min="0.1" max="10" step="0.1" inputmode="decimal"> %</label>
+        <span class="sz-out" id="szOut"></span>
+      </div>
       <section class="pos-sec" id="posSec" hidden aria-labelledby="posH">
         <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
         <div class="risk-bar" id="riskBar" aria-label="整體風險"></div>

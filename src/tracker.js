@@ -50,6 +50,7 @@ const BONUS_ZH = { fib: '斐波便宜區', ema: 'EMA 順勢', fvg: 'OB 帶 FVG',
 
 // 寫進提醒紀錄；push=true 且該類型開啟時才推 Discord / Telegram。風控鎖住時，進場類提醒只記錄不推
 async function emit(type, title, lines, extra = {}) {
+  lines = lines.filter(x => x != null);
   const muted = (type === 'signal' || type === 'near') && journal.locked();
   const item = { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`, t: Date.now(), type, title, body: lines.join('\n'), muted, ...extra };
   state.feed.unshift(item);
@@ -188,6 +189,9 @@ const pct = (a, b) => `${(Math.abs(a - b) / b * 100).toFixed(2)}%`;
 const head = (sym, dir) => `📈趨勢策略｜${sym}USDT　${dir > 0 ? '多' : '空'}`;
 const sHead = (sym, dir) => `⚡訊號策略｜${sym}USDT　${dir > 0 ? '多' : '空'}`;
 const DISCLAIMER = '⚠️以上內容僅供個人投資記錄使用，並不構成任何形式的投資建議或財務建議';
+// 倉位範例：本金 1000U、每筆風險 1%（虧 10U）；保證金放定損的 2 倍，才不會比止損先爆倉
+const sizeLine = (entry, stop) => { const dist = Math.abs(entry - stop) / entry; if (!(dist > 0)) return null; const notional = 10 / dist, lev = notional / 20;
+  return lev > 50 ? `💰 止損只有 ${(dist * 100).toFixed(2)}%，槓桿要開到 ${Math.ceil(lev)} 倍以上，建議跳過` : `💰 倉位範例（本金 1000U、風險 1%）：倉位 ${Math.round(notional)}U、保證金至少 20U（約 ${Math.max(1, Math.ceil(lev))} 倍，放越多槓桿越低），打到止損虧 10U`; };
 async function onTrend(market) {
   let changed = false;
   const now = Date.now();
@@ -211,6 +215,7 @@ async function onTrend(market) {
       `TP1: ${fp(sig.tp1)}（可選擇出場，或把止損移到開倉價）`,
       `TP2: 移動止損出場（持倉後${dir > 0 ? '最高' : '最低'}價${dir > 0 ? '回落' : '反彈'} 3 倍 ATR＝${fp(3 * a.atr)}）`,
       `止損: ${fp(stop0)}`,
+      sizeLine(entry, stop0),
       DISCLAIMER,
     ], { sym, noLink: true });
   }
@@ -263,6 +268,7 @@ async function onSignal(market) {
       `止盈: ${fp(o.tp)}（3R）`,
       `保本: 到 ${fp(o.beTrig)} 時，止損移到開倉價 ${fp(o.bePx)}（含手續費）`,
       `止損: ${fp(o.stop)}（距離 ${pct(o.stop, entry)}）`,
+      sizeLine(entry, o.stop),
       '💡 進場、止盈盡量掛限價單，手續費可省一半以上',
       DISCLAIMER,
     ], { sym, noLink: true });

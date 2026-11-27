@@ -127,6 +127,20 @@ function ago(ts){ const m=Math.max(0,Math.floor((Date.now()-ts)/60000)); if(m<1)
 const fullTime=ts=>new Date(ts).toLocaleString('zh-TW',{month:'numeric',day:'numeric',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false});
 setInterval(()=>document.querySelectorAll('.age[data-ts]').forEach(el=>{ const ts=+el.dataset.ts; el.querySelector('b').textContent=ago(ts); el.classList.toggle('fresh',Date.now()-ts<3600e3); }),30000);
 
+// 倉位計算：本金×風險% ＝ 每筆最多虧多少（1R）；倉位＝1R÷止損距離；保證金放 1R 的 2 倍（回測：保證金是定損 2 倍才不會比止損先爆倉）
+const Sizer={ cap:+(store.get('sz-cap')||1000), pct:+(store.get('sz-pct')||1), get R(){ return this.cap*this.pct/100; } };
+function sizeTxt(entry, stop){
+  const dist=Math.abs(entry-stop)/entry; if(!(dist>0)) return '';
+  const R=Sizer.R, notional=R/dist, margin=2*R, lev=notional/margin;
+  if(lev>50) return `<div class="size bad">止損只有 ${(dist*100).toFixed(2)}%，要開 ${Math.ceil(lev)} 倍以上，手續費和爆倉風險太高，建議跳過</div>`;
+  return `<div class="size">建議倉位 <b>${Math.round(notional).toLocaleString()}U</b>・保證金至少 <b>${Math.round(margin)}U</b>（約 ${Math.max(1,Math.ceil(lev))} 倍，放越多槓桿越低）・止損虧 ${Math.round(R)}U</div>`;
+}
+function renderSizer(){
+  $('szCap').value=Sizer.cap; $('szPct').value=Sizer.pct;
+  $('szOut').innerHTML=`1R ＝ <b>${Math.round(Sizer.R)}U</b>（每筆打到止損最多虧這麼多）${Sizer.pct>2?'・<span style="color:var(--short)">超過 2% 回測顯示容易大回撤</span>':''}`;
+}
+for(const [id,k] of [['szCap','cap'],['szPct','pct']]) $(id).addEventListener('change',e=>{ const v=+e.target.value; if(!(v>0)) return; Sizer[k]=k==='pct'?Math.min(10,v):v; store.set(k==='cap'?'sz-cap':'sz-pct',Sizer[k]); renderSizer(); renderRows(); renderSig(); renderPositions(); });
+renderSizer();
 // 還能不能追：現價離訊號進場價幾 R（price＝掃描時的即時價，沒有就用最新 1H 收盤）
 const nowPx=sym=>{ const s=DataSource.series[sym], c=s&&s.length?s[s.length-1].c:null, p=(DataSource.prices||{})[sym]; return p&&c&&Math.abs(p/c-1)<0.2? p : c; };   // 即時價跟最新 1H 收盤差太多（資料怪）就用收盤價
 function chase(dir, entry, risk, px, tp){
@@ -157,7 +171,7 @@ function renderRows(){
     let bottom;
     if(r.kind==='pos') bottom=`<div class="kv"><div><span>進場</span><b>${fp(r.entry)}</b></div><div><span>目前</span>${Rtxt(r.R)}</div>
         <div><span>${r.pos.be||((r.stop-r.entry)*r.dir>=0)?'保本':'止損'}</span><b>${fp(r.stop)}</b></div><div><span>TP1${r.pos.tp1Hit?' ✓':''}</span><b>${fp(r.target)}</b></div></div>`;
-    else if(r.kind==='sig') bottom=chase(r.dir,r.entry,Math.abs(r.entry-r.stop),nowPx(r.sym),null)+`<div class="kv"><div><span>進場</span><b>${fp(r.entry)}</b></div><div><span>TP1</span><b>${fp(r.target)}</b></div>
+    else if(r.kind==='sig') bottom=chase(r.dir,r.entry,Math.abs(r.entry-r.stop),nowPx(r.sym),null)+sizeTxt(r.entry,r.stop)+`<div class="kv"><div><span>進場</span><b>${fp(r.entry)}</b></div><div><span>TP1</span><b>${fp(r.target)}</b></div>
         <div><span>止損</span><b>${fp(r.stop)}</b></div><div><span>距離</span><b>${r.dist>0?'+':''}${r.dist.toFixed(1)}%</b></div></div>`;
     else { const miss=[]; if(!r.st.trend) miss.push('4H 趨勢（EMA50 / 200 同向）'); else if(r.kind==='running') miss.push('已經在走，等下一次回檔後再金叉'); else { miss.push(`MACD ${r.trend>0?'金叉':'死叉'}（差 ${r.near.toFixed(2)} ATR）`); if(!r.st.vol) miss.push(`爆量（現在 ${(r.volRatio||0).toFixed(1)} 倍）`); }
       bottom=`<div class="miss">${r.kind==='running'?'':'還差：'}${miss.join('、')}</div>`; }
@@ -850,7 +864,7 @@ function renderSig(){
     if(p){ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(last-p.entry)/risk;
       bottom=`<div class="kv"><div><span>進場</span><b>${fp(p.entry)}</b></div><div><span>目前</span>${Rtxt(r)}</div><div><span>${p.be?'保本':'止損'}</span><b>${fp(p.stop)}</b></div><div><span>止盈</span><b>${fp(p.tp)}</b></div></div>`; }
     else if(kind==='trigger'&&a.risk){ const e=a.close, dd=a.sig||a.trend;
-      bottom=chase(dd,e,a.risk,nowPx(a.sym),e+dd*3*a.risk)+`<div class="kv"><div><span>進場</span><b>${fp(e)}</b></div><div><span>止盈</span><b>${fp(e+dd*3*a.risk)}</b></div><div><span>止損</span><b>${fp(e-dd*a.risk)}</b></div><div><span>保本</span><b>${fp(e+dd*1.8*a.risk)}</b></div></div>`; }
+      bottom=chase(dd,e,a.risk,nowPx(a.sym),e+dd*3*a.risk)+sizeTxt(e,e-dd*a.risk)+`<div class="kv"><div><span>進場</span><b>${fp(e)}</b></div><div><span>止盈</span><b>${fp(e+dd*3*a.risk)}</b></div><div><span>止損</span><b>${fp(e-dd*a.risk)}</b></div><div><span>保本</span><b>${fp(e+dd*1.8*a.risk)}</b></div></div>`; }
     else bottom=`<div class="miss">${kind==='watch'?`還差：1H Supertrend 翻${a.trend>0?'多':'空'}（差 ${(a.dist||0).toFixed(2)} ATR）`:kind==='running'?'已經順勢，等下一次回檔後再翻向':'4H 沒有明確趨勢（EMA50 / 200 不同向）'}</div>`;
     return `<div class="card ${cls}" data-s="${esc(a.sym)}" role="option" tabindex="0" aria-selected="${a.sym===selected}">
       <div class="hd"><b>${esc(a.sym)}</b>${dir}<span class="status ${cls}">${stTxt}</span></div>
@@ -889,10 +903,10 @@ function renderRisk(ps){
   const same=Math.max(L,S), side=L>S?'多':'空', lv=atRisk>=8||same>=8?'bad':atRisk>=5||same>=5?'warn':'ok';
   const msg={bad:`⚠ 風險偏高：${same>=8?`同時 ${same} 筆${side}單，幣圈跟 BTC 高度連動，等於押一筆大的${side}單`:''}${atRisk>=8?`${same>=8?'；':''}全部打到止損會虧 ${atRisk.toFixed(1)}R`:''}。新訊號建議縮小倉位或先不開。`,
     warn:`留意：${same>=5?`${same} 筆都是${side}單，方向集中`:''}${atRisk>=5?`${same>=5?'，':''}全部打到止損會虧 ${atRisk.toFixed(1)}R`:''}。`,
-    ok:'風險分散正常。每筆風險 1% 時，1R＝本金的 1%。'}[lv];
+    ok:`風險分散正常（1R＝${Math.round(Sizer.R)}U）。`}[lv];
   $('riskBar').className='risk-bar'+(lv==='ok'?'':' '+lv);
-  $('riskBar').innerHTML=`<div class="rk"><span>全部打到止損</span><b style="color:${atRisk>0?'var(--short)':'var(--fg)'}">−${atRisk.toFixed(1)}R</b><i>還沒保本的單加起來</i></div>
-    <div class="rk"><span>已鎖住利潤</span><b style="color:${locked>0?'var(--long)':'var(--fg)'}">+${locked.toFixed(1)}R</b><i>止損已過開倉價的部分</i></div>
+  $('riskBar').innerHTML=`<div class="rk"><span>全部打到止損</span><b style="color:${atRisk>0?'var(--short)':'var(--fg)'}">−${atRisk.toFixed(1)}R</b><i>約 −${Math.round(atRisk*Sizer.R)}U（照你的倉位設定）</i></div>
+    <div class="rk"><span>已鎖住利潤</span><b style="color:${locked>0?'var(--long)':'var(--fg)'}">+${locked.toFixed(1)}R</b><i>約 +${Math.round(locked*Sizer.R)}U，止損已過開倉價</i></div>
     <div class="rk"><span>多 ${L}／空 ${S}</span><b>${L===S?'中性':`偏${side} ${Math.abs(L-S)} 筆`}</b><span class="netbar"><i class="L" style="width:${ps.length?L/ps.length*100:0}%"></i><i class="S" style="width:${ps.length?S/ps.length*100:0}%"></i></span></div>
     <div class="rk"><span>同方向最多</span><b>${same} 筆</b><i>5 筆以上會提醒、8 筆以上警示</i></div>
     <p class="msg ${lv}">${msg}</p>`;
@@ -908,7 +922,7 @@ function renderPositions(){
     return `<button type="button" class="pcard" data-sym="${esc(p.sym)}"><span class="hd"><span style="display:flex;gap:8px;align-items:center"><b class="mono" style="font-size:18px">${esc(p.sym)}</b><span class="dir ${p.dir>0?'L':'S'}">${p.dir>0?'多':'空'}</span><span class="tag ${p.model==='signal'?'sig':''}">${p.model==='signal'?'⚡訊號':'📈趨勢'}</span>${p.be?'<span class="chip" style="font-size:11px">已保本</span>':''}</span><span class="r" style="color:${col}">${r>=0?'+':''}${r.toFixed(2)}R</span></span>
       <span class="ptrack" aria-hidden="true"><i class="sl" style="left:${P(slR)}%"></i><i class="tp" style="left:${P(p.model==='signal'?3:1)}%"></i><i class="dot" style="left:${P(r)}%;border-color:${col}"></i></span>
       <span class="ft"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:var(--accent)">${p.model==='signal'?'止盈 '+fp(p.tp):'TP1 '+fp(p.tp1)}</span></span>
-      <span class="ft" style="font-family:var(--f-body)"><span>現價 ${fp(px)}</span><span>${age?'持倉 '+age:''}</span></span>${p.be||slR>=0?'<div class="chase mute">止損已移到開倉價以上，錯過的人不建議新進</div>':chase(p.dir,p.entry,risk,nowPx(p.sym)||px,p.model==='signal'?p.tp:null)}</button>`; }).join('');
+      <span class="ft" style="font-family:var(--f-body)"><span>現價 ${fp(px)}</span><span>${age?'持倉 '+age:''}</span></span>${sizeTxt(p.entry,p.stop0)}${p.be||slR>=0?'<div class="chase mute">止損已移到開倉價以上，錯過的人不建議新進</div>':chase(p.dir,p.entry,risk,nowPx(p.sym)||px,p.model==='signal'?p.tp:null)}</button>`; }).join('');
 }
 $('posGrid').addEventListener('click',e=>{ const b=e.target.closest('.pcard'); if(!b) return; selected=b.dataset.sym; openDetail(); });
 function renderToday(){
