@@ -117,6 +117,7 @@ async function scanOnce() {
     state.market = market;
     try { state.ctx.funding = await bingx.getFunding(); } catch (e) { state.errors.push(`資金費率：${e.message}`); }
     const results = rerun();
+    if (process.env.NEWS !== 'off') require('./news').refresh().catch(() => {});   // 新聞：背景更新，不等它
     try { sentiment.update(market, allTickers); await sentiment.refreshFng(); await sentiment.refreshDeriv(state.ctx.funding); await sentiment.refreshStable(); sentiment.analyze(); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
     state.trend = Object.values(market).map(m => TREND.analyze(m.sym, m.htf || [])).filter(a => a.state !== 'nodata');
     state.signal = Object.values(market).map(m => { try { return SIGNAL.analyze(m.sym, m.ltf || [], m.htf || []); } catch (e) { return { sym: m.sym, state: 'nodata' }; } }).filter(a => a.state !== 'nodata');

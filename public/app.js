@@ -167,7 +167,7 @@ function renderRegime(){
   $('regime').innerHTML=`<span class="tagr">${{trend:'趨勢盤',range:'盤整盤',mix:'轉換中'}[kind]}</span><span>${txt}<span class="muted">（${n} 個幣裡 ${Math.round(pctT*100)}% 有 4H 趨勢：多頭 ${up}、空頭 ${dn}；BTC ${btc?(btc.trend>0?'多頭':btc.trend<0?'空頭':'盤整'):'—'}）</span></span>`;
 }
 function renderRows(){
-  renderRegime();
+  renderRegime(); if(window.__desk) window.__desk.render();
   const view=results.filter(r=>(q ? r.sym.includes(q) : (filt==='all' || (r.status===filt && !(filt==='trigger' && r.kind==='pos')))) && (!dirF || r.dir===dirF));   // 持倉已經在上面的持倉卡，看板的「剛觸發」不重複顯示
   const H4=4*3600e3;
   $('rows').innerHTML = view.map(r=>{
@@ -831,7 +831,7 @@ function updateHero(){
   if(a){ const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; v.textContent=a.verdict; v.style.color=col;
     $('hScore').textContent=`總分 ${a.score>0?'+':''}${a.score}（趨勢 ${a.trend>0?'+':''}${a.trend}｜情緒 ${a.mood>0?'+':''}${a.mood}）`;
     $('hKnot').style.left=`${(a.score+a.max)/(2*a.max)*100}%`; }
-  renderMinis(); renderPositions(); renderDone(); if(typeof Globe!=='undefined') Globe.refresh(); alignSide();
+  renderMinis(); renderPositions(); renderDone(); if(typeof Globe!=='undefined') Globe.refresh(); alignSide(); if(window.__desk) window.__desk.render();
 }
 // 右欄的分析師卡片跟左邊「數字卡＋情緒小卡」一樣高，兩欄上下對齊
 function alignSide(){ const g=$('greetAn'), k=document.querySelector('.kpis'), m=$('minis'); if(!g||!k||!m) return;
@@ -1038,5 +1038,92 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
   }
   syncForm(); scan(); loadCal(); loadAlerts();
   if(DataSource.mode==='live'){ setInterval(()=>loadAlerts(true),60000); loadSent(); setInterval(loadSent,60000); }
+})();
+
+// ================= 交易座位模式（6 螢幕交易牆，一鍵切換） =================
+const Desk=(()=>{
+  let on=false, clockT=null, news={items:[],at:0}, perf=null, perfAt=0;
+  const pad=n=>String(n).padStart(2,'0'), TW=t=>new Date(t+8*3600e3);
+  const fit=()=>{ const s=Math.min(innerWidth/1440, innerHeight/900); $('dk').style.transform=`translate(-50%,-50%) scale(${s})`; };
+  const chg24=sym=>{ const s=DataSource.series[sym]; if(!s||s.length<26) return null; return (nowPx(sym)/s[s.length-25].c-1)*100; };
+  const pctTxt=v=>v==null?'':`${v>=0?'+':''}${v.toFixed(1)}%`;
+  async function loadNews(){ try{ const r=await fetch('api/news',{cache:'no-store'}); if(r.ok){ news=await r.json(); renderNews(); } }catch(e){} }
+  async function loadPerf(){ if(Date.now()-perfAt<5*60e3) return; perfAt=Date.now(); try{ const r=await fetch('api/stats',{cache:'no-store'}); if(r.ok){ perf=(await r.json()).perf; renderSub(); } }catch(e){} }
+  function renderSub(){ const a=perf&&perf.all, n=(DataSource.list||[]).length;
+    $('dkSub').textContent=`背景監控 ${n} 個幣・2 個策略運作中${a&&a.n?`・實盤 ${a.net>=0?'+':''}${a.net}R（扣成本 ${a.n} 筆、勝率 ${Math.round((a.winRate||0)*100)}%）`:''}`; }
+  function renderNews(){
+    const it=(news.items||[]).slice(0,6);
+    $('dkNewsAt').textContent=news.at?`${ago(news.at)}更新`:'';
+    $('dkNews').innerHTML=it.length? it.map(n=>`<a class="dk-news" href="${esc(n.link)}" target="_blank" rel="noopener"><b>${esc(n.title)}</b><small>${esc(n.source)}・${n.t?ago(n.t):''}</small></a>`).join('') : '<div class="dk-empty">新聞載入中…（每 15 分鐘從動區動趨、鏈新聞、區塊客更新）</div>';
+  }
+  function renderTicker(){
+    const syms=['BTC','ETH','SOL','XRP','DOGE','BNB',...(DataSource.positions||[]).map(p=>p.sym)].filter((x,i,a)=>a.indexOf(x)===i && DataSource.series[x]);
+    const parts=syms.map(s=>`${s} ${fp(nowPx(s))} ${pctTxt(chg24(s))}`);
+    (Feed.items||[]).slice(0,3).forEach(f=>parts.push(f.title));
+    const txt=esc(parts.join('　　'));
+    $('dkTick').innerHTML=`<span>${txt}</span><span>${txt}</span>`;
+  }
+  function renderWeather(){
+    const d=Sent.d||{}, a=d.analyst, btc=results.find(r=>r.sym==='BTC'), n=results.length, tr=results.filter(r=>r.trend).length;
+    const col=v=>v>0?'#2fbf9b':v<0?'#ee6a6a':'#e5a13a';
+    $('dkVerdict').textContent=a?a.verdict:'—'; $('dkVerdict').style.color=a?col(a.score):'#e8edf7';
+    $('dkScore').textContent=a?`分析師 ${a.score>0?'+':''}${a.score} 分`:'';
+    $('dkNeedle').style.left=a?`${Math.max(2,Math.min(98,50+a.score/(a.max||10)*50))}%`:'50%';
+    const pt=n?tr/n:0; $('dkRegime').textContent=n?(pt>=0.4?'趨勢盤':pt<0.25?'盤整盤':'轉換中'):'';
+    const k=(l,v,c)=>`<div><span>${l}</span><b style="color:${c||'#e8edf7'}">${v??'—'}</b></div>`;
+    $('dkWeather').innerHTML=k('恐懼貪婪',d.fng&&d.fng.now,d.fng&&(d.fng.now<46?'#ee6a6a':d.fng.now>54?'#2fbf9b':'#e5a13a'))+k('BTC 多空比',d.ls&&d.ls.global.ratio)+k('資金費率',d.funding&&d.funding.avg!=null?`${d.funding.avg>=0?'+':''}${d.funding.avg.toFixed(3)}%`:null,'#e5a13a')
+      +k('有 4H 趨勢',n?Math.round(pt*100)+'%':null)+k('BTC 4H',btc?(btc.trend>0?'多頭':btc.trend<0?'空頭':'盤整'):null,btc&&col(btc.trend))+k('穩定幣 7 天',d.stable?`${d.stable.chg7>=0?'+':''}${d.stable.chg7}%`:null,d.stable&&col(d.stable.chg7));
+  }
+  function renderChart(){
+    const h=(DataSource.htf&&DataSource.htf('BTC'))||[], c=$('dkChart'), g=c.getContext('2d'), W=808, H=400; g.clearRect(0,0,W,H);
+    const px=nowPx('BTC'), ch=chg24('BTC'); $('dkBtc').innerHTML=px?`${fp(px)} <b style="color:${ch>=0?'#2fbf9b':'#ee6a6a'}">${pctTxt(ch)}</b>`:'';
+    if(h.length<30){ g.fillStyle='#7f8fb0'; g.font='24px sans-serif'; g.fillText('K 線載入中…',20,60); return; }
+    const all=h.map(b=>[b.o,b.h,b.l,b.c]), cs=all.slice(-70); if(px){ const l=cs[cs.length-1]; cs[cs.length-1]=[l[0],Math.max(l[1],px),Math.min(l[2],px),px]; }
+    const lo=Math.min(...cs.map(x=>x[2])), hi=Math.max(...cs.map(x=>x[1])), Y=v=>12+(hi-v)/(hi-lo||1)*(H-40), bw=W/cs.length;
+    g.strokeStyle='rgba(60,80,120,.25)'; g.lineWidth=1; for(let k=0;k<5;k++){ const y=12+k*(H-40)/4; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke(); }
+    let e=all[Math.max(0,all.length-90)][3]; const k2=2/21; for(let i=Math.max(0,all.length-90);i<all.length-70;i++) e=all[i][3]*k2+e*(1-k2);
+    g.strokeStyle='rgba(229,161,58,.8)'; g.lineWidth=2.5; g.beginPath(); cs.forEach((x,i)=>{ e=x[3]*k2+e*(1-k2); const xx=i*bw+bw/2; i?g.lineTo(xx,Y(e)):g.moveTo(xx,Y(e)); }); g.stroke();
+    cs.forEach((x,i)=>{ const up=x[3]>=x[0], col=up?'#2fbf9b':'#ee6a6a', xx=i*bw+bw/2; g.strokeStyle=col; g.lineWidth=2; g.beginPath(); g.moveTo(xx,Y(x[1])); g.lineTo(xx,Y(x[2])); g.stroke(); g.fillStyle=col; g.fillRect(xx-bw*.32,Math.min(Y(x[0]),Y(x[3])),bw*.64,Math.max(2,Math.abs(Y(x[0])-Y(x[3])))); });
+    const last=cs[cs.length-1][3], ly=Y(last); g.setLineDash([6,6]); g.strokeStyle='rgba(255,255,255,.4)'; g.beginPath(); g.moveTo(0,ly); g.lineTo(W,ly); g.stroke(); g.setLineDash([]);
+    g.fillStyle=last>=cs[cs.length-1][0]?'#2fbf9b':'#ee6a6a'; g.fillRect(W-140,ly-16,140,32); g.fillStyle='#fff'; g.font='700 22px "JetBrains Mono",monospace'; g.textAlign='right'; g.fillText(fp(last),W-10,ly+8);
+    g.fillStyle='rgba(229,161,58,.9)'; g.font='700 20px "JetBrains Mono",monospace'; g.textAlign='left'; g.fillText('EMA 20',10,H-8);
+  }
+  function renderSignals(){
+    const tag=(txt,c)=>`<span class="dk-tg" style="color:${c};border-color:${c}">${txt}</span>`, D=d=>`<span style="font-size:11.5px;font-weight:700;color:${d>0?'#2fbf9b':'#ee6a6a'}">${d>0?'多':'空'}</span>`;
+    const rows=[];
+    for(const r of results.filter(r=>r.kind==='sig')) rows.push([r.sym,r.dir,'📈 趨勢',tag('剛觸發','#e5a13a')]);
+    for(const a of (DataSource.signal||[]).filter(a=>a.state==='trigger')) if(!(DataSource.positions||[]).some(p=>p.sym===a.sym&&p.model==='signal')) rows.push([a.sym,a.trend,'⚡ 訊號',tag('剛觸發','#e5a13a')]);
+    for(const p of (DataSource.positions||[])){ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(nowPx(p.sym)-p.entry)/risk; rows.push([p.sym,p.dir,p.model==='signal'?'⚡ 訊號':'📈 趨勢',p.be?tag('已保本','#9fb2d9'):tag(`${r>=0?'+':''}${r.toFixed(2)}R`,r>=0?'#2fbf9b':'#ee6a6a')]); }
+    for(const d of (DataSource.closed||[])) rows.push([d.sym,d.dir,d.model==='signal'?'⚡ 訊號':'📈 趨勢',tag(`${{win:'止盈',loss:'止損',be:'保本'}[d.status]||'結束'} ${d.R>0?'+':''}${(d.R||0).toFixed(1)}R`,d.R>0?'#2fbf9b':d.R<0?'#ee6a6a':'#9fb2d9')]);
+    $('dkSig').innerHTML=rows.length? rows.slice(0,8).map(([s,d,st,t])=>`<div class="dk-r"><b class="mono">${esc(s)}</b>${D(d)}<span class="s">${st}</span>${t}</div>`).join('') : '<div class="dk-empty">目前沒有訊號和持倉，背景監控中。條件滿足時會出現在這裡並推到 Discord。</div>';
+  }
+  function renderPos(){
+    const ps=(DataSource.positions||[]).slice(0,3), P=r=>Math.max(2,Math.min(98,(r+1)/4*100));
+    let atRisk=0; for(const p of (DataSource.positions||[])){ const r0=Math.abs(p.entry-p.stop0)||1, l=p.dir*(p.stop-p.entry)/r0; if(l<0) atRisk+=-l; }
+    $('dkRisk').textContent=(DataSource.positions||[]).length?`全部打到止損 −${atRisk.toFixed(1)}R（約 −${Math.round(atRisk*Sizer.R)}U）`:'';
+    $('dkPos').innerHTML=ps.length? ps.map(p=>{ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(nowPx(p.sym)-p.entry)/risk, c=r>=0?'#2fbf9b':'#ee6a6a';
+      return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span><b class="mono">${esc(p.sym)}</b> <span style="font-size:11.5px;font-weight:700;color:${p.dir>0?'#2fbf9b':'#ee6a6a'}">${p.dir>0?'多':'空'}</span> <span style="font-size:10.5px;color:#7f8fb0">${p.model==='signal'?'⚡ 訊號':'📈 趨勢'}${p.be?'・已保本':''}</span></span><b class="mono" style="color:${c}">${r>=0?'+':''}${r.toFixed(2)}R</b></div>
+        <div class="dk-trk"><b style="left:${P(r)}%;border-color:${c}"></b></div><div class="mono" style="display:flex;justify-content:space-between;font-size:10.5px;color:#7f8fb0"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:#e5a13a">${p.model==='signal'?'止盈 '+fp(p.tp):'TP1 '+fp(p.tp1)}</span></div></div>`; }).join('')
+      + ((DataSource.positions||[]).length>3?`<div class="dk-empty">還有 ${(DataSource.positions||[]).length-3} 筆，切回一般模式看全部</div>`:'')
+      : '<div class="dk-empty">目前沒有持倉。</div>';
+  }
+  function renderFeed(){
+    const it=(Feed.items||[]).slice(0,4); const t=x=>{ const d=TW(x); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
+    $('dkFeed').innerHTML=it.length? it.map(f=>`<div class="dk-line"><span>${t(f.t)}</span> ${esc(f.title)}</div>`).join('') : '<div class="dk-empty">還沒有推播紀錄。</div>';
+    const f=it[0]; $('dkPop').innerHTML=f?`<b style="font-size:10px;opacity:.85">Discord・聚寶盆</b><b>${esc(f.title)}</b><span style="opacity:.9">${esc((f.body||'').split('\n')[0]||'')}</span>`:'<b style="font-size:10px;opacity:.85">Discord・聚寶盆</b><b>訊號會推到這裡</b>';
+  }
+  function renderClock(){
+    const t=Date.now(), d=TW(t), H1=3600e3, H4=4*H1, left=ms=>{ const s=Math.floor(ms/1000); return `${pad(Math.floor(s/3600))}:${pad(Math.floor(s%3600/60))}:${pad(s%60)}`; };
+    $('dkClock').textContent=`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`; $('dkHm').textContent=`${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+    $('dkH1').textContent=left(Math.ceil(t/H1)*H1-t); $('dkH4').textContent=left(Math.ceil(t/H4)*H4-t);
+  }
+  function render(){ if(!on) return; fit(); renderTicker(); renderWeather(); renderChart(); renderNews(); renderSignals(); renderPos(); renderFeed(); renderClock(); renderSub(); }
+  function open(){ on=true; $('deskView').hidden=false; document.body.style.overflow='hidden'; store.set('smc-desk',1); render(); loadNews(); loadPerf(); clearInterval(clockT); clockT=setInterval(()=>{ renderClock(); if(Date.now()-(news.fetched||0)>5*60e3){ news.fetched=Date.now(); loadNews(); } },1000); }
+  function close(){ on=false; $('deskView').hidden=true; document.body.style.overflow=''; store.set('smc-desk',0); clearInterval(clockT); }
+  $('deskBtn').onclick=open; $('dkExit').onclick=close;
+  addEventListener('keydown',e=>{ if(on&&e.key==='Escape') close(); });
+  addEventListener('resize',()=>{ if(on) fit(); });
+  if(store.get('smc-desk') && innerWidth>=1000) setTimeout(open,0);
+  const api={ render, open, close, get on(){ return on; } }; window.__desk=api; return api;
 })();
 })();

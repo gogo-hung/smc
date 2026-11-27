@@ -510,6 +510,74 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 .sent .bar i b{display:block;height:100%;border-radius:3px}
 .sent .bar .n{text-align:right;font-family:var(--f-mono);font-weight:700}
 .sent .tot{text-align:center;color:var(--muted);font-size:12px}
+
+/* ===== 交易座位模式 ===== */
+#deskView{position:fixed;inset:0;z-index:80;background:#06080d;overflow:hidden}
+#deskView[hidden]{display:none}
+#dkChart{background:transparent!important;height:200px!important;width:404px!important;border:0!important}
+.dk{position:absolute;left:50%;top:50%;width:1440px;height:900px;transform-origin:center;overflow:hidden;background:radial-gradient(1100px 520px at 50% 18%,#18233a 0%,#0b1020 45%,#06080d 80%);color:#e8edf7;font-family:var(--f-body,'Noto Sans TC',sans-serif)}
+.dk .mono{font-family:'JetBrains Mono',var(--f-mono,monospace)}
+.dk-tick{position:absolute;left:150px;right:150px;top:18px;height:34px;border-radius:6px;background:#07090e;box-shadow:0 0 0 1px #1a1f2b,0 0 30px rgba(229,161,58,.15);overflow:hidden}
+.dk-tick-in{display:flex;white-space:nowrap;height:34px;align-items:center;font-size:15px;font-weight:700;color:#ffd98a;width:max-content;animation:dkTick 60s linear infinite}
+.dk-tick-in span{padding-right:60px}
+@keyframes dkTick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.dk-wall{position:absolute;left:0;top:64px;width:1440px;height:600px;perspective:1500px;perspective-origin:50% 45%}
+.dk-3d{position:absolute;inset:0;transform-style:preserve-3d}
+.dk-mon{position:absolute;width:430px;height:262px;background:#0a0c11;border-radius:10px;padding:9px;box-sizing:border-box;box-shadow:0 0 0 1px #1a1f2b,0 30px 60px rgba(0,0,0,.6),0 0 60px rgba(70,120,220,.12)}
+.dk-scr{position:relative;width:100%;height:100%;border-radius:4px;background:linear-gradient(180deg,#0a1222,#060a14);overflow:hidden;padding:10px 12px;box-sizing:border-box}
+.dk-scr::after{content:'';position:absolute;left:0;right:0;height:30%;background:linear-gradient(180deg,transparent,rgba(140,180,255,.05),transparent);animation:dkScan 6s linear infinite;pointer-events:none}
+@keyframes dkScan{from{top:-30%}to{top:110%}}
+.dk-st{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:700;margin-bottom:6px}
+.dk-st i{font-style:normal;font-family:'JetBrains Mono',monospace;font-size:10px;color:#6f7f9f;font-weight:500;letter-spacing:.08em}
+.dk-live{color:#2fbf9b;font-size:10.5px;animation:dkBlink 1.6s infinite}
+@keyframes dkBlink{0%,100%{opacity:1}50%{opacity:.35}}
+.dk-gauge{position:relative;height:7px;border-radius:4px;background:linear-gradient(90deg,#ee6a6a,#e5a13a,#2fbf9b);margin-bottom:12px}
+.dk-gauge i{position:absolute;top:-5px;width:4px;height:17px;border-radius:2px;background:#fff;transition:left .8s}
+.dk-kv{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.dk-kv span{display:block;font-size:10.5px;color:#7f8fb0}
+.dk-kv b{font-family:'JetBrains Mono',monospace;font-size:16px}
+.dk-r{display:grid;grid-template-columns:50px 22px 1fr auto;gap:6px;align-items:center;font-size:12px;padding:3.5px 0;border-bottom:1px solid rgba(40,55,85,.6)}
+.dk-r .s{font-size:11px;color:#9fb2d9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-tg{font-size:10.5px;font-weight:700;border:1px solid;border-radius:4px;padding:0 5px;white-space:nowrap}
+.dk-trk{position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,rgba(238,106,106,.4) 0 25%,rgba(47,191,155,.3) 25% 100%);margin:7px 0 3px}
+.dk-trk b{position:absolute;top:-4px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#060a14;border:2.5px solid}
+.dk-cd{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.dk-cd div{background:#0d1628;border-radius:6px;padding:7px 9px}
+.dk-cd span{font-size:10.5px;color:#7f8fb0}
+.dk-cd b{display:block;font-size:20px}
+.dk-line{font-family:'JetBrains Mono',monospace;font-size:11px;color:#b9c6e0;padding:2.5px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-line span{color:#6f7f9f}
+.dk-news{display:block;padding:5px 0;border-bottom:1px solid rgba(40,55,85,.6);color:#e8edf7;text-decoration:none;font-size:12.5px;line-height:1.4}
+.dk-news:hover{color:#ffd98a}
+.dk-news small{display:block;font-size:10.5px;color:#7f8fb0;margin-top:1px}
+.dk-news b{font-weight:500;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.dk-empty{font-size:12px;color:#7f8fb0;padding:6px 0}
+.dk-table{position:absolute;left:-60px;right:-60px;bottom:-40px;height:290px;background:linear-gradient(180deg,#1b1712 0%,#120f0b 45%,#0a0806 100%);clip-path:polygon(14% 0,86% 0,100% 100%,0 100%);box-shadow:inset 0 2px 0 rgba(229,161,58,.25)}
+.dk-edge{position:absolute;left:22%;right:22%;bottom:236px;height:3px;background:linear-gradient(90deg,transparent,rgba(229,161,58,.55),transparent);filter:blur(1px)}
+.dk-kb{position:absolute;left:50%;bottom:70px;width:560px;height:150px;margin-left:-300px;transform:perspective(700px) rotateX(52deg);border-radius:14px;background:#101318;box-shadow:0 0 0 1px #232834,0 20px 30px rgba(0,0,0,.6);padding:14px;box-sizing:border-box}
+.dk-kb div{width:100%;height:100%;border-radius:6px;background-image:repeating-linear-gradient(90deg,#1b1f28 0 30px,transparent 30px 34px),repeating-linear-gradient(0deg,#1b1f28 0 22px,transparent 22px 27px);box-shadow:inset 0 0 18px rgba(229,161,58,.12)}
+.dk-mouse{position:absolute;left:calc(50% + 300px);bottom:96px;width:52px;height:80px;transform:perspective(700px) rotateX(48deg);border-radius:26px;background:#14171d;box-shadow:0 0 0 1px #262b36}
+.dk-mug{position:absolute;left:220px;bottom:80px;width:70px;height:84px}
+.dk-mug .b{position:absolute;left:10px;bottom:0;width:52px;height:62px;border-radius:6px 6px 14px 14px;background:linear-gradient(90deg,#d9cbb4,#f2e8d6 50%,#c9b99f)}
+.dk-mug .h{position:absolute;left:56px;bottom:18px;width:18px;height:26px;border:5px solid #d9cbb4;border-left:0;border-radius:0 12px 12px 0}
+.dk-mug .c{position:absolute;left:12px;bottom:54px;width:48px;height:9px;border-radius:50%;background:#3a2414}
+.dk-mug i{position:absolute;left:22px;bottom:66px;width:8px;height:22px;border-radius:50%;background:rgba(255,255,255,.25);animation:dkSteam 2.6s ease-out infinite}
+.dk-mug i.d2{left:36px;animation-delay:1.1s}
+@keyframes dkSteam{0%{opacity:0;transform:translateY(0) scaleX(1)}30%{opacity:.5}100%{opacity:0;transform:translateY(-46px) scaleX(1.6)}}
+.dk-phone{position:absolute;right:190px;bottom:60px;width:150px;height:230px;border-radius:22px;background:#0b0d12;box-shadow:0 0 0 2px #232834,0 18px 30px rgba(0,0,0,.6);transform:rotate(-8deg);padding:10px;box-sizing:border-box}
+.dk-phone .in{width:100%;height:100%;border-radius:14px;background:linear-gradient(180deg,#1a1d3a,#0d0f20);position:relative;overflow:hidden}
+.dk-phone .t{text-align:center;font-size:22px;font-weight:700;margin-top:14px}
+.dk-phone .pop{position:absolute;left:8px;right:8px;top:62px;border-radius:10px;background:rgba(88,101,242,.92);padding:8px;font-size:11px;line-height:1.4;animation:dkPop 8s ease-in-out infinite}
+.dk-phone .pop b{display:block}
+@keyframes dkPop{0%,10%{opacity:0;transform:translateY(10px)}16%,90%{opacity:1;transform:translateY(0)}100%{opacity:0}}
+.dk-brand{position:absolute;left:28px;bottom:22px;display:flex;align-items:center;gap:10px}
+.dk-brand>b{width:34px;height:34px;border-radius:9px;background:#e5a13a;color:#1a1206;display:grid;place-items:center;font-weight:900}
+.dk-sw{position:absolute;right:28px;bottom:26px;display:flex;gap:6px;background:rgba(8,11,18,.85);border:1px solid #1d2a44;border-radius:10px;padding:5px}
+.dk-sw button{font:inherit;font-size:12px;padding:5px 10px;color:#9fb2d9;background:transparent;border:0;border-radius:7px;cursor:pointer}
+.dk-sw button:hover{color:#fff;background:#1a2336}
+.dk-sw span{font-size:12px;padding:5px 10px;border-radius:7px;background:#e5a13a;color:#1a1206;font-weight:700}
+@media (max-width:999px){#deskBtn{display:none}}
+@media (prefers-reduced-motion:reduce){.dk-tick-in,.dk-scr::after,.dk-mug i,.dk-phone .pop,.dk-live{animation:none}}
 </style>
 </head>
 <body>
@@ -537,6 +605,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     </div>
     <div class="actions">
       <label class="toggle"><input type="checkbox" id="auto"> <span id="autoLbl">每 30 秒模擬一根新 K 棒</span></label>
+      <button class="btn" id="deskBtn" type="button" title="切換到交易座位模式（6 螢幕）">🖥 交易座位模式</button>
       <button class="btn primary" id="scanBtn" type="button">立即掃描</button>
     </div>
   </header>
@@ -923,6 +992,50 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
+<!-- 交易座位模式：全螢幕 6 螢幕交易牆（設計稿 1440×900，依視窗等比縮放） -->
+<section id="deskView" hidden aria-label="交易座位模式">
+ <div class="dk" id="dk">
+  <div class="dk-tick"><div class="dk-tick-in mono" id="dkTick"></div></div>
+  <div class="dk-wall">
+   <div class="dk-3d">
+    <div class="dk-mon" style="left:70px;top:10px;transform:translateZ(-40px) rotateY(24deg)"><div class="dk-scr">
+     <div class="dk-st"><span>市場天氣<i> WEATHER</i></span><span id="dkRegime" style="color:#e5a13a;font-size:11px"></span></div>
+     <div style="display:flex;align-items:baseline;gap:10px;margin:2px 0 8px"><b id="dkVerdict" style="font-size:30px;font-weight:900">—</b><span class="mono" id="dkScore" style="color:#9fb2d9;font-size:13px"></span></div>
+     <div class="dk-gauge"><i id="dkNeedle"></i></div>
+     <div class="dk-kv" id="dkWeather"></div>
+    </div></div>
+    <div class="dk-mon" style="left:505px;top:0;transform:translateZ(0)"><div class="dk-scr" style="padding:10px 12px 6px">
+     <div class="dk-st"><span>BTCUSDT · 4H<i> CHART</i></span><span class="mono" id="dkBtc" style="font-size:13px"></span></div>
+     <canvas id="dkChart" width="808" height="400" style="width:404px;height:200px;display:block" aria-hidden="true"></canvas>
+    </div></div>
+    <div class="dk-mon" style="left:940px;top:10px;transform:translateZ(-40px) rotateY(-24deg)"><div class="dk-scr">
+     <div class="dk-st"><span>即時新聞<i> NEWS</i></span><span id="dkNewsAt" style="font-size:10.5px;color:#7f8fb0"></span></div>
+     <div id="dkNews"></div>
+    </div></div>
+    <div class="dk-mon" style="left:70px;top:290px;transform:translateZ(-40px) rotateY(24deg)"><div class="dk-scr">
+     <div class="dk-st"><span>訊號看板<i> SIGNALS</i></span><span class="mono dk-live">● LIVE</span></div>
+     <div id="dkSig"></div>
+    </div></div>
+    <div class="dk-mon" style="left:505px;top:280px;transform:translateZ(0)"><div class="dk-scr">
+     <div class="dk-st"><span>持倉中<i> POSITIONS</i></span><span id="dkRisk" style="font-size:11px;color:#e5a13a"></span></div>
+     <div id="dkPos"></div>
+    </div></div>
+    <div class="dk-mon" style="left:940px;top:290px;transform:translateZ(-40px) rotateY(-24deg)"><div class="dk-scr">
+     <div class="dk-st"><span>下一次檢查<i> NEXT CHECK</i></span><span class="mono" id="dkClock" style="font-size:12px"></span></div>
+     <div class="dk-cd"><div><span>⚡ 1H 收盤</span><b class="mono" id="dkH1"></b></div><div><span>📈 4H 收盤</span><b class="mono" id="dkH4" style="color:#e5a13a"></b></div></div>
+     <div class="dk-st" style="margin-bottom:4px"><span>最新推播<i> FEED</i></span></div>
+     <div id="dkFeed"></div>
+    </div></div>
+   </div>
+  </div>
+  <div class="dk-table" aria-hidden="true"></div><div class="dk-edge" aria-hidden="true"></div>
+  <div class="dk-kb" aria-hidden="true"><div></div></div><div class="dk-mouse" aria-hidden="true"></div>
+  <div class="dk-mug" aria-hidden="true"><div class="b"></div><div class="h"></div><div class="c"></div><i></i><i class="d2"></i></div>
+  <div class="dk-phone"><div class="in"><div class="mono t" id="dkHm"></div><div class="pop" id="dkPop"></div></div></div>
+  <div class="dk-brand"><b>聚</b><div><div style="font-weight:900;font-size:15px">聚寶盆交易座位</div><div id="dkSub" style="font-size:11px;color:#7f8fb0"></div></div></div>
+  <div class="dk-sw"><button type="button" id="dkExit">一般模式</button><span>交易座位模式</span></div>
+ </div>
+</section>
 <script src="smc.js"></script>
 <script src="trend.js"></script>
 <script src="app.js"></script>

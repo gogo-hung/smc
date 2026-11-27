@@ -98,6 +98,7 @@ const server = http.createServer(async (req, res) => {
       const [file, type] = STATIC[url.pathname];
       return send(res, 200, fs.readFileSync(file), type);
     }
+    if (url.pathname === '/api/news' && req.method === 'GET') { const news = require('./news'); news.refresh().catch(() => {}); return send(res, 200, { at: news.state.at, items: news.state.items.slice(0, 20), errors: news.state.errors }); }
     if (url.pathname === '/api/ledger' && req.method === 'GET') return send(res, 200, { updatedAt: Date.now(), cost: '來回手續費 0.05%×2＋資金費率每 8 小時 0.01%（netR）', trades: tracker.ledger() });
     if (url.pathname === '/api/health') {
       return send(res, 200, { ok: true, lastScan: s.lastScan, scanning: s.scanning, lastError: s.lastError, symbols: Object.keys(s.market).length, errors: s.errors.slice(0, 10), upSince: keepAlive.started, lastPing: keepAlive.lastPing, pings: keepAlive.pings });
