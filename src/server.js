@@ -105,6 +105,7 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, {
         updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx, trend: s.trend, signal: s.signal,
         positions: tracker.state.signals.filter(x => (x.model === 'trend' || x.model === 'signal') && x.status === 'filled').map(x => ({ model: x.model, tp: x.tp, beTrig: x.beTrig, sym: x.sym, dir: x.dir, entry: x.entry, stop: x.stop, stop0: x.stop0, tp1: x.tp1, tp1Hit: !!x.tp1Hit, be: !!x.be, ext: x.ext, atr: x.atr, filledAt: x.filledAt })),
+        closed: tracker.state.signals.filter(x => (x.model === 'trend' || x.model === 'signal') && ['win', 'loss', 'be'].includes(x.status) && x.closedAt && Date.now() - x.closedAt < 24 * 3600e3).map(x => ({ model: x.model, sym: x.sym, dir: x.dir, entry: x.entry, exit: x.exit, R: x.R, status: x.status, filledAt: x.filledAt, closedAt: x.closedAt })).sort((a, b) => b.closedAt - a.closedAt),   // 結單區：結束 24 小時內
         symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf), ...(m.m15 ? { m15: pack(m.m15) } : {}) })),
       });
     }

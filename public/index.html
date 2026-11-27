@@ -324,6 +324,15 @@ td.num,th.num{text-align:right}
 @media (prefers-reduced-motion:reduce){.bg-note::before{animation:none}}
 .board .empty{padding:16px;font-size:13px}
 .sig-rule{margin:0;padding:10px 16px 4px;font-size:12.5px;color:var(--muted)}
+.done-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.dcard{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;font:inherit;color:inherit;border-left-width:4px}
+.dcard.win{border-left-color:var(--long)}.dcard.loss{border-left-color:var(--short)}.dcard.be{border-left-color:var(--muted)}
+.dcard:hover{border-color:var(--muted)}
+.dcard .hd{display:flex;align-items:center;gap:6px}
+.dcard .hd b{font-family:var(--f-display);font-size:16px}
+.dcard .res{margin-left:auto;font-family:var(--f-mono);font-weight:700;font-size:15px}
+.dcard .ft{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);font-family:var(--f-mono)}
+.dcard .tag{font-size:10.5px;padding:0 6px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .pcard .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .pcard .tag.sig{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
 .empty .btn{margin-top:10px}
@@ -716,6 +725,10 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <section class="pos-sec" id="posSec" hidden aria-labelledby="posH">
         <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
         <div class="pos-grid" id="posGrid"></div>
+      </section>
+      <section class="pos-sec" id="doneSec" hidden aria-labelledby="doneH">
+        <h2 class="sec-h" id="doneH">結單區 <span class="muted" id="doneN" style="font-size:12.5px;font-weight:500"></span></h2>
+        <div class="done-grid" id="doneGrid"></div>
       </section>
     <!-- SIGNAL BOARD -->
       <main class="pane board" aria-labelledby="boardT">

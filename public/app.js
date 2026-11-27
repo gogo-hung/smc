@@ -18,7 +18,7 @@ const DataSource = {
     await this.apply(await r.json());
   },
   async apply(j){
-    this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx; this.positions=j.positions||[]; this.signal=j.signal||[];
+    this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx; this.positions=j.positions||[]; this.signal=j.signal||[]; this.closed=j.closed||[];
     this.list=(j.symbols||[]).map(x=>x.sym);
     for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); if(x.m15) this.m15s[x.sym]=unpack(x.m15); }
   },
@@ -776,7 +776,7 @@ function updateHero(){
   if(a){ const col=a.dir>0?'var(--long)':a.dir<0?'var(--short)':'var(--accent)'; v.textContent=a.verdict; v.style.color=col;
     $('hScore').textContent=`總分 ${a.score>0?'+':''}${a.score}（趨勢 ${a.trend>0?'+':''}${a.trend}｜情緒 ${a.mood>0?'+':''}${a.mood}）`;
     $('hKnot').style.left=`${(a.score+a.max)/(2*a.max)*100}%`; }
-  renderMinis(); renderPositions(); if(typeof Globe!=='undefined') Globe.refresh(); alignSide();
+  renderMinis(); renderPositions(); renderDone(); if(typeof Globe!=='undefined') Globe.refresh(); alignSide();
 }
 // 右欄的分析師卡片跟左邊「數字卡＋情緒小卡」一樣高，兩欄上下對齊
 function alignSide(){ const g=$('greetAn'), k=document.querySelector('.kpis'), m=$('minis'); if(!g||!k||!m) return;
@@ -834,6 +834,22 @@ function renderSig(){
 }
 $('sigRows').addEventListener('click',e=>{ const c=e.target.closest('.card[data-s]'); if(!c) return; selected=c.dataset.s; openDetail(); });
 $('sigRows').addEventListener('keydown',e=>{ if(e.key!=='Enter') return; const c=e.target.closest('.card[data-s]'); if(!c) return; selected=c.dataset.s; openDetail(); });
+
+// 結單區：止盈、保本、止損結束的單放 24 小時後自動拿掉（成績單裡的紀錄不會刪）
+function renderDone(){
+  const now=Date.now(), ds=(DataSource.mode==='live'?(DataSource.closed||[]):[]).filter(d=>now-d.closedAt<24*3600e3);
+  $('doneSec').hidden=!ds.length; if(!ds.length) return;
+  const sumR=ds.reduce((a,d)=>a+(d.R||0),0);
+  $('doneN').textContent=`24 小時內 ${ds.length} 筆・合計 ${sumR>=0?'+':''}${sumR.toFixed(2)}R・結束滿 24 小時自動移除`;
+  $('doneGrid').innerHTML=ds.map(d=>{ const left=Math.max(0,24*3600e3-(now-d.closedAt)), lh=Math.floor(left/3600e3), lm=Math.floor(left%3600e3/60e3);
+    const res={win:['止盈','var(--long)'],loss:['止損','var(--short)'],be:['保本','var(--muted)']}[d.status]||['結束','var(--muted)'];
+    if(d.model==='trend'&&d.status==='win') res[0]='TP2 出場';
+    return `<button type="button" class="dcard ${d.status}" data-sym="${esc(d.sym)}"><span class="hd"><b>${esc(d.sym)}</b><span class="dir ${d.dir>0?'L':'S'}">${d.dir>0?'多':'空'}</span><span class="tag">${d.model==='signal'?'⚡訊號':'📈趨勢'}</span><span class="res" style="color:${res[1]}">${res[0]} ${d.R>0?'+':''}${(d.R||0).toFixed(2)}R</span></span>
+      <span class="ft"><span>進場 ${fp(d.entry)}</span><span>出場 ${fp(d.exit)}</span></span>
+      <span class="ft" style="font-family:var(--f-body)"><span>${ago(d.closedAt)}結單</span><span>${lh} 小時 ${lm} 分後移除</span></span></button>`; }).join('');
+}
+setInterval(()=>{ if(typeof DataSource!=='undefined' && DataSource.closed) renderDone(); },60000);
+$('doneGrid').addEventListener('click',e=>{ const b=e.target.closest('.dcard'); if(!b) return; selected=b.dataset.sym; openDetail(); });
 
 function renderPositions(){
   const ps=DataSource.mode==='live'?(DataSource.positions||[]):[];
