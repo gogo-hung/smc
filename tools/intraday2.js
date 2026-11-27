@@ -24,6 +24,7 @@ function aligner(hi, tfHi) { let j = -1; return closeT => { while (j + 1 < hi.le
 
 // ---- 模擬：訊號在第 i 根收盤，下一根開盤進場；同一根同時碰止損和止盈算止損 ----
 function simulate(bars, sigs, tf, fee = global.__FEE ?? FEE) {
+  if (global.__SIM) return global.__SIM(bars, sigs, tf, fee);
   const out = []; let busy = -1;
   for (const s of sigs) {
     if (s.i <= busy || s.i + 1 >= bars.length) continue;
@@ -142,7 +143,8 @@ function stat(q, t0) {
 }
 const f = (x, d = 1) => (x >= 0 ? '+' : '') + x.toFixed(d);
 
-(async () => {
+module.exports = { S, stat, cap, H, load };
+if (require.main === module) (async () => {
   const data = await load();
   const syms = Object.keys(data).filter(s => data[s].htf && data[s].htf.length > 400 && data[s].ltf && data[s].ltf.length > 1000);
   for (const s of syms) if (data[s].m15 && Array.isArray(data[s].m15[0])) data[s].m15 = data[s].m15.map(r => ({ t: r[0], o: r[1], h: r[2], l: r[3], c: r[4], v: r[5] }));
