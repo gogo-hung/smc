@@ -874,9 +874,24 @@ function renderDone(){
 setInterval(()=>{ if(typeof DataSource!=='undefined' && DataSource.closed) renderDone(); },60000);
 $('doneGrid').addEventListener('click',e=>{ const b=e.target.closest('.dcard'); if(!b) return; selected=b.dataset.sym; openDetail(); });
 
+// 整體風險：全部打到止損會虧幾 R、多空各幾筆、同方向集中警示（加密貨幣跟 BTC 高度連動，同方向多筆≈一筆大單）
+function renderRisk(ps){
+  let atRisk=0, locked=0, L=0, S=0;
+  for(const p of ps){ const r0=Math.abs(p.entry-p.stop0)||1, lockR=p.dir*(p.stop-p.entry)/r0; if(lockR<0) atRisk+=-lockR; else locked+=lockR; if(p.dir>0) L++; else S++; }
+  const same=Math.max(L,S), side=L>S?'多':'空', lv=atRisk>=8||same>=8?'bad':atRisk>=5||same>=5?'warn':'ok';
+  const msg={bad:`⚠ 風險偏高：${same>=8?`同時 ${same} 筆${side}單，幣圈跟 BTC 高度連動，等於押一筆大的${side}單`:''}${atRisk>=8?`${same>=8?'；':''}全部打到止損會虧 ${atRisk.toFixed(1)}R`:''}。新訊號建議縮小倉位或先不開。`,
+    warn:`留意：${same>=5?`${same} 筆都是${side}單，方向集中`:''}${atRisk>=5?`${same>=5?'，':''}全部打到止損會虧 ${atRisk.toFixed(1)}R`:''}。`,
+    ok:'風險分散正常。每筆風險 1% 時，1R＝本金的 1%。'}[lv];
+  $('riskBar').className='risk-bar'+(lv==='ok'?'':' '+lv);
+  $('riskBar').innerHTML=`<div class="rk"><span>全部打到止損</span><b style="color:${atRisk>0?'var(--short)':'var(--fg)'}">−${atRisk.toFixed(1)}R</b><i>還沒保本的單加起來</i></div>
+    <div class="rk"><span>已鎖住利潤</span><b style="color:${locked>0?'var(--long)':'var(--fg)'}">+${locked.toFixed(1)}R</b><i>止損已過開倉價的部分</i></div>
+    <div class="rk"><span>多 ${L}／空 ${S}</span><b>${L===S?'中性':`偏${side} ${Math.abs(L-S)} 筆`}</b><span class="netbar"><i class="L" style="width:${ps.length?L/ps.length*100:0}%"></i><i class="S" style="width:${ps.length?S/ps.length*100:0}%"></i></span></div>
+    <div class="rk"><span>同方向最多</span><b>${same} 筆</b><i>5 筆以上會提醒、8 筆以上警示</i></div>
+    <p class="msg ${lv}">${msg}</p>`;
+}
 function renderPositions(){
   const ps=DataSource.mode==='live'?(DataSource.positions||[]):[];
-  $('nP').textContent=ps.length; $('posSec').hidden=!ps.length; if(!ps.length) return;
+  $('nP').textContent=ps.length; $('posSec').hidden=!ps.length; if(!ps.length) return; renderRisk(ps);
   $('posN').textContent=`${ps.length} 筆`;
   const P=r=>Math.max(0,Math.min(100,(r+1)/4*100));
   $('posGrid').innerHTML=ps.map(p=>{

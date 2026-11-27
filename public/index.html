@@ -343,6 +343,16 @@ td.num,th.num{text-align:right}
 .pt b.pos{color:var(--long)}.pt b.neg{color:var(--short)}
 .pt i{font-style:normal;font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
 @media (max-width:520px){.pts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.risk-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.risk-bar.warn{border-color:var(--watch)}.risk-bar.bad{border-color:var(--short)}
+.risk-bar .rk span{display:block;font-size:11.5px;color:var(--muted)}
+.risk-bar .rk b{font-family:var(--f-mono);font-size:17px}
+.risk-bar .rk i{display:block;font-style:normal;font-size:10.5px;color:var(--muted)}
+.risk-bar .msg{grid-column:1/-1;font-size:12.5px;margin:0}
+.risk-bar .msg.warn{color:var(--watch)}.risk-bar .msg.bad{color:var(--short)}.risk-bar .msg.ok{color:var(--muted)}
+.netbar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--raise);margin-top:5px}
+.netbar i{display:block;height:100%}.netbar .L{background:var(--long)}.netbar .S{background:var(--short)}
+@media (max-width:760px){.risk-bar{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .done-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 .dcard{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;font:inherit;color:inherit;border-left-width:4px}
 .dcard.win{border-left-color:var(--long)}.dcard.loss{border-left-color:var(--short)}.dcard.be{border-left-color:var(--muted)}
@@ -743,6 +753,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <div class="minis" id="minis" aria-label="市場情緒摘要"></div>
       <section class="pos-sec" id="posSec" hidden aria-labelledby="posH">
         <h2 class="sec-h" id="posH">持倉中 <span class="muted" id="posN"></span></h2>
+        <div class="risk-bar" id="riskBar" aria-label="整體風險"></div>
         <div class="pos-grid" id="posGrid"></div>
       </section>
       <section class="pos-sec" id="doneSec" hidden aria-labelledby="doneH">
