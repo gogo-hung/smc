@@ -30,6 +30,9 @@ module.exports = {
   EXCLUDE: list(process.env.EXCLUDE),            // 例：USDC,FDUSD
   INCLUDE_TRADFI: /^(1|true|yes)$/i.test(process.env.INCLUDE_TRADFI || ''), // 是否掃 BingX 的美股、指數、商品（NC 開頭）
   MIN_QUOTE_VOLUME: num(process.env.MIN_QUOTE_VOLUME, 5_000_000), // 24h 成交額下限（USDT）
+  // 其他幣（成交額前 N 名以外）也掃，但只顯示、不建單不推播（回測：冷門幣讓兩個策略都變差）。SCAN_ALL=off 關掉
+  SCAN_ALL: !/^(0|false|no|off)$/i.test(process.env.SCAN_ALL || ''),
+  ALL_CONCURRENCY: num(process.env.ALL_CONCURRENCY, 2),
 
   LTF_INTERVAL: '1h',                            // 找 OB、吞沒、EMA50 的時框
   LTF_LIMIT: num(process.env.LTF_LIMIT, 300),    // 1H 根數（約 12 天）

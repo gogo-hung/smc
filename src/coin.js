@@ -29,7 +29,7 @@ const coinCache = new Map();   // sym → { at, data }
 async function symbols(scannerState) {
   if (Date.now() - symCache.at < 5 * 60e3 && symCache.list.length) return symCache.list;
   const [contracts, tickers] = await Promise.all([bingx.getContracts(), bingx.getTickers()]);
-  const live = new Set(contracts), scanned = new Set(Object.keys((scannerState && scannerState.market) || {}));
+  const live = new Set(contracts), scanned = new Set(Object.entries((scannerState && scannerState.market) || {}).filter(([, m]) => !m.watchOnly).map(([k]) => k));   // 前 N 名（會推播）
   const list = tickers.filter(t => live.has(t.symbol) && !isTradfi(t.symbol))
     .sort((a, b) => b.quoteVolume - a.quoteVolume)
     .map((t, i) => ({ sym: t.symbol.replace(/-USDT$/, ''), price: t.last, chg: t.change, vol: t.quoteVolume, rank: i + 1, scanned: scanned.has(t.symbol.replace(/-USDT$/, '')) }));

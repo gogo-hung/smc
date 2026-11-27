@@ -18,7 +18,7 @@ const DataSource = {
     await this.apply(await r.json());
   },
   async apply(j){
-    this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx; this.positions=j.positions||[]; this.signal=j.signal||[]; this.closed=j.closed||[];
+    this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx; this.positions=j.positions||[]; this.signal=(j.signal||[]).filter(a=>!a.watchOnly); this.others=othersOf(j); this.nOthers=j.othersN||0; this.closed=j.closed||[];
     this.list=(j.symbols||[]).map(x=>x.sym); this.prices={}; for(const x of j.symbols||[]) if(x.price) this.prices[x.sym]=x.price;
     for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); if(x.m15) this.m15s[x.sym]=unpack(x.m15); }
   },
@@ -853,9 +853,24 @@ function renderMinis(){
   $('minis').innerHTML=items.map(([i,k,v,sub,col])=>`<button type="button" class="mcard" data-i="${i}" title="在右邊情緒卡看詳細"><span class="k">${k}</span><b style="color:${col||'var(--fg)'}">${v??'—'}</b><span class="s">${esc(sub||'資料準備中')}</span></button>`).join('');
 }
 $('minis').addEventListener('click',e=>{ const b=e.target.closest('.mcard'); if(!b) return; sentGo(+b.dataset.i); $('sentPane').scrollIntoView({behavior:'smooth',block:'nearest'}); });
+// 🔍 其他幣觀察：前 60 名以外，趨勢策略剛觸發（4H 收盤 8 小時內，sigT＝收盤時間）或訊號策略剛翻向
+function othersOf(j){
+  const out=[], now=Date.now();
+  for(const a of j.trend||[]) if(a.watchOnly&&a.sig&&now-a.sigT<8*3600e3) out.push({sym:a.sym,dir:a.sig,model:'trend',t:a.sigT});
+  for(const a of j.signal||[]) if(a.watchOnly&&a.state==='trigger') out.push({sym:a.sym,dir:a.sig||a.trend,model:'signal',t:a.lastFlip||now});
+  return out.sort((a,b)=>b.t-a.t);
+}
+function renderOthers(){
+  const o=DataSource.others||[], n=DataSource.nOthers||0; if(!$('othRows')) return;
+  $('bgO').textContent=n?`觀察 ${n} 個幣`:'';
+  $('othRows').innerHTML=o.length? o.map(x=>`<button type="button" data-s="${esc(x.sym)}"><b>${esc(x.sym)}</b><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span><span class="m">${x.model==='trend'?'📈 趨勢':'⚡ 訊號'}・${ago(x.t)}</span></button>`).join('')
+    : `<span class="e">${n?'目前其他幣沒有剛成立的訊號。':'其他幣還沒掃完（第一次要幾分鐘）。'}</span>`;
+}
+document.addEventListener('click',e=>{ const b=e.target.closest('#othRows button[data-s]'); if(b) go('coin/'+b.dataset.s); });
 // ⚡ 訊號策略看板（伺服器算好的 1H Supertrend 狀態：/api/market 的 signal）
 var sigF="trigger", prevSig=null;
 function renderSig(){
+  renderOthers();
   const all=DataSource.signal||[], pos=(DataSource.positions||[]).filter(p=>p.model==='signal'), posSyms=new Set(pos.map(p=>p.sym));
   const order={trigger:0,watch:1,running:2,idle:3};
   const view=all.filter(a=>a.state==='trigger'&&!posSyms.has(a.sym)).sort((a,b)=>a.sym.localeCompare(b.sym));
@@ -1136,7 +1151,7 @@ const Coin=(()=>{
   const norm=q=>q.toUpperCase().replace(/[-_/ ]?USDT$/,'').replace(/[^A-Z0-9]/g,'');
   function find(q){ q=norm(q); if(!q) return list.slice(0,8); const a=list.filter(x=>x.sym.startsWith(q)), b=list.filter(x=>!x.sym.startsWith(q)&&x.sym.includes(q)); return [...a,...b].slice(0,8); }
   function showList(){ const q=$('coinQ').value; matches=find(q); sel=0; const box=$('coinList'); box.hidden=false;
-    box.innerHTML=!list.length?'<div class="empty">幣種清單載入中…</div>':matches.length? matches.map((x,i)=>`<button type="button" role="option" data-s="${esc(x.sym)}" aria-selected="${i===sel}"><span><b>${esc(x.sym)}</b>${x.scanned?'<span class="tagc">策略掃描中</span>':''}</span><span class="px">${fp(x.price)}</span><span class="px" style="color:${x.chg>=0?'var(--long)':'var(--short)'}">${x.chg>=0?'+':''}${(+x.chg).toFixed(2)}%</span></button>`).join('') : `<div class="empty">BingX 找不到「${esc(norm(q))}」</div>`; }
+    box.innerHTML=!list.length?'<div class="empty">幣種清單載入中…</div>':matches.length? matches.map((x,i)=>`<button type="button" role="option" data-s="${esc(x.sym)}" aria-selected="${i===sel}"><span><b>${esc(x.sym)}</b>${x.scanned?'<span class="tagc">推播名單</span>':''}</span><span class="px">${fp(x.price)}</span><span class="px" style="color:${x.chg>=0?'var(--long)':'var(--short)'}">${x.chg>=0?'+':''}${(+x.chg).toFixed(2)}%</span></button>`).join('') : `<div class="empty">BingX 找不到「${esc(norm(q))}」</div>`; }
   function hl(){ $('coinList').querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-selected',i===sel)); }
   function open(s){ $('coinList').hidden=true; $('coinQ').value=''; $('coinQ').blur(); sym=norm(s); go('coin/'+sym); }
   $('coinQ').addEventListener('focus',async()=>{ showList(); await loadList(); if(document.activeElement===$('coinQ')) showList(); });
@@ -1169,7 +1184,7 @@ const Coin=(()=>{
     $('cvBody').innerHTML=`
       <div class="cv-head"><h2>${esc(a.sym)}<span class="muted" style="font-size:15px;font-weight:500">／USDT 永續</span></h2><span class="p">${fp(a.price)}</span>
         <span style="color:${col(b.chg24)};font-family:var(--f-mono);font-weight:700">${b.chg24==null?'':sg(b.chg24)+(+b.chg24).toFixed(2)+'%（24h）'}</span>
-        <span class="chip">${a.scanned?'✓ 在策略掃描名單':'不在策略掃描名單（成交額排名較後，策略不會推播）'}</span></div>
+        <span class="chip">${a.scanned?'✓ 在策略掃描名單':'前 60 名以外：只觀察、不推播'}</span></div>
       ${a.short?`<p class="cv-note">⚠ ${esc(a.short)}</p>`:''}
       <div class="cv-grid">
         <div class="cv-card"><h3>綜合判斷</h3>
@@ -1200,7 +1215,7 @@ const Coin=(()=>{
           <div class="${st.signal.state==='trigger'?'on':''}"><b>⚡ 訊號策略</b><br>${esc(st.signal.txt)}</div>
         </div>
         ${a.positions.length?`<h3 style="margin-top:14px">目前持倉</h3>${a.positions.map(p=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)">${p.model==='signal'?'⚡ 訊號':'📈 趨勢'}・<b style="color:${p.dir>0?'var(--long)':'var(--short)'}">${p.dir>0?'多':'空'}</b>・進場 ${fp(p.entry)}・止損 ${fp(p.stop)}${p.be?'（已保本）':''}・${p.model==='signal'?'止盈':'TP1'} ${fp(p.tp)}</div>`).join('')}`:''}
-        ${a.scanned?'':'<p class="cv-note" style="margin-top:12px">這支幣不在策略掃描名單裡（策略只掃成交額前幾十名、流動性夠的幣，回測也是用這些幣），所以就算條件成立也不會推播。上面的狀態只供參考。</p>'}
+        ${a.scanned?'':'<p class="cv-note" style="margin-top:12px">這支幣在成交額前 60 名以外。回測顯示冷門幣讓兩個策略都變差（滑價大、容易插針），所以條件成立也不會建單或推播，上面的狀態只供參考。</p>'}
         </div>
       </div>
       <p class="cv-note">⚠️ 以上是用固定規則整理指標，並不構成任何投資建議。分數只代表目前各指標的方向，不代表接下來一定會漲或跌。</p>`;

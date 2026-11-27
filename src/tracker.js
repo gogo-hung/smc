@@ -237,6 +237,7 @@ async function onTrend(market) {
   const now = Date.now();
   // 1. 新訊號：最後一根已收盤的 4H 出訊號，而且收盤不到 1 小時（服務睡著醒來的舊訊號不追）
   for (const [sym, m] of Object.entries(market)) {
+    if (m.watchOnly) continue;   // 前 N 名以外的幣只觀察，不建單不推播
     if (!m.htf || m.htf.length < 210) continue;
     const a = TREND.analyze(sym, m.htf);
     if (!a.sig || now - a.sigT > 3600e3) continue;
@@ -291,6 +292,7 @@ async function onSignal(market) {
   let changed = false;
   const now = Date.now();
   for (const [sym, m] of Object.entries(market)) {
+    if (m.watchOnly) continue;   // 前 N 名以外的幣只觀察，不建單不推播
     if (!m.ltf || m.ltf.length < 220 || !m.htf || m.htf.length < 210) continue;
     const a = SIGNAL.analyze(sym, m.ltf, m.htf);
     if (!a.sig || now - a.sigT > 3600e3) continue;   // 1H 收盤 1 小時內才建單

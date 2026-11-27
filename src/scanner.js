@@ -63,18 +63,24 @@ async function pickUniverse() {
     .filter(s => !cfg.EXCLUDE.includes(base(s)))
     .filter(s => cfg.INCLUDE_TRADFI || !isTradfi(s)) // 預設排除美股、指數、商品
     .filter(s => (vol.get(s) || 0) >= cfg.MIN_QUOTE_VOLUME)
-    .sort((a, b) => (vol.get(b) || 0) - (vol.get(a) || 0))
-    .slice(0, cfg.TOP_N);
+    .sort((a, b) => (vol.get(b) || 0) - (vol.get(a) || 0));
+  const top = ranked.slice(0, cfg.TOP_N);
   // BTC 一定要掃（大盤濾網要用），加上自選、搜尋加入的、還在追蹤成績的幣
   const watch = ['BTC', ...cfg.WATCHLIST, ...state.extras, ...tracker.openSymbols()].map(s => `${s}-USDT`).filter(s => live.has(s));
   const allTickers = tickers.filter(t => /-USDT$/.test(t.symbol) && live.has(t.symbol) && !isTradfi(t.symbol));   // 整體市場漲跌用（不含美股、商品）
-  return { symbols: [...new Set([...watch, ...ranked])], vol, price, allTickers };
+  const symbols = [...new Set([...watch, ...top])];
+  // 其他幣：前 N 名以外、有成交量的全部（只觀察，不建單不推播）
+  const others = !cfg.SCAN_ALL ? [] : contracts
+    .filter(s => !symbols.includes(s) && !cfg.EXCLUDE.includes(base(s)) && (cfg.INCLUDE_TRADFI || !isTradfi(s)) && (vol.get(s) || 0) > 0)
+    .sort((a, b) => (vol.get(b) || 0) - (vol.get(a) || 0));
+  return { symbols, others, vol, price, allTickers };
 }
 
 // 用目前的行情與規則重新判斷（改規則時不用重抓資料）
 function rerun() {
   const out = [];
   for (const [sym, m] of Object.entries(state.market)) {
+    if (m.watchOnly) continue;   // 其他幣不跑 SMC
     const bars = state.rules.model === 'mtf' ? m.m15 : m.ltf;   // MTF 模型用 15M 找進場
     if (!bars || bars.length < 50) continue;
     try { out.push(SMC.analyze(sym, bars, state.rules, m.htf)); }
@@ -95,7 +101,7 @@ async function scanOnce() {
   state.scanning = true; state.errors = [];
   const t0 = Date.now();
   try {
-    const { symbols, vol, price, allTickers } = await pickUniverse();
+    const { symbols, others, vol, price, allTickers } = await pickUniverse();
     const now = Date.now();
     const fetched = await bingx.pool(symbols, async symbol => {
       const sym = symbol.replace(/-USDT$/, '');
@@ -109,23 +115,35 @@ async function scanOnce() {
       ]);
       return { sym, symbol, ltf, htf, m15, quoteVolume: vol.get(symbol) || 0, price: price.get(symbol) };
     });
+    // 其他幣：1H、4H 都只在有新 K 棒收盤時才重抓，同時抓的數量也少一點，避免被 BingX 限流
+    const fetched2 = await bingx.pool(others, async symbol => {
+      const sym = symbol.replace(/-USDT$/, ''), prev = state.market[sym];
+      const stale = (arr, tf) => !arr || !arr.length || now >= arr[arr.length - 1].t + 2 * bingx.INTERVAL_MS[tf];
+      const [ltf, htf] = await Promise.all([
+        stale(prev && prev.ltf, '1h') ? bingx.getKlines(symbol, cfg.LTF_INTERVAL, cfg.LTF_LIMIT) : Promise.resolve(prev.ltf),
+        stale(prev && prev.htf, '4h') ? bingx.getKlines(symbol, '4h', cfg.HTF_LIMIT) : Promise.resolve(prev.htf),
+      ]);
+      return { sym, symbol, ltf, htf, quoteVolume: vol.get(symbol) || 0, price: price.get(symbol), watchOnly: true };
+    }, cfg.ALL_CONCURRENCY);
     const market = {};
+    for (const f of fetched2) { if (f && !f.error) market[f.sym] = f; }   // 其他幣抓失敗不算錯誤（下一輪再抓）
     for (const f of fetched) {
       if (f && f.error) { state.errors.push(f.error); continue; }
       market[f.sym] = f;
     }
     state.market = market;
     try { state.ctx.funding = await bingx.getFunding(); } catch (e) { state.errors.push(`資金費率：${e.message}`); }
+    const core = Object.fromEntries(Object.entries(market).filter(([, m]) => !m.watchOnly));   // 前 N 名（策略、情緒用）
     const results = rerun();
     if (process.env.NEWS !== 'off') require('./news').refresh().catch(() => {});   // 新聞：背景更新，不等它
-    try { sentiment.update(market, allTickers); await sentiment.refreshFng(); await sentiment.refreshDeriv(state.ctx.funding); await sentiment.refreshStable(); sentiment.analyze(); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
-    state.trend = Object.values(market).map(m => TREND.analyze(m.sym, m.htf || [])).filter(a => a.state !== 'nodata');
-    state.signal = Object.values(market).map(m => { try { return SIGNAL.analyze(m.sym, m.ltf || [], m.htf || []); } catch (e) { return { sym: m.sym, state: 'nodata' }; } }).filter(a => a.state !== 'nodata');
+    try { sentiment.update(core, allTickers); await sentiment.refreshFng(); await sentiment.refreshDeriv(state.ctx.funding); await sentiment.refreshStable(); sentiment.analyze(); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
+    state.trend = Object.values(market).map(m => { const a = TREND.analyze(m.sym, m.htf || []); if (m.watchOnly) a.watchOnly = true; return a; }).filter(a => a.state !== 'nodata');
+    state.signal = Object.values(market).map(m => { try { const a = SIGNAL.analyze(m.sym, m.ltf || [], m.htf || []); if (m.watchOnly) a.watchOnly = true; return a; } catch (e) { return { sym: m.sym, state: 'nodata' }; } }).filter(a => a.state !== 'nodata');
     await tracker.onScan(results, market, { smcPush: state.rules.smcPush === 'on', trend: state.rules.trend !== 'off', signal: state.rules.signal !== 'off' });
 
     state.lastScan = Date.now(); state.lastError = null;
-    const summary = { symbols: Object.keys(market).length, trigger: results.filter(r => r.status === 'trigger').length, watch: results.filter(r => r.status === 'watch').length, btcDir: state.ctx.btcDir, ms: Date.now() - t0, errors: state.errors.length };
-    console.log(`[${new Date().toLocaleString('zh-TW', { hour12: false })}] 掃描 ${summary.symbols} 幣｜觸發 ${summary.trigger}｜觀察 ${summary.watch}｜BTC ${summary.btcDir > 0 ? '多' : summary.btcDir < 0 ? '空' : '—'}｜${summary.ms}ms${summary.errors ? `｜失敗 ${summary.errors}` : ''}`);
+    const summary = { symbols: Object.keys(core).length, others: Object.keys(market).length - Object.keys(core).length, trigger: results.filter(r => r.status === 'trigger').length, watch: results.filter(r => r.status === 'watch').length, btcDir: state.ctx.btcDir, ms: Date.now() - t0, errors: state.errors.length };
+    console.log(`[${new Date().toLocaleString('zh-TW', { hour12: false })}] 掃描 ${summary.symbols} 幣${summary.others ? `＋觀察 ${summary.others}` : ''}｜觸發 ${summary.trigger}｜觀察 ${summary.watch}｜BTC ${summary.btcDir > 0 ? '多' : summary.btcDir < 0 ? '空' : '—'}｜${summary.ms}ms${summary.errors ? `｜失敗 ${summary.errors}` : ''}`);
     return summary;
   } catch (e) {
     state.lastError = e.message;
@@ -140,7 +158,7 @@ async function scanOnce() {
 async function addSymbol(raw) {
   const sym = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/USDT$/, '');
   if (!sym) throw Object.assign(new Error('請輸入幣種代號'), { code: 400 });
-  if (state.market[sym]) return { sym, already: true };
+  if (state.market[sym] && !state.market[sym].watchOnly) return { sym, already: true };   // 觀察幣加入後變成正式掃描
   const symbol = `${sym}-USDT`;
   const contracts = await bingx.getContracts();
   if (!contracts.includes(symbol)) throw Object.assign(new Error(`BingX 沒有 ${sym}/USDT 永續合約`), { code: 404 });

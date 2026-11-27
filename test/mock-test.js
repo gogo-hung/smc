@@ -166,10 +166,14 @@ global.fetch = async (url) => {
   console.log(`交易紀錄：今日 ${j.today.count} 筆，盈虧 ${j.today.pnl}U，連虧 ${j.lossStreak}`);
 
   // 搜尋加入
-  assert(!scanner.state.market.TINY, 'TINY 原本不在名單');
+  // 前 N 名以外的幣：有掃，但只觀察（不跑 SMC、不建單、/api/market 不送 K 線）
+  assert(scanner.state.market.TINY && scanner.state.market.TINY.watchOnly, 'TINY 成交額太小：只觀察');
+  assert(!scanner.state.results.some(r => r.sym === 'TINY'), '觀察幣不跑 SMC');
+  assert(!tracker.state.signals.some(s => s.sym === 'TINY'), '觀察幣不建單');
+  { const mk = (await req('GET', '/api/market')).json(); assert(!mk.symbols.some(x => x.sym === 'TINY'), '觀察幣不送 K 線'); }
   const add = await req('POST', '/api/add', { sym: 'tiny/usdt' });
   assert.strictEqual(add.status, 200, add.body);
-  assert(scanner.state.market.TINY && scanner.state.extras.includes('TINY'));
+  assert(scanner.state.market.TINY && !scanner.state.market.TINY.watchOnly && scanner.state.extras.includes('TINY'), '搜尋加入後變成正式掃描');
   await new Promise(r => setTimeout(r, 3100));
   const bad = await req('POST', '/api/add', { sym: 'NOPE' });
   assert.strictEqual(bad.status, 404);

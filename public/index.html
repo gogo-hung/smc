@@ -318,6 +318,7 @@ td.num,th.num{text-align:right}
 .cal-warn{font-size:12.5px;color:var(--short);font-weight:600;line-height:1.45}
 .search{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px;width:200px;max-width:100%;margin-left:auto}
 .board > h2{flex-wrap:wrap}
+.oth{display:flex;flex-wrap:wrap;gap:8px;padding:8px 16px 16px}.oth button{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;font-size:13px;cursor:pointer}.oth button:hover{border-color:var(--accent)}.oth .m{font-size:11.5px;color:var(--muted)}.oth .e{color:var(--muted);font-size:13px}
 .bg-note{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;margin-left:auto}
 .bg-note::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--long);box-shadow:0 0 0 0 color-mix(in srgb,var(--long) 60%,transparent);animation:bgpulse 2s infinite}
 @keyframes bgpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--long) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
@@ -960,6 +961,14 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
         <p class="sig-rule" id="sigRule">止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆・不限持倉時間</p>
         <div class="cards" id="sigRows" role="listbox" aria-label="訊號策略幣種"></div>
         <div class="empty" id="sigEmpty" hidden><span id="sigEmptyTxt">目前沒有符合的幣。</span></div>
+      </section>
+    <!-- 其他幣觀察（前 60 名以外，只顯示不推播） -->
+      <section class="pane board othb" aria-labelledby="othT">
+        <h2 id="othT"><span>🔍 其他幣觀察 <span class="muted" style="font-size:12.5px;font-weight:500">成交額前 60 名以外・未驗證・不推播</span></span>
+          <span class="bg-note" id="bgO"></span>
+        </h2>
+        <p class="sig-rule">回測顯示冷門幣讓兩個策略都變差（滑價大、容易插針），所以這裡的訊號不建單、不推播、不算成績，只給你參考。點幣種看完整分析。</p>
+        <div class="oth" id="othRows"></div>
       </section>
     </div>
 

@@ -30,14 +30,14 @@ SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建�
 
 ## 檔案
 - `src/server.js`：HTTP 伺服器與 API（`/api/market`、`/api/stats`、`/api/sentiment`、`/api/ping`、`/api/cron`…）；含不休眠（每 10 分鐘自我喚醒＋太久沒掃就補掃）
-- `src/scanner.js`：每 15 分鐘掃描（挑幣 → 抓 1H/4H K 線 → 策略 → 市場情緒 → tracker）
+- `src/scanner.js`：每 15 分鐘掃描（挑幣 → 抓 1H/4H K 線 → 策略 → 市場情緒 → tracker）。成交額前 `TOP_N`（60）名＝正式掃描（建單、推播、成績、情緒）；其他 BingX 幣（`SCAN_ALL`，預設開）也掃但 `watchOnly`：不跑 SMC、不建單不推播（回測：冷門幣讓兩個策略都變差），1H/4H 只在新 K 棒收盤才重抓、同時抓 `ALL_CONCURRENCY`=2；`/api/market` 只送剛觸發的觀察幣＋`othersN`，交易室「🔍 其他幣觀察」區塊顯示（點了跳幣種分析頁）
 - `src/tracker.js`：建單、追蹤（保本／移動止損／出場）、成績單（依策略分組；`perf()`＝實盤表現：扣來回手續費 0.05%×2＋資金費率每 8h 0.01% 的 R、資金曲線、獲利因子、回撤、跟回測基準 `BENCH` 對照，回撤超過停用線（回測最大回撤×1.2：趨勢 −39R、訊號 −46R）亮紅燈）、推播文字（`onTrend` 趨勢策略、`onSignal` 訊號策略）
 - `src/notify.js`：Discord Webhook／Telegram；卡片顏色依標題文字決定；有設環境變數 `DISCORD_WEBHOOK_SIGNAL` 時，標題有「訊號策略」的推播改推到那個頻道
 - `src/sentiment.js`：右側情緒卡（市場平均 RSI、恐懼貪婪、整體市場、BTC 多空比／未平倉量、穩定幣、資金費率；Binance 失敗改 OKX）＋「分析師」頁（`analyze()` 把以上數據用固定規則打分判斷多空，頁首「分析師」按鈕打開）
 - `src/members.js`：會員（回測頁和 `/api/history` 只有管理員能用；不開放註冊；超級管理者在 `/admin` 新增會員＝BingX UID＋初始密碼，可停用／重設密碼）；session 存 cookie `jbp`（30 天）。`MEMBER_GATE` 預設開：沒登入的人首頁導到 `/login`、`/api/*` 回 401（`/api/ping`、`/api/health`、`/api/cron`、`/api/ledger` 例外）。超級管理者帳號 `admin`，密碼只存雜湊（`SUPER_HASH`，可用環境變數 `SUPER_ADMIN_HASH` 換）；密碼填 `ADMIN_TOKEN` 也能登入
 - `public/login.html`（登入頁，區塊輸送帶動畫）、`public/admin.html`（會員管理）
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
-- `src/coin.js`：幣種搜尋＋單一幣分析。`symbols()`＝BingX 全部 USDT 永續（排除美股等 tradfi，依成交額排序，快取 5 分鐘，`/api/symbols`）；`analyze(sym)`＝4H/日線趨勢、1H Supertrend、MACD、RSI、%B、量能、支撐壓力、跟 BTC 比強弱、資金費率 → 打分（跟分析師同一套級距）＋兩個策略目前狀態＋持倉＋4H K 線（`/api/coin?sym=`，不在掃描名單的幣當場抓 K 線，快取 3 分鐘）。報價跟 1H 收盤差超過 20% 時用 K 線收盤。策略本身仍只掃成交額前幾十名，搜尋到的冷門幣只顯示分析、不推播
+- `src/coin.js`：幣種搜尋＋單一幣分析。`symbols()`＝BingX 全部 USDT 永續（排除美股等 tradfi，依成交額排序，快取 5 分鐘，`/api/symbols`）；`analyze(sym)`＝4H/日線趨勢、1H Supertrend、MACD、RSI、%B、量能、支撐壓力、跟 BTC 比強弱、資金費率 → 打分（跟分析師同一套級距）＋兩個策略目前狀態＋持倉＋4H K 線（`/api/coin?sym=`，不在掃描名單的幣當場抓 K 線，快取 3 分鐘）。報價跟 1H 收盤差超過 20% 時用 K 線收盤。`scanned`＝在前 60 名推播名單；其他幣只顯示分析、不推播
 - `src/news.js`：加密貨幣新聞（動區動趨、鏈新聞、區塊客的 RSS，只取標題／連結／時間），掃描時背景更新、15 分鐘最多抓一次，`/api/news`；`NEWS=off` 關掉（測試用）
 - `public/index.html`、`public/app.js`：前端（左側選單，每個按鈕是一個分頁（`go()`，網址 `#room`、`#stats`、`#analyst`…，上一頁可回）；總覽＝資金流地球（可拖曳旋轉、滾輪縮放）＋網站底色切換（8 種，`data-theme` 存 localStorage `smc-theme`）；交易室（`#room`）＝上方幣種搜尋框（`#coinQ`，輸入任何 BingX 幣 → 分析頁 `#coin/SOL`，`Coin` 模組在 app.js 最後）＋左主欄（招呼＋5 個 KPI＋6 個情緒小卡＋💰我的倉位設定（本金、每筆風險 %，存 localStorage `sz-cap`/`sz-pct`；卡片顯示建議倉位、保證金＝1R 的 2 倍、槓桿＞50 倍建議跳過）＋整體風險列（全部打到止損幾 R／U、已鎖住利潤、多空筆數、同方向 5 筆提醒 8 筆警示）＋持倉卡（含「還能不能追」：離進場價幾 R，≤0.3R 可進、0.3～0.5R 小倉、＞0.5R 或接近止損不建議）（標示 📈趨勢／⚡訊號，止損→TP 軌道）＋結單區（止盈／保本／止損結束的單放 24 小時後自動移除，資料來自 `/api/market` 的 `closed`；成績單紀錄不刪）＋市場狀態列（掃描幣中有 4H 趨勢的比例：≥40% 趨勢盤、<25% 盤整盤、中間轉換中）＋📈趨勢策略看板＋⚡訊號策略看板（方塊卡片，只顯示剛觸發的訊號；等待中的幣在背景監控，標題旁顯示背景監控數，訊號成立才跳出並跳通知））＋右欄（分析師＋今天的重要數據＋最新推播＋情緒卡）；整頁滑鼠光暈；右上角「🖥 交易座位模式」一鍵切換全螢幕 6 螢幕交易牆（`#deskView`，設計稿 1440×900 依視窗等比縮放，`Desk` 模組在 app.js 最後；上排：市場天氣／BTC 4H K 線／即時新聞，下排：訊號看板／持倉中／收盤倒數＋最新推播；手機寬度 <1000 不顯示切換鈕；記住上次模式 localStorage `smc-desk`；Esc 或「一般模式」回去）；左側「風險揭露」頁（`#risk`，回測假設、最大回撤、連虧正常、倉位建議、非投資建議））
 - `.github/workflows/keepalive.yml`：每 10 分鐘叫醒 Render；掃描超過 40 分鐘沒更新會失敗並寄信
