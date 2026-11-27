@@ -18,7 +18,7 @@ const DataSource = {
     await this.apply(await r.json());
   },
   async apply(j){
-    this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx; this.positions=j.positions||[];
+    this.updatedAt=j.updatedAt; this.serverRules=j.rules; if(j.ctx) this.ctx=j.ctx; this.positions=j.positions||[]; this.signal=j.signal||[];
     this.list=(j.symbols||[]).map(x=>x.sym);
     for(const x of j.symbols||[]){ this.series[x.sym]=unpack(x.ltf); this.htfs[x.sym]=unpack(x.htf); if(x.m15) this.m15s[x.sym]=unpack(x.m15); }
   },
@@ -83,7 +83,7 @@ const TSTAGES=[['trend','4H 趨勢（EMA50 / EMA200）'],['macd','MACD 柱翻到
 function trendResult(sym){
   const h4=DataSource.htf(sym), h1=DataSource.ltf(sym);
   if(!h4||h4.length<210||!h1||!h1.length) return null;
-  const I=TREND.indicators(h4), n=h4.length-1, a=TREND.analyze(sym,h4), pos=(DataSource.positions||[]).find(p=>p.sym===sym), last=h1[h1.length-1].c;
+  const I=TREND.indicators(h4), n=h4.length-1, a=TREND.analyze(sym,h4), pos=(DataSource.positions||[]).find(p=>p.sym===sym&&p.model!=='signal'), last=h1[h1.length-1].c;
   const st={trend:!!a.trend, macd:!!a.trend && (a.trend>0? I.hist[n]>0 : I.hist[n]<0), vol:(a.volRatio||0)>=TREND.P.volMult};
   let status='idle', dir=a.trend, kind='';
   if(pos){ status='trigger'; dir=pos.dir; kind='pos'; } else if(a.sig){ status='trigger'; dir=a.sig; kind='sig'; } else if(a.state==='watch'){ status='watch'; kind='wait'; } else if(a.trend && st.macd) kind='running';
@@ -101,7 +101,7 @@ function scan(){
   const trig=new Set(results.filter(r=>r.status==='trigger').map(r=>r.sym));
   if(prevTrig){ [...trig].filter(s=>!prevTrig.has(s)).forEach(s=>{ const r=results.find(x=>x.sym===s); showToast(`${s} ${r.dir>0?'做多':'做空'}：${r.kind==='pos'?'已進場':'4H 觸發'}`); }); }
   prevTrig=trig;
-  $('nT').textContent=results.filter(r=>r.status==='trigger'&&r.kind!=='pos').length; $('nW').textContent=results.filter(r=>r.status==='watch').length; $('nA').textContent=results.length;
+  $('nT').textContent=results.filter(r=>r.status==='trigger'&&r.kind!=='pos').length+(DataSource.signal||[]).filter(a=>a.state==='trigger').length; renderSig(); $('nW').textContent=results.filter(r=>r.status==='watch').length; $('nA').textContent=results.length;
   $('lastScan').textContent= DataSource.mode==='live' ? (DataSource.updatedAt? hhmm(new Date(DataSource.updatedAt)) : '掃描中') : hhmm(new Date());
   renderRows(); if(!$('detailModal').hidden && results.find(r=>r.sym===selected)) renderDetail();
   updateHero();
@@ -579,8 +579,8 @@ async function loadStats(){
   let s; try{ s=await (await fetch('api/stats',{cache:'no-store'})).json(); }catch(e){ box.innerHTML='<div class="cal-empty">載入失敗，稍後再試。</div>'; return; }
   const tile=(l,v,c='')=>`<div class="tile"><div class="label">${l}</div><div class="n ${c}">${v}</div></div>`;
   const grp=(t,a)=>`<div><h3>${t}</h3>${a.length?`<table class="mtable"><thead><tr><th></th><th class="num">筆數</th><th class="num">勝率</th><th class="num">累計 R</th></tr></thead><tbody>${a.map(x=>`<tr><td>${esc(x.g)}</td><td class="num">${x.n}</td><td class="num">${pct(x.winRate)}</td><td class="num">${x.R>0?'+':''}${x.R}</td></tr>`).join('')}</tbody></table>`:'<p class="hint">還沒有已結算的訊號</p>'}</div>`;
-  const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?`<span class="pill loss">${x.model==='trend'?x.R:-1}R</span>` : x.status==='be'?'<span class="pill">保本 0R</span>' : x.status==='tp1'?`<span class="pill win">平一半 +${x.R}R</span>` : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}${x.status==='filled'&&(x.beHit||x.p1Hit||x.be)?(x.p1Hit?'・已平一半':'・已移保本'):''}</span>`;
-    return `<tr><td class="num">${new Date(x.createdAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(x.sym)}</b></td><td><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span></td>
+  const rows=s.recent.map(x=>{ const res= x.status==='win'?`<span class="pill win">+${x.R}R</span>`: x.status==='loss'?`<span class="pill loss">${x.model==='trend'||x.model==='signal'?x.R:-1}R</span>` : x.status==='be'?'<span class="pill">保本 0R</span>' : x.status==='tp1'?`<span class="pill win">平一半 +${x.R}R</span>` : `<span class="pill ${x.status==='filled'?'filled':''}">${ST_ZH[x.status]}${x.status==='filled'&&(x.beHit||x.p1Hit||x.be)?(x.p1Hit?'・已平一半':'・已移保本'):''}</span>`;
+    return `<tr><td class="num">${new Date(x.createdAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(x.sym)}</b> <span class="muted" style="font-size:11px">${x.model==='signal'?'⚡訊號':x.model==='trend'?'📈趨勢':''}</span></td><td><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span></td>
       <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${x.model==='trend'?'移動止損':fp(x.target)}</td><td class="num">${x.rr!=null?x.rr.toFixed(2):'—'}</td><td>${res}</td></tr>`; }).join('');
   setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });
   box.innerHTML=`<div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
@@ -796,6 +796,24 @@ function renderMinis(){
   $('minis').innerHTML=items.map(([i,k,v,sub,col])=>`<button type="button" class="mcard" data-i="${i}" title="在右邊情緒卡看詳細"><span class="k">${k}</span><b style="color:${col||'var(--fg)'}">${v??'—'}</b><span class="s">${esc(sub||'資料準備中')}</span></button>`).join('');
 }
 $('minis').addEventListener('click',e=>{ const b=e.target.closest('.mcard'); if(!b) return; sentGo(+b.dataset.i); $('sentPane').scrollIntoView({behavior:'smooth',block:'nearest'}); });
+// ⚡ 訊號策略看板（伺服器算好的 1H Supertrend 狀態：/api/market 的 signal）
+var sigF="watch";
+function renderSig(){
+  const all=DataSource.signal||[], pos=(DataSource.positions||[]).filter(p=>p.model==='signal'), posSyms=new Set(pos.map(p=>p.sym));
+  const order={trigger:0,watch:1,running:2,idle:3};
+  const view=all.filter(a=>sigF==='trigger'? (a.state==='trigger'||posSyms.has(a.sym)) : a.state===sigF).sort((a,b)=>(posSyms.has(b.sym)-posSyms.has(a.sym))||order[a.state]-order[b.state]||(a.state==='watch'?(a.dist??9)-(b.dist??9):(b.lastFlip||0)-(a.lastFlip||0))||a.sym.localeCompare(b.sym)).slice(0,40);
+  document.querySelectorAll('[data-sf]').forEach(b=>{ const n=b.dataset.sf==='trigger'? all.filter(a=>a.state==='trigger'||posSyms.has(a.sym)).length : all.filter(a=>a.state===b.dataset.sf).length; b.textContent=`${{trigger:'剛翻向／持倉',watch:'等翻向',running:'順勢中'}[b.dataset.sf]} ${n}`; });
+  $('sigRule').textContent=`止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆（目前 ${pos.length}/5）・不限持倉時間`;
+  $('sigRows').innerHTML=view.map(a=>{ const p=pos.find(x=>x.sym===a.sym), d=p?p.dir:a.trend;
+    const st=p?['pos','持倉中']:{trigger:['trigger','剛翻向 ⚡'],watch:['watch','等翻向'],running:['running','順勢中'],idle:['idle','4H 無趨勢']}[a.state];
+    return `<tr data-sym="${esc(a.sym)}"><td class="sym"><b>${esc(a.sym)}</b></td><td>${d?`<span class="dir ${d>0?'L':'S'}">${d>0?'多':'空'}</span>`:'—'}</td><td><span class="st ${st[0]}">${st[1]}</span></td>
+      <td class="num mono">${fp(a.close)}</td><td class="num mono">${fp(a.line)}</td><td class="num mono">${a.dist!=null?a.dist.toFixed(2)+' ATR':'—'}</td><td>${a.lastFlip?ago(a.lastFlip):'—'}</td></tr>`; }).join('');
+  $('sigEmpty').hidden=!!view.length;
+  $('sigEmptyTxt').textContent={trigger:'目前沒有剛翻向的幣，也沒有持倉。1H 收盤 Supertrend 翻到 4H 趨勢方向時會出現在這裡，並推到 Discord。',watch:'目前沒有在等翻向的幣。',running:'目前沒有順勢中的幣。'}[sigF];
+}
+document.querySelectorAll('[data-sf]').forEach(b=>b.onclick=()=>{ sigF=b.dataset.sf; document.querySelectorAll('[data-sf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderSig(); });
+$('sigRows').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-sym]'); if(!tr) return; selected=tr.dataset.sym; openDetail(); });
+
 function renderPositions(){
   const ps=DataSource.mode==='live'?(DataSource.positions||[]):[];
   $('nP').textContent=ps.length; $('posSec').hidden=!ps.length; if(!ps.length) return;
@@ -804,9 +822,9 @@ function renderPositions(){
   $('posGrid').innerHTML=ps.map(p=>{
     const s=DataSource.series[p.sym], px=s&&s.length?s[s.length-1].c:p.entry, risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(px-p.entry)/risk, slR=p.dir*(p.stop-p.entry)/risk, col=r>=0?'var(--long)':'var(--short)';
     const hrs=p.filledAt?Math.round((Date.now()-p.filledAt)/3600e3):null, age=hrs==null?'':hrs<24?`${hrs} 小時`:`${Math.floor(hrs/24)} 天 ${hrs%24} 小時`;
-    return `<button type="button" class="pcard" data-sym="${esc(p.sym)}"><span class="hd"><span style="display:flex;gap:8px;align-items:center"><b class="mono" style="font-size:18px">${esc(p.sym)}</b><span class="dir ${p.dir>0?'L':'S'}">${p.dir>0?'多':'空'}</span>${p.be?'<span class="chip" style="font-size:11px">已保本</span>':''}</span><span class="r" style="color:${col}">${r>=0?'+':''}${r.toFixed(2)}R</span></span>
-      <span class="ptrack" aria-hidden="true"><i class="sl" style="left:${P(slR)}%"></i><i class="tp"></i><i class="dot" style="left:${P(r)}%;border-color:${col}"></i></span>
-      <span class="ft"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:var(--accent)">TP1 ${fp(p.tp1)}</span></span>
+    return `<button type="button" class="pcard" data-sym="${esc(p.sym)}"><span class="hd"><span style="display:flex;gap:8px;align-items:center"><b class="mono" style="font-size:18px">${esc(p.sym)}</b><span class="dir ${p.dir>0?'L':'S'}">${p.dir>0?'多':'空'}</span><span class="tag ${p.model==='signal'?'sig':''}">${p.model==='signal'?'⚡訊號':'📈趨勢'}</span>${p.be?'<span class="chip" style="font-size:11px">已保本</span>':''}</span><span class="r" style="color:${col}">${r>=0?'+':''}${r.toFixed(2)}R</span></span>
+      <span class="ptrack" aria-hidden="true"><i class="sl" style="left:${P(slR)}%"></i><i class="tp" style="left:${P(p.model==='signal'?3:1)}%"></i><i class="dot" style="left:${P(r)}%;border-color:${col}"></i></span>
+      <span class="ft"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:var(--accent)">${p.model==='signal'?'止盈 '+fp(p.tp):'TP1 '+fp(p.tp1)}</span></span>
       <span class="ft" style="font-family:var(--f-body)"><span>現價 ${fp(px)}</span><span>${age?'持倉 '+age:''}</span></span></button>`; }).join('');
 }
 $('posGrid').addEventListener('click',e=>{ const b=e.target.closest('.pcard'); if(!b) return; selected=b.dataset.sym; openDetail(); });

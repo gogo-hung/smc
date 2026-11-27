@@ -318,6 +318,12 @@ td.num,th.num{text-align:right}
 .cal-warn{font-size:12.5px;color:var(--short);font-weight:600;line-height:1.45}
 .search{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px;width:200px;max-width:100%;margin-left:auto}
 .board > h2{flex-wrap:wrap}
+.sig-rule{margin:0;padding:10px 16px 4px;font-size:12.5px;color:var(--muted)}
+.sigb .tbl-wrap{padding:0 8px 8px}
+.sig-tbl td .st{font-size:12px;font-weight:700}
+.sig-tbl .st.trigger{color:var(--accent)}.sig-tbl .st.watch{color:var(--watch)}.sig-tbl .st.running{color:var(--long)}.sig-tbl .st.pos{color:var(--fg)}
+.pcard .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.pcard .tag.sig{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
 .empty .btn{margin-top:10px}
 
 /* coin cards */
@@ -699,7 +705,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <div class="room-main">
       <div class="kpis">
         <div class="stat kpi"><div class="label">持倉中</div><div class="n mono" id="nP">0</div></div>
-        <div class="stat kpi t"><div class="label">剛觸發</div><div class="n mono" id="nT">0</div></div>
+        <div class="stat kpi t"><div class="label">剛觸發（兩個策略）</div><div class="n mono" id="nT">0</div></div>
         <div class="stat kpi w"><div class="label">等待 MACD 交叉</div><div class="n mono" id="nW">0</div></div>
         <div class="stat kpi"><div class="label">BTC 4H 趨勢</div><div class="n" id="nBtc">—</div></div>
         <div class="stat kpi"><div class="label">掃描幣數</div><div class="n mono" id="nA">0</div></div>
@@ -711,7 +717,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       </section>
     <!-- SIGNAL BOARD -->
       <main class="pane board" aria-labelledby="boardT">
-        <h2 id="boardT">訊號看板
+        <h2 id="boardT"><span>📈 趨勢策略 <span class="muted" style="font-size:12.5px;font-weight:500">4H 趨勢＋MACD 交叉＋爆量・長線</span></span>
           <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
           <span class="filters" role="group" aria-label="篩選">
             <button class="seg" type="button" data-f="watch" aria-pressed="true">等交叉</button>
@@ -726,6 +732,22 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           <button class="btn primary" type="button" id="addBtn" hidden></button>
           <button class="btn" type="button" id="showWatch" hidden></button></div>
       </main>
+    <!-- 訊號策略（短線） -->
+      <section class="pane board sigb" aria-labelledby="sigT">
+        <h2 id="sigT"><span>⚡ 訊號策略 <span class="muted" style="font-size:12.5px;font-weight:500">1H Supertrend 翻向・順 4H 趨勢・短線</span></span>
+          <span class="filters" role="group" aria-label="訊號策略篩選">
+            <button class="seg" type="button" data-sf="trigger" aria-pressed="false">剛翻向</button>
+            <button class="seg" type="button" data-sf="watch" aria-pressed="true">等翻向</button>
+            <button class="seg" type="button" data-sf="running" aria-pressed="false">順勢中</button>
+          </span>
+        </h2>
+        <p class="sig-rule" id="sigRule">止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆・不限持倉時間</p>
+        <div class="tbl-wrap"><table class="sig-tbl">
+          <thead><tr><th>幣種</th><th>方向</th><th>狀態</th><th class="num">現價</th><th class="num">Supertrend 線</th><th class="num">離線</th><th>上次訊號</th></tr></thead>
+          <tbody id="sigRows"></tbody>
+        </table></div>
+        <div class="empty" id="sigEmpty" hidden><span id="sigEmptyTxt">目前沒有符合的幣。</span></div>
+      </section>
     </div>
 
     <div class="side-col">

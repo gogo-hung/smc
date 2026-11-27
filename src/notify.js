@@ -26,7 +26,7 @@ async function sendDiscord(text) {
   const [first, ...rest] = plain.split('\n');
   const title = first.replace(/\*\*/g, '').slice(0, 250);
   // 顏色：止損出場紅、保本灰、獲利出場綠；其他看方向（多綠、空紅），都不是就金色
-  const color = /❌|止損出場|打到止損/.test(title) ? 0xd9534f : /🛡|保本/.test(title) ? 0x8a8f98 : /✅|TP2 出場|到達 TP1/.test(title) ? 0x1f9d6b
+  const color = /❌|止損出場|打到止損/.test(title) ? 0xd9534f : /🛡|保本/.test(title) ? 0x8a8f98 : /✅|TP2 出場|止盈出場|到達 TP1/.test(title) ? 0x1f9d6b
     : /做空|\s空(｜|$)/.test(title) ? 0xd9534f : /做多|\s多(｜|$)/.test(title) ? 0x1f9d6b : /止損/.test(title) ? 0xd9534f : 0xb7791f;
   const res = await fetch(cfg.DISCORD_WEBHOOK_URL, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },

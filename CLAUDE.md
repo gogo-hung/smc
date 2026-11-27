@@ -7,7 +7,9 @@
 - `main`：網站本體，push 後 Render 自動部署。
 - `research`：回測與研究工具（`tools/`、`results/`、`.github/workflows/research.yml`、`ft.yml`、`ft2.yml`），跑在 GitHub Actions，結果 commit 回 `results/`。不會影響網站。
 
-## 目前上線的策略：策略①（`src/trend.js`）
+## 目前上線的策略
+
+### 📈 趨勢策略（策略①，長線，`src/trend.js`）
 - 4H：EMA50 > EMA200 且收盤 > EMA50（做空相反）＋ MACD 柱由負翻正（死叉相反）＋ 成交量 > 20 根均量 1.5 倍
 - 4H 收盤後市價進場；止損 = 進場 − 2×ATR(14)（ATR 用訊號那根）
 - 保本：1H 出現同向 BOS（打破進場後形成的擺動點）且已賺 ≥ 0.5R → 止損移到開倉價
@@ -17,23 +19,31 @@
 - 回測（OKX 56 幣，2025/1～2026/10）：不限筆數 1107 筆、2025 +58.9R、2026 +27.3R、最大回撤 −32.8R；同時最多 5 筆則 699 筆、+31R／+38R、回撤 −21R
 - `src/trend.js` 前後端共用（瀏覽器透過 `/trend.js` 載入），回測工具也直接用它，改規則時三邊要一致
 
+### ⚡ 訊號策略（策略②，短線，`src/signal.js`）
+- 4H 順勢（EMA50/EMA200＋收盤在 EMA50 同側）＋ 1H Supertrend(14,3) 翻到順勢方向 → 1H 收盤後市價進場（收盤 1 小時內才建單）
+- 止損 = Supertrend 線外（距離至少 0.5×1H ATR，超過 4×ATR 不做）；止盈 3R；價格走到止盈 60%（＋1.8R）那根收完，止損移到開倉價＋來回手續費；不限持倉時間
+- 全部幣同時最多 5 筆（跟趨勢策略分開算）；同一幣一次一筆
+- 回測（`research` 的 `tools/robust2.js`，市價 0.05%＋資金費率）：2025/1～2026/11 +76R、回撤 −38R；樣本外 2020～2021 +50R、回撤 −29R；平均每筆約 +0.08～0.1R
+- 指標照抄 `research` 的 `tools/intraday.js`（EMA 從第一根起算、Wilder ATR），改規則時兩邊要一致；看板狀態由伺服器算（`scanner.state.signal` → `/api/market` 的 `signal`），前端不用載入 signal.js
+
 SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建單不推送，看板也不顯示。
 
 ## 檔案
 - `src/server.js`：HTTP 伺服器與 API（`/api/market`、`/api/stats`、`/api/sentiment`、`/api/ping`、`/api/cron`…）；含不休眠（每 10 分鐘自我喚醒＋太久沒掃就補掃）
 - `src/scanner.js`：每 15 分鐘掃描（挑幣 → 抓 1H/4H K 線 → 策略 → 市場情緒 → tracker）
-- `src/tracker.js`：建單、追蹤（保本／移動止損／出場）、成績單、推播文字（`onTrend`）
+- `src/tracker.js`：建單、追蹤（保本／移動止損／出場）、成績單（依策略分組）、推播文字（`onTrend` 趨勢策略、`onSignal` 訊號策略）
 - `src/notify.js`：Discord Webhook／Telegram；卡片顏色依標題文字決定
 - `src/sentiment.js`：右側情緒卡（市場平均 RSI、恐懼貪婪、整體市場、BTC 多空比／未平倉量、穩定幣、資金費率；Binance 失敗改 OKX）＋「分析師」頁（`analyze()` 把以上數據用固定規則打分判斷多空，頁首「分析師」按鈕打開）
 - `src/members.js`：會員（回測頁和 `/api/history` 只有管理員能用；不開放註冊；超級管理者在 `/admin` 新增會員＝BingX UID＋初始密碼，可停用／重設密碼）；session 存 cookie `jbp`（30 天）。`MEMBER_GATE` 預設開：沒登入的人首頁導到 `/login`、`/api/*` 回 401（`/api/ping`、`/api/health`、`/api/cron` 例外）。超級管理者帳號 `admin`，密碼只存雜湊（`SUPER_HASH`，可用環境變數 `SUPER_ADMIN_HASH` 換）；密碼填 `ADMIN_TOKEN` 也能登入
 - `public/login.html`（登入頁，區塊輸送帶動畫）、`public/admin.html`（會員管理）
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
-- `public/index.html`、`public/app.js`：前端（左側選單，每個按鈕是一個分頁（`go()`，網址 `#room`、`#stats`、`#analyst`…，上一頁可回）；總覽＝資金流地球（可拖曳旋轉、滾輪縮放）＋網站底色切換（8 種，`data-theme` 存 localStorage `smc-theme`）；交易室（`#room`）＝左主欄（招呼＋5 個 KPI＋6 個情緒小卡＋持倉卡（止損→TP1 軌道）＋訊號看板）＋右欄（分析師＋今天的重要數據＋最新推播＋情緒卡）；整頁滑鼠光暈）
+- `public/index.html`、`public/app.js`：前端（左側選單，每個按鈕是一個分頁（`go()`，網址 `#room`、`#stats`、`#analyst`…，上一頁可回）；總覽＝資金流地球（可拖曳旋轉、滾輪縮放）＋網站底色切換（8 種，`data-theme` 存 localStorage `smc-theme`）；交易室（`#room`）＝左主欄（招呼＋5 個 KPI＋6 個情緒小卡＋持倉卡（標示 📈趨勢／⚡訊號，止損→TP 軌道）＋📈趨勢策略看板＋⚡訊號策略看板（剛翻向／等翻向／順勢中））＋右欄（分析師＋今天的重要數據＋最新推播＋情緒卡）；整頁滑鼠光暈）
 - `.github/workflows/keepalive.yml`：每 10 分鐘叫醒 Render；掃描超過 40 分鐘沒更新會失敗並寄信
 
-## 推播格式（`tracker.js` 的 `onTrend`）
+## 推播格式
+趨勢策略（`tracker.js` 的 `onTrend`）：
 ```
-{幣}USDT　{多/空}
+📈趨勢策略｜{幣}USDT　{多/空}
 進場: …
 TP1: …（可選擇出場，或把止損移到開倉價）
 TP2: 移動止損出場（…）
@@ -42,9 +52,21 @@ TP2: 移動止損出場（…）
 ```
 後續：到達 TP1／止損移到開倉價／移動止損（每多鎖 1R 推一次）／TP2 出場、保本出場、止損出場。
 
+訊號策略（`tracker.js` 的 `onSignal`）：
+```
+⚡訊號策略｜{幣}USDT　{多/空}
+進場: …
+止盈: …（3R）
+保本: 到 … 時，止損移到開倉價 …（含手續費）
+止損: …（距離 …%）
+💡 進場、止盈盡量掛限價單，手續費可省一半以上
+⚠️以上內容僅供個人投資記錄使用…
+```
+後續：止損移到開倉價／止盈出場 +3R、保本出場、止損出場。
+
 ## 開發
 - `npm start` 本機跑（需要 `.env`：`DISCORD_WEBHOOK_URL`、`ADMIN_TOKEN`、`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`，對照 Render 的 Environment）
-- `npm test`：`test/mock-test.js`（假 BingX 跑完整流程，`MEMBER_GATE=off`）＋ `test/trend-test.js`（策略①建單→保本→移動止損→出場）＋ `test/member-test.js`（管理者新增→登入→門禁→停用／重設密碼）。改完一定要跑。
+- `npm test`：`test/mock-test.js`（假 BingX 跑完整流程，`MEMBER_GATE=off`）＋ `test/trend-test.js`（趨勢策略建單→保本→移動止損→出場）＋ `test/signal-test.js`（訊號策略建單→同時 5 筆上限→保本→止盈／止損）＋ `test/member-test.js`（管理者新增→登入→門禁→停用／重設密碼）。改完一定要跑。
 - 改策略規則前先在 `research` 分支回測，兩年（2025、2026）都要賺、回撤要用「同時持倉」的方式看，才上線。
 
 ## 研究結論（避免重做）

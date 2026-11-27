@@ -6,6 +6,7 @@ const store = require('./store');
 const tracker = require('./tracker');
 const journal = require('./journal');
 const TREND = require('./trend');
+const SIGNAL = require('./signal');
 const sentiment = require('./sentiment');
 
 // 舊版 OB 模型：日線 / H4 找趨勢 → 1H 結構裡的 OB → 1H 型態（吞沒 / Pin bar）
@@ -16,7 +17,8 @@ const DEFAULT_RULES = { swingLen: 3, htfSwing: 3, breakBy: 'close', obInvalid: '
   fvgEntry: 'on', fvgStop: 'ob', fvgFib: 0,   // 舊版：OB 帶 FVG 時先看 FVG 反應
   // 進場模型：bf = H4 順勢 → 1H BOS 留下 FVG → 回到 FVG 中間掛單（止損 OB 外、固定 R 目標）；ob = 舊版 OB + 吞沒
   model: 'bf', tpR: 2, p1: 1, bfEntry: 'mid', bfTarget: 'fixed', bfEma: 'on', bfPd: 'on', bfWait: 24,   // p1：到 1R 先平一半、剩下保本
-  trend: 'on',      // 策略①（4H 趨勢＋MACD 金叉＋爆量）建單、推送
+  trend: 'on',      // 趨勢策略（4H 趨勢＋MACD 金叉＋爆量）建單、推送
+  signal: 'on',     // 訊號策略（1H Supertrend 翻向，4H 順勢）建單、推送
   smcPush: 'off' }; // SMC 改成輔助：只在看板顯示，不建單不推送（要恢復就設 on）
 
 const state = {
@@ -25,7 +27,8 @@ const state = {
   market: {},          // { BTC: { sym, symbol, ltf, htf, quoteVolume } }
   ctx: { btcDir: 0, funding: {} },
   results: [],
-  trend: [],           // 策略① 每個幣目前的 4H 狀態
+  trend: [],           // 趨勢策略 每個幣目前的 4H 狀態
+  signal: [],          // 訊號策略 每個幣目前的 1H Supertrend 狀態
   lastScan: null, lastError: null, scanning: false, errors: [],
 };
 
@@ -116,7 +119,8 @@ async function scanOnce() {
     const results = rerun();
     try { sentiment.update(market, allTickers); await sentiment.refreshFng(); await sentiment.refreshDeriv(state.ctx.funding); await sentiment.refreshStable(); sentiment.analyze(); } catch (e) { state.errors.push(`市場情緒：${e.message}`); }
     state.trend = Object.values(market).map(m => TREND.analyze(m.sym, m.htf || [])).filter(a => a.state !== 'nodata');
-    await tracker.onScan(results, market, { smcPush: state.rules.smcPush === 'on', trend: state.rules.trend !== 'off' });
+    state.signal = Object.values(market).map(m => { try { return SIGNAL.analyze(m.sym, m.ltf || [], m.htf || []); } catch (e) { return { sym: m.sym, state: 'nodata' }; } }).filter(a => a.state !== 'nodata');
+    await tracker.onScan(results, market, { smcPush: state.rules.smcPush === 'on', trend: state.rules.trend !== 'off', signal: state.rules.signal !== 'off' });
 
     state.lastScan = Date.now(); state.lastError = null;
     const summary = { symbols: Object.keys(market).length, trigger: results.filter(r => r.status === 'trigger').length, watch: results.filter(r => r.status === 'watch').length, btcDir: state.ctx.btcDir, ms: Date.now() - t0, errors: state.errors.length };

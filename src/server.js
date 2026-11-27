@@ -103,8 +103,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/api/market' && req.method === 'GET') {
       return send(res, 200, {
-        updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx, trend: s.trend,
-        positions: tracker.state.signals.filter(x => x.model === 'trend' && x.status === 'filled').map(x => ({ sym: x.sym, dir: x.dir, entry: x.entry, stop: x.stop, stop0: x.stop0, tp1: x.tp1, tp1Hit: !!x.tp1Hit, be: !!x.be, ext: x.ext, atr: x.atr, filledAt: x.filledAt })),
+        updatedAt: s.lastScan, rules: s.rules, ctx: s.ctx, trend: s.trend, signal: s.signal,
+        positions: tracker.state.signals.filter(x => (x.model === 'trend' || x.model === 'signal') && x.status === 'filled').map(x => ({ model: x.model, tp: x.tp, beTrig: x.beTrig, sym: x.sym, dir: x.dir, entry: x.entry, stop: x.stop, stop0: x.stop0, tp1: x.tp1, tp1Hit: !!x.tp1Hit, be: !!x.be, ext: x.ext, atr: x.atr, filledAt: x.filledAt })),
         symbols: Object.values(s.market).map(m => ({ sym: m.sym, quoteVolume: m.quoteVolume, ltf: pack(m.ltf), htf: pack(m.htf), ...(m.m15 ? { m15: pack(m.m15) } : {}) })),
       });
     }

@@ -37,7 +37,7 @@ const H4 = 4 * 3600e3, H1 = 3600e3;
   const s = tracker.state.signals.find(x => x.model === 'trend');
   assert(s && s.status === 'filled', '應該建立一筆趨勢單');
   assert(Math.abs(s.stop - (entry - risk)) < 1e-9, '初始止損＝進場 − 2ATR');
-  assert(pushed.some(t => t === 'TSTUSDT　多'), '應該推送新訊號');
+  assert(pushed.some(t => t === '📈趨勢策略｜TSTUSDT　多'), '應該推送新訊號');
   // 時間往後，所有 1H 收盤
   Date.now = () => h1[h1.length - 1].t + 2 * H1;
   await tracker.onScan([], { TST: { sym: 'TST', htf: h4, ltf: h1, price: h1[h1.length - 1].c } }, { trend: true });
