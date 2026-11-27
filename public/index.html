@@ -90,7 +90,7 @@ body{margin:0}
 @media (max-width:760px){.greet{grid-template-columns:minmax(0,1fr)}}
 /* 交易室：左邊主欄＋右邊固定欄 */
 .room-main{display:flex;flex-direction:column;gap:16px;min-width:0}
-.room-main > .board{flex:1 1 auto}
+.room-main > .board{flex:none}
 .room-only.grid{align-items:stretch}
 .room-hd h2{margin:0;font-family:var(--f-display);font-size:28px;font-weight:700}
 .room-hd p{margin:2px 0 0}
@@ -318,6 +318,11 @@ td.num,th.num{text-align:right}
 .cal-warn{font-size:12.5px;color:var(--short);font-weight:600;line-height:1.45}
 .search{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px;width:200px;max-width:100%;margin-left:auto}
 .board > h2{flex-wrap:wrap}
+.bg-note{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.bg-note::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--long);box-shadow:0 0 0 0 color-mix(in srgb,var(--long) 60%,transparent);animation:bgpulse 2s infinite}
+@keyframes bgpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--long) 55%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion:reduce){.bg-note::before{animation:none}}
+.board .empty{padding:16px;font-size:13px}
 .sig-rule{margin:0;padding:10px 16px 4px;font-size:12.5px;color:var(--muted)}
 .pcard .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .pcard .tag.sig{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
@@ -716,13 +721,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
       <main class="pane board" aria-labelledby="boardT">
         <h2 id="boardT"><span>📈 趨勢策略 <span class="muted" style="font-size:12.5px;font-weight:500">4H 趨勢＋MACD 交叉＋爆量・長線</span></span>
           <input type="search" id="q" class="search" placeholder="搜尋幣種，例如 SOL" autocomplete="off" spellcheck="false" aria-label="搜尋幣種">
-          <span class="filters" role="group" aria-label="篩選">
-            <button class="seg" type="button" data-f="watch" aria-pressed="true">等交叉</button>
-            <button class="seg" type="button" data-f="trigger" aria-pressed="false">剛觸發</button>
-            <button class="seg" type="button" data-f="all" aria-pressed="false">全部</button>
-            <button class="seg" type="button" data-d="1" aria-pressed="false">只看多</button>
-            <button class="seg" type="button" data-d="-1" aria-pressed="false">只看空</button>
-          </span>
+          <span class="bg-note" id="bgT"></span>
         </h2>
         <div class="cards" id="rows" role="listbox" aria-label="幣種"></div>
         <div class="empty" id="empty" hidden><span id="emptyTxt">目前沒有符合篩選的幣。放寬策略參數，或等下一根 K 棒。</span>
@@ -732,11 +731,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
     <!-- 訊號策略（短線） -->
       <section class="pane board sigb" aria-labelledby="sigT">
         <h2 id="sigT"><span>⚡ 訊號策略 <span class="muted" style="font-size:12.5px;font-weight:500">1H Supertrend 翻向・順 4H 趨勢・短線</span></span>
-          <span class="filters" role="group" aria-label="訊號策略篩選">
-            <button class="seg" type="button" data-sf="trigger" aria-pressed="false">剛翻向</button>
-            <button class="seg" type="button" data-sf="watch" aria-pressed="true">等翻向</button>
-            <button class="seg" type="button" data-sf="running" aria-pressed="false">順勢中</button>
-          </span>
+          <span class="bg-note" id="bgS"></span>
         </h2>
         <p class="sig-rule" id="sigRule">止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆・不限持倉時間</p>
         <div class="cards" id="sigRows" role="listbox" aria-label="訊號策略幣種"></div>

@@ -71,7 +71,7 @@ function renderSum(){
 function readForm(){ for(const k in DEFAULTS){ const el=$(k); rules[k] = el.type==='checkbox'? el.checked : (typeof DEFAULTS[k]==='number'? (isFinite(parseFloat(el.value))?parseFloat(el.value):DEFAULTS[k]) : el.value); } store.set('smc-rules-v11',rules); renderSum(); }
 
 // ---- state ----
-let results=[], selected=null, filt='watch', dirF=0, tf='htf', prevTrig=null, q='';
+let results=[], selected=null, filt='trigger', dirF=0, tf='htf', prevTrig=null, q='';
 const STAGES=[['htf','H4 趨勢'],['poi','回到 4H OB / FVG'],['choch','15M CHoCH 換方向'],['fvg15','15M 推動有 FVG'],['bos','1H 順勢 BOS'],['pd','折價 / 溢價區'],['live','掛單有效'],['ob','1H OB'],['engulf','1H 型態'],['rr','RR 達標'],['fib','斐波便宜區'],['ema','EMA 順勢'],['fvg','OB 帶 FVG'],['sweep','掃流動性'],['daily','日線同向']];
 const stagesOf=r=>STAGES.filter(([k])=>r.need.includes(k)||(r.bonus||[]).includes(k));
 
@@ -165,10 +165,10 @@ function renderRows(){
   $('empty').hidden = view.length>0;
   const canAdd = q && DataSource.mode==='live' && /^[A-Z0-9]{2,15}$/.test(q) && !results.some(r=>r.sym===q);
   const nWatch=results.filter(r=>r.status==='watch').length;
-  $('showWatch').hidden = !(!q && filt==='trigger' && nWatch);
-  if(!$('showWatch').hidden) $('showWatch').textContent=`看等待金叉的 ${nWatch} 個幣`;
-  $('emptyTxt').textContent = !q ? (filt==='trigger' ? '目前沒有剛觸發的幣（持倉在上面的持倉卡）。4H 收盤出現「趨勢＋MACD 交叉＋爆量」時會出現在這裡，也會推到 Discord。' : '目前沒有符合篩選的幣。')
-    : canAdd ? `${q} 不在目前的掃描名單裡。` : results.some(r=>r.sym.includes(q)) ? `有符合「${q}」的幣，但被「只看多 / 只看空」擋住了。` : `找不到「${q}」。`;
+  $('bgT').textContent=`背景監控 ${results.length} 個・${nWatch} 個在等 MACD 交叉`;
+  $('showWatch').hidden=true;
+  $('emptyTxt').textContent = !q ? '目前沒有新訊號。等待中的幣在背景監控，4H 收盤「趨勢＋MACD 交叉＋爆量」全部滿足時會直接跳出來，也會推到 Discord（持倉在上面的持倉卡）。'
+    : canAdd ? `${q} 不在目前的掃描名單裡。` : `找不到「${q}」。`;
   $('addBtn').hidden=!canAdd; if(canAdd) $('addBtn').textContent=`把 ${q} 加入掃描`;
 }
 
@@ -797,12 +797,13 @@ function renderMinis(){
 }
 $('minis').addEventListener('click',e=>{ const b=e.target.closest('.mcard'); if(!b) return; sentGo(+b.dataset.i); $('sentPane').scrollIntoView({behavior:'smooth',block:'nearest'}); });
 // ⚡ 訊號策略看板（伺服器算好的 1H Supertrend 狀態：/api/market 的 signal）
-var sigF="watch";
+var sigF="trigger", prevSig=null;
 function renderSig(){
   const all=DataSource.signal||[], pos=(DataSource.positions||[]).filter(p=>p.model==='signal'), posSyms=new Set(pos.map(p=>p.sym));
   const order={trigger:0,watch:1,running:2,idle:3};
-  const view=all.filter(a=>sigF==='trigger'? (a.state==='trigger'||posSyms.has(a.sym)) : a.state===sigF).sort((a,b)=>(posSyms.has(b.sym)-posSyms.has(a.sym))||order[a.state]-order[b.state]||(a.state==='watch'?(a.dist??9)-(b.dist??9):(b.lastFlip||0)-(a.lastFlip||0))||a.sym.localeCompare(b.sym)).slice(0,40);
-  document.querySelectorAll('[data-sf]').forEach(b=>{ const n=b.dataset.sf==='trigger'? all.filter(a=>a.state==='trigger'||posSyms.has(a.sym)).length : all.filter(a=>a.state===b.dataset.sf).length; b.textContent=`${{trigger:'剛翻向／持倉',watch:'等翻向',running:'順勢中'}[b.dataset.sf]} ${n}`; });
+  const view=all.filter(a=>a.state==='trigger'&&!posSyms.has(a.sym)).sort((a,b)=>a.sym.localeCompare(b.sym));
+  $('bgS').textContent=`背景監控 ${all.length} 個・${all.filter(a=>a.state==='watch').length} 個在等翻向`;
+  const trig=new Set(view.map(a=>a.sym)); if(prevSig){ [...trig].filter(x=>!prevSig.has(x)).forEach(x=>{ const a=view.find(y=>y.sym===x); showToast(`⚡ ${x} ${a.trend>0?'做多':'做空'}：1H Supertrend 翻向`); }); } prevSig=trig;
   $('sigRule').textContent=`止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆（目前 ${pos.length}/5）・不限持倉時間`;
   const Rtxt=v=>`<b style="color:${v>=0?'var(--long)':'var(--short)'}">${v>=0?'+':''}${v.toFixed(2)}R</b>`;
   $('sigRows').innerHTML=view.map(a=>{ const p=pos.find(x=>x.sym===a.sym), d=p?p.dir:a.trend, ser=DataSource.series[a.sym]||[], last=ser.length?ser[ser.length-1].c:a.close;
@@ -829,9 +830,8 @@ function renderSig(){
       ${bottom}
     </div>`; }).join('');
   $('sigEmpty').hidden=!!view.length;
-  $('sigEmptyTxt').textContent={trigger:'目前沒有剛翻向的幣，也沒有持倉。1H 收盤 Supertrend 翻到 4H 趨勢方向時會出現在這裡，並推到 Discord。',watch:'目前沒有在等翻向的幣。',running:'目前沒有順勢中的幣。'}[sigF];
+  $('sigEmptyTxt').textContent='目前沒有新訊號。等待中的幣在背景監控，1H 收盤 Supertrend 翻到 4H 趨勢方向時會直接跳出來，也會推到 Discord（持倉在上面的持倉卡）。';
 }
-document.querySelectorAll('[data-sf]').forEach(b=>b.onclick=()=>{ sigF=b.dataset.sf; document.querySelectorAll('[data-sf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderSig(); });
 $('sigRows').addEventListener('click',e=>{ const c=e.target.closest('.card[data-s]'); if(!c) return; selected=c.dataset.s; openDetail(); });
 $('sigRows').addEventListener('keydown',e=>{ if(e.key!=='Enter') return; const c=e.target.closest('.card[data-s]'); if(!c) return; selected=c.dataset.s; openDetail(); });
 
