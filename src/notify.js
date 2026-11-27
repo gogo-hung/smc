@@ -21,14 +21,14 @@ function formatSignal(r) {
 const channels = () => ({ discord: !!cfg.DISCORD_WEBHOOK_URL, telegram: !!(cfg.TELEGRAM_BOT_TOKEN && cfg.TELEGRAM_CHAT_ID) });
 
 // Discord：第一行當標題，其餘當內容；依內容上色（多 / 目標 = 綠，空 / 止損 = 紅，保本 = 灰，其他 = 金）
-async function sendDiscord(text) {
+async function sendDiscord(text, url = cfg.DISCORD_WEBHOOK_URL) {
   const plain = text.replace(/<b>(.*?)<\/b>/g, '**$1**').replace(/<\/?[^>]+>/g, '');
   const [first, ...rest] = plain.split('\n');
   const title = first.replace(/\*\*/g, '').slice(0, 250);
   // 顏色：止損出場紅、保本灰、獲利出場綠；其他看方向（多綠、空紅），都不是就金色
   const color = /❌|止損出場|打到止損/.test(title) ? 0xd9534f : /🛡|保本/.test(title) ? 0x8a8f98 : /✅|TP2 出場|止盈出場|到達 TP1/.test(title) ? 0x1f9d6b
     : /做空|\s空(｜|$)/.test(title) ? 0xd9534f : /做多|\s多(｜|$)/.test(title) ? 0x1f9d6b : /止損/.test(title) ? 0xd9534f : 0xb7791f;
-  const res = await fetch(cfg.DISCORD_WEBHOOK_URL, {
+  const res = await fetch(url, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: '聚寶盆', embeds: [{ title, description: rest.join('\n').trim().slice(0, 4000) || undefined, color }] }),
   });
@@ -49,7 +49,8 @@ async function sendTelegram(text) {
 async function send(text) {
   const ch = channels();
   if (!ch.discord && !ch.telegram) { console.log('[提醒]\n' + text.replace(/<\/?b>/g, '')); return false; }
-  const out = await Promise.all([ch.discord ? sendDiscord(text).catch(e => (console.error('Discord：', e.message), false)) : null,
+  const url = cfg.DISCORD_WEBHOOK_SIGNAL && /訊號策略/.test(text.split('\n')[0]) ? cfg.DISCORD_WEBHOOK_SIGNAL : cfg.DISCORD_WEBHOOK_URL;   // 訊號策略可分頻道
+  const out = await Promise.all([ch.discord ? sendDiscord(text, url).catch(e => (console.error('Discord：', e.message), false)) : null,
     ch.telegram ? sendTelegram(text).catch(e => (console.error('Telegram：', e.message), false)) : null].filter(x => x));
   return out.some(Boolean);
 }

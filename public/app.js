@@ -157,7 +157,17 @@ function spark(r){
   let lvl=''; if(r.entry && r.entry>=lo && r.entry<=hi){ const yy=(28-(r.entry-lo)/k*26).toFixed(1); lvl=`<line x1="0" x2="100" y1="${yy}" y2="${yy}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity=".5"/>`; }
   return `<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">${lvl}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
 }
+// 市場狀態：掃描中的幣有幾成有 4H 趨勢（兩個策略都要 4H 順勢才做，盤整時訊號本來就少）
+function renderRegime(){
+  const n=results.length; if(!n){ $('regime').hidden=true; return; } $('regime').hidden=false;
+  const up=results.filter(r=>r.trend>0).length, dn=results.filter(r=>r.trend<0).length, pctT=(up+dn)/n, btc=results.find(r=>r.sym==='BTC');
+  const kind=pctT>=0.4?'trend':pctT<0.25?'range':'mix';
+  const txt={trend:'趨勢盤：兩個策略比較容易出訊號，也比較容易賺。',range:'盤整盤：大部分幣沒有 4H 趨勢，兩個策略的訊號會變少，這是正常的。沒訊號就不要自己硬開單。',mix:'轉換中：有一部分幣有趨勢，訊號數量普通。'}[kind];
+  $('regime').className='regime '+kind;
+  $('regime').innerHTML=`<span class="tagr">${{trend:'趨勢盤',range:'盤整盤',mix:'轉換中'}[kind]}</span><span>${txt}<span class="muted">（${n} 個幣裡 ${Math.round(pctT*100)}% 有 4H 趨勢：多頭 ${up}、空頭 ${dn}；BTC ${btc?(btc.trend>0?'多頭':btc.trend<0?'空頭':'盤整'):'—'}）</span></span>`;
+}
 function renderRows(){
+  renderRegime();
   const view=results.filter(r=>(q ? r.sym.includes(q) : (filt==='all' || (r.status===filt && !(filt==='trigger' && r.kind==='pos')))) && (!dirF || r.dir===dirF));   // 持倉已經在上面的持倉卡，看板的「剛觸發」不重複顯示
   const H4=4*3600e3;
   $('rows').innerHTML = view.map(r=>{
@@ -348,7 +358,7 @@ function renderCal(){
 }
 // ---- 上方按鈕開關面板（一次只開一個） ----
 // ---- 分頁：左側選單每個按鈕一頁（網址 #stats 這種，上一頁可以回去） ----
-const VIEWS={home:['homeBtn','globeModal'],room:['roomBtn',null],analyst:['anBtn','anView'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],rules:['rulesBtn','rulesPane']};
+const VIEWS={home:['homeBtn','globeModal'],room:['roomBtn',null],analyst:['anBtn','anView'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],risk:['riskBtn','riskPane'],rules:['rulesBtn','rulesPane']};
 const PANE2VIEW=Object.fromEntries(Object.entries(VIEWS).filter(([,v])=>v[1]).map(([k,v])=>[v[1],k]));
 const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal(), anView:()=>{ renderAnalyst(); loadSent(); }};
 let view='home';

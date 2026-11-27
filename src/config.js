@@ -50,6 +50,7 @@ module.exports = {
   EXTRA_MAX: num(process.env.EXTRA_MAX, 20),                         // 搜尋加入的幣最多幾個
 
   DISCORD_WEBHOOK_URL: process.env.DISCORD_WEBHOOK_URL || '',  // Discord 頻道的 Webhook 網址
+  DISCORD_WEBHOOK_SIGNAL: process.env.DISCORD_WEBHOOK_SIGNAL || '',  // 選填：訊號策略（⚡）另外推到這個頻道；沒設就跟其他推播同一個頻道
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
   TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || '',
   PUBLIC_URL: process.env.PUBLIC_URL || '',      // 有填的話，推播會附上看板連結
