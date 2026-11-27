@@ -143,7 +143,17 @@ function stat(q, t0) {
 }
 const f = (x, d = 1) => (x >= 0 ? '+' : '') + x.toFixed(d);
 
-module.exports = { S, stat, cap, H, load };
+
+// 可調參數版（給 robust2.js 換參數用）
+const flipST = (n, k) => flipStrat(b => supertrend(b, n, k), 'h4', 99);
+const donchian = (nb, am) => (d) => {
+  const b = d.ltf, A = atr(b), hN = hiN(b, nb), lN = loN(b, nb), xh = Math.max(5, Math.round(nb / 2)), hX = hiN(b, xh), lX = loN(b, xh), tr = trendSeries(d.htf), al = aligner(d.htf, H4), sigs = [];
+  for (let i = 210; i < b.length; i++) { const j = al(b[i].t + H); if (j < 0) continue; const dir = tr[j]; if (!dir) continue;
+    const brk = dir > 0 ? b[i].c > hN[i - 1] && b[i - 1].c <= hN[i - 2] : b[i].c < lN[i - 1] && b[i - 1].c >= lN[i - 2]; if (!brk) continue;
+    sigs.push({ i, dir, riskAbs: am * A[i], rr: 3, maxBars: 24, flip: k => dir > 0 ? b[k].c < lX[k - 1] : b[k].c > hX[k - 1] }); }
+  return simulate(b, sigs, H);
+};
+module.exports = { S, stat, cap, H, load, flipST, donchian };
 if (require.main === module) (async () => {
   const data = await load();
   const syms = Object.keys(data).filter(s => data[s].htf && data[s].htf.length > 400 && data[s].ltf && data[s].ltf.length > 1000);
