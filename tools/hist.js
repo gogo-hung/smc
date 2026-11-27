@@ -47,7 +47,8 @@ async function viaCcxt() {
       data[m.base] = { ltf, htf, m15, m5 }; process.stdout.write('.');
     } catch (e) { console.log(`\n${m.symbol} 失敗：${e.message}`); } } };
   await Promise.all([work(), work(), work()]);
-  return data;
+  const ordered = {}; for (const m of list) if (data[m.base]) ordered[m.base] = data[m.base];   // 依成交額排名排好（同時抓會打亂順序）
+  return ordered;
 }
 
 async function viaBingx() {
