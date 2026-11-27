@@ -1060,9 +1060,20 @@ const c=store.get('smc-calc'); if(c){ $('equity').value=c.eq; $('riskPct').value
 // ================= 交易座位模式（6 螢幕交易牆，一鍵切換） =================
 const Desk=(()=>{
   let on=false, clockT=null, news={items:[],at:0}, perf=null, perfAt=0;
+  // 即時價（Binance 合約公開 WebSocket，只用來讓畫面動；跟 BingX 價差超過 3% 就不用）
+  let ws=null, live={}, wsSyms='', prevSig=null, hotT=null;
+  const lpx=sym=>{ const l=live[sym], b=nowPx(sym); return l&&(!b||Math.abs(l.p/b-1)<0.03)? l.p : b; };
+  function connect(){
+    const syms=['BTC','ETH','SOL','XRP','DOGE','BNB',...(DataSource.positions||[]).map(p=>p.sym)].filter((x,i,a)=>a.indexOf(x)===i), key=syms.join(',');
+    if(ws&&wsSyms===key&&ws.readyState<2) return; try{ if(ws){ ws.onclose=null; ws.close(); } }catch(e){}
+    wsSyms=key;
+    try{ ws=new WebSocket('wss://fstream.binance.com/stream?streams='+syms.map(x=>x.toLowerCase()+'usdt@miniTicker').join('/'));
+      ws.onmessage=e=>{ try{ const d=JSON.parse(e.data).data; const sym=d.s.replace(/USDT$/,''), p=+d.c, o=+d.o, old=live[sym]; live[sym]={p,o,dir:old?(p>old.p?1:p<old.p?-1:old.dir):0,chg:old?p!==old.p:false}; }catch(_){} };
+      const me=ws; ws.onclose=()=>{ if(on&&ws===me) setTimeout(()=>{ if(on&&ws===me){ wsSyms=''; connect(); } },5000); };
+    }catch(e){} }
   const pad=n=>String(n).padStart(2,'0'), TW=t=>new Date(t+8*3600e3);
   const fit=()=>{ const s=Math.min(innerWidth/1440, innerHeight/900); $('dk').style.transform=`translate(-50%,-50%) scale(${s})`; };
-  const chg24=sym=>{ const s=DataSource.series[sym]; if(!s||s.length<26) return null; return (nowPx(sym)/s[s.length-25].c-1)*100; };
+  const chg24=sym=>{ const l=live[sym]; if(l&&l.o&&lpx(sym)===l.p) return (l.p/l.o-1)*100; const s=DataSource.series[sym]; if(!s||s.length<26) return null; return (lpx(sym)/s[s.length-25].c-1)*100; };
   const pctTxt=v=>v==null?'':`${v>=0?'+':''}${v.toFixed(1)}%`;
   async function loadNews(){ try{ const r=await fetch('api/news',{cache:'no-store'}); if(r.ok){ news=await r.json(); renderNews(); } }catch(e){} }
   async function loadPerf(){ if(Date.now()-perfAt<5*60e3) return; perfAt=Date.now(); try{ const r=await fetch('api/stats',{cache:'no-store'}); if(r.ok){ perf=(await r.json()).perf; renderSub(); } }catch(e){} }
@@ -1075,10 +1086,10 @@ const Desk=(()=>{
   }
   function renderTicker(){
     const syms=['BTC','ETH','SOL','XRP','DOGE','BNB',...(DataSource.positions||[]).map(p=>p.sym)].filter((x,i,a)=>a.indexOf(x)===i && DataSource.series[x]);
-    const parts=syms.map(s=>`${s} ${fp(nowPx(s))} ${pctTxt(chg24(s))}`);
-    (Feed.items||[]).slice(0,3).forEach(f=>parts.push(f.title));
-    const txt=esc(parts.join('　　'));
-    $('dkTick').innerHTML=`<span>${txt}</span><span>${txt}</span>`;
+    const parts=syms.map(s=>{ const l=live[s], c=chg24(s); return `${esc(s)} <b class="${l&&l.dir>0?'dk-up':l&&l.dir<0?'dk-dn':''} ${l&&l.chg?'dk-fl':''}">${fp(lpx(s))}</b> <small style="color:${c>=0?'#2fbf9b':'#ee6a6a'}">${pctTxt(c)}</small>`; });
+    (Feed.items||[]).slice(0,3).forEach(f=>parts.push(esc(f.title)));
+    const txt=parts.join('　　');
+    $('dkTick').innerHTML=`<span>${txt}</span><span>${txt}</span>`; for(const k in live) live[k].chg=false;
   }
   function renderWeather(){
     const d=Sent.d||{}, a=d.analyst, btc=results.find(r=>r.sym==='BTC'), n=results.length, tr=results.filter(r=>r.trend).length;
@@ -1093,7 +1104,7 @@ const Desk=(()=>{
   }
   function renderChart(){
     const h=(DataSource.htf&&DataSource.htf('BTC'))||[], c=$('dkChart'), g=c.getContext('2d'), W=808, H=400; g.clearRect(0,0,W,H);
-    const px=nowPx('BTC'), ch=chg24('BTC'); $('dkBtc').innerHTML=px?`${fp(px)} <b style="color:${ch>=0?'#2fbf9b':'#ee6a6a'}">${pctTxt(ch)}</b>`:'';
+    const px=lpx('BTC'), ch=chg24('BTC'); $('dkBtc').innerHTML=px?`${fp(px)} <b style="color:${ch>=0?'#2fbf9b':'#ee6a6a'}">${pctTxt(ch)}</b>`:'';
     if(h.length<30){ g.fillStyle='#7f8fb0'; g.font='24px sans-serif'; g.fillText('K 線載入中…',20,60); return; }
     const all=h.map(b=>[b.o,b.h,b.l,b.c]), cs=all.slice(-70); if(px){ const l=cs[cs.length-1]; cs[cs.length-1]=[l[0],Math.max(l[1],px),Math.min(l[2],px),px]; }
     const lo=Math.min(...cs.map(x=>x[2])), hi=Math.max(...cs.map(x=>x[1])), Y=v=>12+(hi-v)/(hi-lo||1)*(H-40), bw=W/cs.length;
@@ -1102,6 +1113,7 @@ const Desk=(()=>{
     g.strokeStyle='rgba(229,161,58,.8)'; g.lineWidth=2.5; g.beginPath(); cs.forEach((x,i)=>{ e=x[3]*k2+e*(1-k2); const xx=i*bw+bw/2; i?g.lineTo(xx,Y(e)):g.moveTo(xx,Y(e)); }); g.stroke();
     cs.forEach((x,i)=>{ const up=x[3]>=x[0], col=up?'#2fbf9b':'#ee6a6a', xx=i*bw+bw/2; g.strokeStyle=col; g.lineWidth=2; g.beginPath(); g.moveTo(xx,Y(x[1])); g.lineTo(xx,Y(x[2])); g.stroke(); g.fillStyle=col; g.fillRect(xx-bw*.32,Math.min(Y(x[0]),Y(x[3])),bw*.64,Math.max(2,Math.abs(Y(x[0])-Y(x[3])))); });
     const last=cs[cs.length-1][3], ly=Y(last); g.setLineDash([6,6]); g.strokeStyle='rgba(255,255,255,.4)'; g.beginPath(); g.moveTo(0,ly); g.lineTo(W,ly); g.stroke(); g.setLineDash([]);
+    const pu=$('dkPulse'); if(pu){ pu.style.top=(ly/2)+'px'; pu.style.left=((cs.length-0.5)*bw/2)+'px'; pu.style.background=last>=cs[cs.length-1][0]?'#2fbf9b':'#ee6a6a'; }
     g.fillStyle=last>=cs[cs.length-1][0]?'#2fbf9b':'#ee6a6a'; g.fillRect(W-140,ly-16,140,32); g.fillStyle='#fff'; g.font='700 22px "JetBrains Mono",monospace'; g.textAlign='right'; g.fillText(fp(last),W-10,ly+8);
     g.fillStyle='rgba(229,161,58,.9)'; g.font='700 20px "JetBrains Mono",monospace'; g.textAlign='left'; g.fillText('EMA 20',10,H-8);
   }
@@ -1110,20 +1122,30 @@ const Desk=(()=>{
     const rows=[];
     for(const r of results.filter(r=>r.kind==='sig')) rows.push([r.sym,r.dir,'📈 趨勢',tag('剛觸發','#e5a13a')]);
     for(const a of (DataSource.signal||[]).filter(a=>a.state==='trigger')) if(!(DataSource.positions||[]).some(p=>p.sym===a.sym&&p.model==='signal')) rows.push([a.sym,a.trend,'⚡ 訊號',tag('剛觸發','#e5a13a')]);
-    for(const p of (DataSource.positions||[])){ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(nowPx(p.sym)-p.entry)/risk; rows.push([p.sym,p.dir,p.model==='signal'?'⚡ 訊號':'📈 趨勢',p.be?tag('已保本','#9fb2d9'):tag(`${r>=0?'+':''}${r.toFixed(2)}R`,r>=0?'#2fbf9b':'#ee6a6a')]); }
+    for(const p of (DataSource.positions||[])){ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(lpx(p.sym)-p.entry)/risk; rows.push([p.sym,p.dir,p.model==='signal'?'⚡ 訊號':'📈 趨勢',p.be?tag('已保本','#9fb2d9'):tag(`${r>=0?'+':''}${r.toFixed(2)}R`,r>=0?'#2fbf9b':'#ee6a6a')]); }
     for(const d of (DataSource.closed||[])) rows.push([d.sym,d.dir,d.model==='signal'?'⚡ 訊號':'📈 趨勢',tag(`${{win:'止盈',loss:'止損',be:'保本'}[d.status]||'結束'} ${d.R>0?'+':''}${(d.R||0).toFixed(1)}R`,d.R>0?'#2fbf9b':d.R<0?'#ee6a6a':'#9fb2d9')]);
-    $('dkSig').innerHTML=rows.length? rows.slice(0,8).map(([s,d,st,t])=>`<div class="dk-r"><b class="mono">${esc(s)}</b>${D(d)}<span class="s">${st}</span>${t}</div>`).join('') : '<div class="dk-empty">目前沒有訊號和持倉，背景監控中。條件滿足時會出現在這裡並推到 Discord。</div>';
+    const keyOf=r=>r[0]+r[2], cur=new Set(rows.filter(r=>/剛觸發/.test(r[3])).map(keyOf)), fresh=prevSig?[...cur].filter(k=>!prevSig.has(k)):[];
+    if(fresh.length){ const m=$('dkSigMon'); m.classList.remove('hot'); void m.offsetWidth; m.classList.add('hot'); clearTimeout(hotT); hotT=setTimeout(()=>m.classList.remove('hot'),4000);
+      const r=rows.find(x=>keyOf(x)===fresh[0]), pop=$('dkPop'); pop.innerHTML=`<b style="font-size:10px;opacity:.85">Discord・聚寶盆</b><b>${r[2]}｜${esc(r[0])}USDT　${r[1]>0?'多':'空'}</b><span style="opacity:.9">訊號成立</span>`; pop.style.animation='none'; void pop.offsetWidth; pop.style.animation=''; }
+    prevSig=cur;
+    $('dkSig').innerHTML=rows.length? rows.slice(0,8).map(([s,d,st,t])=>`<div class="dk-r ${fresh.includes(s+st)?'dk-new':''}"><b class="mono">${esc(s)}</b>${D(d)}<span class="s">${st}</span>${t}</div>`).join('') : '<div class="dk-empty">目前沒有訊號和持倉，背景監控中。條件滿足時會出現在這裡並推到 Discord。</div>';
   }
   function renderPos(){
     const ps=(DataSource.positions||[]).slice(0,3), P=r=>Math.max(2,Math.min(98,(r+1)/4*100));
     let atRisk=0; for(const p of (DataSource.positions||[])){ const r0=Math.abs(p.entry-p.stop0)||1, l=p.dir*(p.stop-p.entry)/r0; if(l<0) atRisk+=-l; }
     $('dkRisk').textContent=(DataSource.positions||[]).length?`全部打到止損 −${atRisk.toFixed(1)}R（約 −${Math.round(atRisk*Sizer.R)}U）`:'';
-    $('dkPos').innerHTML=ps.length? ps.map(p=>{ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(nowPx(p.sym)-p.entry)/risk, c=r>=0?'#2fbf9b':'#ee6a6a';
-      return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span><b class="mono">${esc(p.sym)}</b> <span style="font-size:11.5px;font-weight:700;color:${p.dir>0?'#2fbf9b':'#ee6a6a'}">${p.dir>0?'多':'空'}</span> <span style="font-size:10.5px;color:#7f8fb0">${p.model==='signal'?'⚡ 訊號':'📈 趨勢'}${p.be?'・已保本':''}</span></span><b class="mono" style="color:${c}">${r>=0?'+':''}${r.toFixed(2)}R</b></div>
-        <div class="dk-trk"><b style="left:${P(r)}%;border-color:${c}"></b></div><div class="mono" style="display:flex;justify-content:space-between;font-size:10.5px;color:#7f8fb0"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:#e5a13a">${p.model==='signal'?'止盈 '+fp(p.tp):'TP1 '+fp(p.tp1)}</span></div></div>`; }).join('')
+    const sig=ps.map(p=>p.sym+p.model+p.stop).join('|'); if(sig===posSig&&$('dkPos').children.length){ updatePos(); return; } posSig=sig;
+    $('dkPos').innerHTML=ps.length? ps.map((p,i)=>{ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(lpx(p.sym)-p.entry)/risk, c=r>=0?'#2fbf9b':'#ee6a6a';
+      return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12.5px"><span><b class="mono">${esc(p.sym)}</b> <span style="font-size:11.5px;font-weight:700;color:${p.dir>0?'#2fbf9b':'#ee6a6a'}">${p.dir>0?'多':'空'}</span> <span style="font-size:10.5px;color:#7f8fb0">${p.model==='signal'?'⚡ 訊號':'📈 趨勢'}${p.be?'・已保本':''}</span></span><b class="mono" id="dkPR${i}" style="color:${c}">${r>=0?'+':''}${r.toFixed(2)}R</b></div>
+        <div class="dk-trk"><b id="dkPD${i}" style="left:${P(r)}%;border-color:${c};color:${c}"></b></div><div class="mono" style="display:flex;justify-content:space-between;font-size:10.5px;color:#7f8fb0"><span>止損 ${fp(p.stop)}</span><span>進場 ${fp(p.entry)}</span><span style="color:#e5a13a">${p.model==='signal'?'止盈 '+fp(p.tp):'TP1 '+fp(p.tp1)}</span></div></div>`; }).join('')
       + ((DataSource.positions||[]).length>3?`<div class="dk-empty">還有 ${(DataSource.positions||[]).length-3} 筆，切回一般模式看全部</div>`:'')
       : '<div class="dk-empty">目前沒有持倉。</div>';
   }
+  let posSig='';
+  function updatePos(){ const P=r=>Math.max(2,Math.min(98,(r+1)/4*100));
+    (DataSource.positions||[]).slice(0,3).forEach((p,i)=>{ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(lpx(p.sym)-p.entry)/risk, c=r>=0?'#2fbf9b':'#ee6a6a', t=$('dkPR'+i), d=$('dkPD'+i); if(!t||!d) return;
+      const txt=`${r>=0?'+':''}${r.toFixed(2)}R`; if(t.textContent!==txt){ t.textContent=txt; t.style.color=c; t.classList.remove('dk-fl'); void t.offsetWidth; t.classList.add('dk-fl'); } d.style.left=P(r)+'%'; d.style.borderColor=c; d.style.color=c; }); }
+  function liveTick(){ if(!on) return; renderTicker(); renderChart(); updatePos(); }
   function renderFeed(){
     const it=(Feed.items||[]).slice(0,4); const t=x=>{ const d=TW(x); return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
     $('dkFeed').innerHTML=it.length? it.map(f=>`<div class="dk-line"><span>${t(f.t)}</span> ${esc(f.title)}</div>`).join('') : '<div class="dk-empty">還沒有推播紀錄。</div>';
@@ -1135,8 +1157,8 @@ const Desk=(()=>{
     $('dkH1').textContent=left(Math.ceil(t/H1)*H1-t); $('dkH4').textContent=left(Math.ceil(t/H4)*H4-t);
   }
   function render(){ if(!on) return; fit(); renderTicker(); renderWeather(); renderChart(); renderNews(); renderSignals(); renderPos(); renderFeed(); renderClock(); renderSub(); }
-  function open(){ on=true; $('deskView').hidden=false; document.body.style.overflow='hidden'; store.set('smc-desk',1); render(); loadNews(); loadPerf(); clearInterval(clockT); clockT=setInterval(()=>{ renderClock(); if(Date.now()-(news.fetched||0)>5*60e3){ news.fetched=Date.now(); loadNews(); } },1000); }
-  function close(){ on=false; $('deskView').hidden=true; document.body.style.overflow=''; store.set('smc-desk',0); clearInterval(clockT); }
+  function open(){ on=true; $('deskView').hidden=false; document.body.style.overflow='hidden'; store.set('smc-desk',1); const dk=$('dk'); dk.classList.remove('boot'); void dk.offsetWidth; dk.classList.add('boot'); setTimeout(()=>dk.classList.remove('boot'),2600); render(); loadNews(); loadPerf(); connect(); clearInterval(clockT); let k=0; clockT=setInterval(()=>{ renderClock(); if(++k%2===0) liveTick(); if(k%30===0) connect(); if(Date.now()-(news.fetched||0)>5*60e3){ news.fetched=Date.now(); loadNews(); } },1000); }
+  function close(){ on=false; $('deskView').hidden=true; document.body.style.overflow=''; store.set('smc-desk',0); clearInterval(clockT); try{ if(ws){ ws.onclose=null; ws.close(); } }catch(e){} ws=null; wsSyms=''; }
   $('deskBtn').onclick=open; $('dkExit').onclick=close;
   addEventListener('keydown',e=>{ if(on&&e.key==='Escape') close(); });
   addEventListener('resize',()=>{ if(on) fit(); });
