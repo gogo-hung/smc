@@ -54,7 +54,8 @@ function money(q, t0) {
 }
 
 const u = x => (x >= 0 ? '+' : '') + Math.round(x) + 'U';
-(async () => {
+module.exports = { makeSim, pick };
+if (require.main === module) (async () => {
   const data = await load();
   const syms = Object.keys(data).filter(s => data[s].htf && data[s].htf.length > 400 && data[s].ltf && data[s].ltf.length > 1000);
   const t0 = Date.UTC(2025, 0, 1);
