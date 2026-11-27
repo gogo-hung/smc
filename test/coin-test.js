@@ -1,0 +1,32 @@
+// 單一幣種分析測試：搜尋清單、分析結果、不在掃描名單的幣當場抓 K 線、找不到的幣回 404
+const assert = require('assert');
+const bingx = require('../src/bingx');
+const H1 = 3600e3;
+const gen = (n, tf, up) => { const o = [], t0 = Math.floor(Date.now() / tf) * tf - n * tf; let p = 100; for (let i = 0; i < n; i++) { const op = p; p *= 1 + (up ? 0.0015 : -0.0015) + Math.sin(i / 7) * 0.004; o.push({ t: t0 + i * tf, o: op, h: Math.max(op, p) * 1.003, l: Math.min(op, p) * 0.997, c: p, v: 100 + (i === n - 1 ? 400 : 0) }); } return o; };
+let fetched = 0;
+bingx.getContracts = async () => ['BTC-USDT', 'SOL-USDT', 'TINY-USDT', 'NCSKAAPL2USD-USDT'];
+bingx.getTickers = async () => [{ symbol: 'BTC-USDT', last: 60000, quoteVolume: 9e9, change: -1.2 }, { symbol: 'SOL-USDT', last: 70, quoteVolume: 1e9, change: 3 }, { symbol: 'TINY-USDT', last: 0.01, quoteVolume: 1e5, change: 12 }, { symbol: 'NCSKAAPL2USD-USDT', last: 200, quoteVolume: 5e9, change: 0 }];
+bingx.getKlines = async (sym, iv, lim) => { fetched++; return gen(lim, iv === '1h' ? H1 : 4 * H1, !sym.startsWith('TINY')); };
+const coin = require('../src/coin');
+(async () => {
+  const scanner = { market: { BTC: { sym: 'BTC', ltf: gen(300, H1, false), htf: gen(500, 4 * H1, false) }, SOL: { sym: 'SOL', ltf: gen(300, H1, true), htf: gen(500, 4 * H1, true) } }, ctx: { funding: { SOL: 0.0008 } } };
+  const list = await coin.symbols(scanner);
+  assert.deepStrictEqual(list.map(x => x.sym), ['BTC', 'SOL', 'TINY'], '依成交額排序、排除美股');
+  assert(list.find(x => x.sym === 'SOL').scanned && !list.find(x => x.sym === 'TINY').scanned, '標示是否在策略掃描名單');
+  const a = await coin.analyze('sol', scanner, { signals: [{ sym: 'SOL', model: 'signal', status: 'filled', dir: 1, entry: 69, stop: 67, stop0: 67, tp: 75 }] });
+  assert.strictEqual(fetched, 0, '在掃描名單裡的幣直接用現成 K 線');
+  assert.strictEqual(a.sym, 'SOL'); assert.strictEqual(a.ind.trend4, 1, '上漲序列 4H 多頭');
+  assert(['偏多', '略偏多'].includes(a.verdict.verdict), `上漲序列應偏多（${a.verdict.verdict} ${a.verdict.score}）`);
+  assert(a.verdict.factors.some(f => f.txt.includes('資金費率') && f.s === -1), '資金費率過高要扣分');
+  assert(a.basic.rank === 2 && a.basic.vol24 === 1e9, '基本資料');
+  assert(a.strategies.trend.txt && a.strategies.signal.txt, '兩個策略的狀態說明');
+  assert.strictEqual(a.positions.length, 1, '顯示這支幣的持倉');
+  assert(a.chart.length === 120 && a.chart[0].e50, '圖表資料');
+  const b = await coin.analyze('TINY-USDT', scanner, {});
+  assert.strictEqual(fetched, 2, '不在名單的幣當場抓 1H、4H');
+  assert(b.ind.trend4 === -1 && b.verdict.score < 0, `下跌序列 4H 空頭、分數為負（${b.verdict.verdict} ${b.verdict.score}）`);
+  assert(!b.scanned);
+  await assert.rejects(() => coin.analyze('NOPE', scanner, {}), e => e.code === 404, '找不到的幣 404');
+  await coin.analyze('TINY', scanner, {}); assert.strictEqual(fetched, 2, '3 分鐘內同一支幣用快取');
+  console.log(`幣種分析測試通過（SOL ${a.verdict.verdict} ${a.verdict.score} 分、TINY ${b.verdict.verdict} ${b.verdict.score} 分）`);
+})().catch(e => { console.error(e); process.exit(1); });

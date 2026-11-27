@@ -578,6 +578,49 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
 .dk-sw span{font-size:12px;padding:5px 10px;border-radius:7px;background:#e5a13a;color:#1a1206;font-weight:700}
 @media (max-width:999px){#deskBtn{display:none}}
 @media (prefers-reduced-motion:reduce){.dk-tick-in,.dk-scr::after,.dk-mug i,.dk-phone .pop,.dk-live{animation:none}}
+
+/* ===== 幣種搜尋＋分析頁 ===== */
+.room-hd{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.csearch{position:relative;width:min(380px,100%)}
+.csearch input{width:100%;box-sizing:border-box;padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font-size:14px}
+.csearch input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.clist{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.25);overflow:hidden;max-height:360px;overflow-y:auto}
+.clist button{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;width:100%;padding:9px 12px;border:0;background:transparent;color:var(--fg);font:inherit;font-size:13px;text-align:left;cursor:pointer;border-bottom:1px solid var(--line)}
+.clist button:hover,.clist button[aria-selected="true"]{background:var(--raise)}
+.clist b{font-family:var(--f-mono)}
+.clist .tagc{font-size:10.5px;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);border-radius:999px;padding:0 6px;margin-left:6px}
+.clist .px{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.clist .empty{padding:12px;color:var(--muted);font-size:13px}
+.cv-body{padding:4px 18px 22px;display:grid;gap:14px}
+.cv-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px}
+.cv-head h2{margin:0;font-family:var(--f-display);font-size:30px}
+.cv-head .p{font-family:var(--f-mono);font-size:24px;font-weight:700}
+.cv-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
+@media (max-width:900px){.cv-grid{grid-template-columns:1fr}}
+.cv-card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:14px 16px;min-width:0}
+.cv-card h3{margin:0 0 10px;font-size:14px}
+.cv-verdict{display:flex;align-items:baseline;gap:12px}
+.cv-verdict b{font-size:34px;font-weight:900}
+.cv-gauge{position:relative;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--short),var(--accent),var(--long));margin:10px 0 4px}
+.cv-gauge i{position:absolute;top:-5px;width:4px;height:18px;border-radius:2px;background:var(--fg)}
+.cv-f{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;font-size:13px}
+.cv-f li{display:grid;grid-template-columns:22px 44px 1fr;gap:6px;align-items:baseline}
+.cv-f .g{font-size:11px;color:var(--muted)}
+.cv-kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+@media (max-width:600px){.cv-kv{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cv-kv span{display:block;font-size:11.5px;color:var(--muted)}
+.cv-kv b{font-family:var(--f-mono);font-size:16px}
+.cv-ind{width:100%;border-collapse:collapse;font-size:13px}
+.cv-ind td{padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top;white-space:normal}
+.cv-ind td:first-child{color:var(--muted);white-space:nowrap;width:110px}
+.cv-ind td.v{font-family:var(--f-mono);white-space:nowrap;width:120px}
+.cv-st{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:600px){.cv-st{grid-template-columns:1fr}}
+.cv-st div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+.cv-st div.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+#cvChart{width:100%!important;height:300px!important;display:block;background:transparent!important;border:0!important}
+@media (max-width:640px){.cv-ind tr{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-bottom:1px solid var(--line)}.cv-ind td{border:0!important;padding:0!important}.cv-ind td:nth-child(3){grid-column:1/-1;color:var(--muted);font-size:13px}}
+.cv-note{font-size:12px;color:var(--muted);line-height:1.6}
 </style>
 </head>
 <body>
@@ -695,6 +738,10 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </section>
 
   <!-- ECONOMIC CALENDAR -->
+  <section class="pane drawer coin-v" id="coinView" hidden aria-labelledby="cvT">
+    <div class="drawer-hd"><button class="btn" type="button" id="cvBack">← 回交易室</button><span class="t" id="cvT">幣種分析</span><span class="muted" id="cvAt" style="font-size:12px;margin-left:auto"></span></div>
+    <div class="cv-body" id="cvBody"></div>
+  </section>
   <section class="pane drawer risk-doc" id="riskPane" hidden aria-label="風險揭露">
     <div class="drawer-hd"><span class="t">風險揭露與回測說明</span></div>
     <div class="doc">
@@ -861,8 +908,12 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
   </section>
 
   <div class="room-hd room-only">
-    <h2 id="heroHi">歡迎回來</h2>
-    <p class="muted">策略① 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p>
+    <div><h2 id="heroHi">歡迎回來</h2>
+    <p class="muted">📈 趨勢策略・⚡ 訊號策略 即時監控・上次掃描 <b class="mono" id="lastScan">--:--</b></p></div>
+    <div class="csearch" role="search">
+      <input type="search" id="coinQ" placeholder="🔍 搜尋任何 BingX 幣種，例如 SOL、PEPE" autocomplete="off" spellcheck="false" aria-label="搜尋幣種" aria-controls="coinList" aria-autocomplete="list">
+      <div class="clist" id="coinList" role="listbox" hidden></div>
+    </div>
   </div>
   <div class="grid room-only">
     <div class="room-main">

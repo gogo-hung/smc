@@ -358,17 +358,19 @@ function renderCal(){
 }
 // ---- 上方按鈕開關面板（一次只開一個） ----
 // ---- 分頁：左側選單每個按鈕一頁（網址 #stats 這種，上一頁可以回去） ----
-const VIEWS={home:['homeBtn','globeModal'],room:['roomBtn',null],analyst:['anBtn','anView'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],risk:['riskBtn','riskPane'],rules:['rulesBtn','rulesPane']};
+const VIEWS={home:['homeBtn','globeModal'],room:['roomBtn',null],analyst:['anBtn','anView'],stats:['statsBtn','statsPane'],journal:['journalBtn','journalPane'],cal:['calBtn','calPane'],bt:['btBtn','btPane'],alerts:['alertsBtn','alertsPane'],risk:['riskBtn','riskPane'],coin:[null,'coinView'],rules:['rulesBtn','rulesPane']};
 const PANE2VIEW=Object.fromEntries(Object.entries(VIEWS).filter(([,v])=>v[1]).map(([k,v])=>[v[1],k]));
-const onOpen={alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal(), anView:()=>{ renderAnalyst(); loadSent(); }};
+const onOpen={coinView:()=>{ if(window.__coin) window.__coin.load(); },alertsPane:()=>{ Feed.seen=Date.now(); store.set('smc-seen',Feed.seen); setTimeout(renderAlerts,1500); }, statsPane:()=>loadStats(), journalPane:()=>loadJournal(), anView:()=>{ renderAnalyst(); loadSent(); }};
 let view='home';
 function go(v,push=true){
   if(v==='globe') v='home';
+  let arg=null; if(v&&v.startsWith('coin/')){ arg=decodeURIComponent(v.slice(5)); v='coin'; if(window.__coin) window.__coin.set(arg); }
   if(!VIEWS[v] || (v==='bt' && $('btBtn').hidden)) v='home'; view=v; document.querySelector('.wrap').dataset.view=v;
   for(const [k,[bt,el]] of Object.entries(VIEWS)){ const on=k===v; if(el) $(el).hidden=!on; const b=$(bt); if(b){ b.removeAttribute('aria-expanded'); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); } }
   if(typeof Globe!=='undefined'){ if(v==='home') Globe.show(); else Globe.hide(); }
   const el=VIEWS[v][1]; if(el&&onOpen[el]) onOpen[el](); if(v==='room') requestAnimationFrame(()=>alignSide());
-  if(push){ const h=v==='home'?'':'#'+v; if(location.hash!==h) history.pushState(null,'',h||location.pathname); }
+  if(push){ const h=v==='home'?'':'#'+(v==='coin'&&window.__coin?'coin/'+window.__coin.sym:v); if(location.hash!==h) history.pushState(null,'',h||location.pathname); }
+  if(v==='coin'){ const rb=$('roomBtn'); if(rb) rb.setAttribute('aria-current','page'); }
   scrollTo({top:0});
 }
 function openDrawer(id){ go(PANE2VIEW[id]||'home'); }
@@ -1125,5 +1127,94 @@ const Desk=(()=>{
   addEventListener('resize',()=>{ if(on) fit(); });
   if(store.get('smc-desk') && innerWidth>=1000) setTimeout(open,0);
   const api={ render, open, close, get on(){ return on; } }; window.__desk=api; return api;
+})();
+
+// ================= 幣種搜尋＋分析頁（BingX 所有 USDT 永續） =================
+const Coin=(()=>{
+  let list=[], listAt=0, sym=null, sel=0, matches=[];
+  async function loadList(){ if(Date.now()-listAt<5*60e3&&list.length) return; try{ const r=await fetch('api/symbols',{cache:'no-store'}); if(r.ok){ list=(await r.json()).list||[]; listAt=Date.now(); } }catch(e){} }
+  const norm=q=>q.toUpperCase().replace(/[-_/ ]?USDT$/,'').replace(/[^A-Z0-9]/g,'');
+  function find(q){ q=norm(q); if(!q) return list.slice(0,8); const a=list.filter(x=>x.sym.startsWith(q)), b=list.filter(x=>!x.sym.startsWith(q)&&x.sym.includes(q)); return [...a,...b].slice(0,8); }
+  function showList(){ const q=$('coinQ').value; matches=find(q); sel=0; const box=$('coinList'); box.hidden=false;
+    box.innerHTML=!list.length?'<div class="empty">幣種清單載入中…</div>':matches.length? matches.map((x,i)=>`<button type="button" role="option" data-s="${esc(x.sym)}" aria-selected="${i===sel}"><span><b>${esc(x.sym)}</b>${x.scanned?'<span class="tagc">策略掃描中</span>':''}</span><span class="px">${fp(x.price)}</span><span class="px" style="color:${x.chg>=0?'var(--long)':'var(--short)'}">${x.chg>=0?'+':''}${(+x.chg).toFixed(2)}%</span></button>`).join('') : `<div class="empty">BingX 找不到「${esc(norm(q))}」</div>`; }
+  function hl(){ $('coinList').querySelectorAll('button').forEach((b,i)=>b.setAttribute('aria-selected',i===sel)); }
+  function open(s){ $('coinList').hidden=true; $('coinQ').value=''; $('coinQ').blur(); sym=norm(s); go('coin/'+sym); }
+  $('coinQ').addEventListener('focus',async()=>{ showList(); await loadList(); if(document.activeElement===$('coinQ')) showList(); });
+  $('coinQ').addEventListener('input',showList);
+  $('coinQ').addEventListener('keydown',e=>{ if(e.key==='ArrowDown'){ sel=Math.min(sel+1,matches.length-1); hl(); e.preventDefault(); } else if(e.key==='ArrowUp'){ sel=Math.max(sel-1,0); hl(); e.preventDefault(); } else if(e.key==='Enter'){ const q=norm($('coinQ').value); const m=matches[sel]||(q&&{sym:q}); if(m) open(m.sym); } else if(e.key==='Escape'){ $('coinList').hidden=true; $('coinQ').blur(); } });
+  $('coinList').addEventListener('mousedown',e=>{ const b=e.target.closest('button[data-s]'); if(!b) return; e.preventDefault(); open(b.dataset.s); });
+  $('coinQ').addEventListener('blur',()=>setTimeout(()=>$('coinList').hidden=true,150));
+  $('cvBack').onclick=()=>go('room');
+  const sg=v=>v>0?'+':'', col=v=>v>0?'var(--long)':v<0?'var(--short)':'var(--muted)';
+  const money=v=>v==null?'—':v>=1e9?(v/1e9).toFixed(2)+'B':v>=1e6?(v/1e6).toFixed(1)+'M':v>=1e3?(v/1e3).toFixed(0)+'K':Math.round(v);
+  function drawChart(a){
+    const c=$('cvChart'); if(!c) return; const W=c.clientWidth*2||1600, H=600; c.width=W; c.height=H; const g=c.getContext('2d'), d=a.chart; if(!d.length) return;
+    const css=getComputedStyle(document.documentElement), C=k=>css.getPropertyValue(k).trim()||'#888';
+    const lo=Math.min(...d.map(b=>b.l),a.ind.sup||Infinity), hi=Math.max(...d.map(b=>b.h),a.ind.res||-Infinity), pad=(hi-lo)*0.05, Y=v=>20+(hi+pad-v)/((hi-lo)+2*pad)*(H-50), bw=W/d.length;
+    g.strokeStyle=C('--line'); g.lineWidth=1; for(let k=0;k<5;k++){ const y=20+k*(H-50)/4; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke(); }
+    for(const [lv,txt,cc] of [[a.ind.res,'壓力',C('--short')],[a.ind.sup,'支撐',C('--long')]]){ if(!lv) continue; g.setLineDash([10,8]); g.strokeStyle=cc; g.lineWidth=2; g.beginPath(); g.moveTo(0,Y(lv)); g.lineTo(W,Y(lv)); g.stroke(); g.setLineDash([]); g.fillStyle=cc; g.font='600 22px sans-serif'; g.textAlign='left'; g.fillText(`${txt} ${fp(lv)}`,10,Y(lv)-8); }
+    for(const [k,cc] of [['e50','#e5a13a'],['e200','#6f8fd6']]){ g.strokeStyle=cc; g.lineWidth=3; g.beginPath(); d.forEach((b,i)=>{ const x=i*bw+bw/2; i?g.lineTo(x,Y(b[k])):g.moveTo(x,Y(b[k])); }); g.stroke(); }
+    d.forEach((b,i)=>{ const up=b.c>=b.o, cc=up?C('--long'):C('--short'), x=i*bw+bw/2; g.strokeStyle=cc; g.lineWidth=2; g.beginPath(); g.moveTo(x,Y(b.h)); g.lineTo(x,Y(b.l)); g.stroke(); g.fillStyle=cc; g.fillRect(x-bw*.32,Math.min(Y(b.o),Y(b.c)),bw*.64,Math.max(2,Math.abs(Y(b.o)-Y(b.c)))); });
+    g.font='600 22px sans-serif'; g.textAlign='right'; g.fillStyle='#e5a13a'; g.fillText('EMA50',W-110,H-8); g.fillStyle='#6f8fd6'; g.fillText('EMA200',W-10,H-8);
+  }
+  function render(a){
+    const v=a.verdict, b=a.basic, I=a.ind, vc=v.score>=2?'var(--long)':v.score<=-2?'var(--short)':'var(--accent)';
+    const icon=s=>s>0?'<span style="color:var(--long)">▲</span>':s<0?'<span style="color:var(--short)">▼</span>':'<span class="muted">●</span>';
+    const kv=(l,val,c)=>`<div><span>${l}</span><b style="color:${c||'var(--fg)'}">${val??'—'}</b></div>`;
+    const tr=t=>t>0?'多頭':t<0?'空頭':'盤整';
+    const rsiTxt=r=>r>70?'超買':r<30?'超賣':r>=55?'偏強':r<=45?'偏弱':'中性';
+    const row=(n,val,txt)=>`<tr><td>${n}</td><td class="v">${val}</td><td>${txt}</td></tr>`;
+    const st=a.strategies;
+    $('cvT').textContent=`${a.sym} 分析`; $('cvAt').textContent=`${ago(a.at)}更新・規則打分，不是投資建議`;
+    $('cvBody').innerHTML=`
+      <div class="cv-head"><h2>${esc(a.sym)}<span class="muted" style="font-size:15px;font-weight:500">／USDT 永續</span></h2><span class="p">${fp(a.price)}</span>
+        <span style="color:${col(b.chg24)};font-family:var(--f-mono);font-weight:700">${b.chg24==null?'':sg(b.chg24)+(+b.chg24).toFixed(2)+'%（24h）'}</span>
+        <span class="chip">${a.scanned?'✓ 在策略掃描名單':'不在策略掃描名單（成交額排名較後，策略不會推播）'}</span></div>
+      ${a.short?`<p class="cv-note">⚠ ${esc(a.short)}</p>`:''}
+      <div class="cv-grid">
+        <div class="cv-card"><h3>綜合判斷</h3>
+          <div class="cv-verdict"><b style="color:${vc}">${v.verdict}</b><span class="mono muted">${sg(v.score)}${v.score} 分（滿分 ±${v.max}）</span></div>
+          <div class="cv-gauge"><i style="left:${Math.max(2,Math.min(98,50+v.score/(v.max||1)*50))}%"></i></div>
+          <p style="margin:8px 0 0;font-size:13.5px;line-height:1.6">${esc(v.advice)}</p>
+          <ul class="cv-f">${v.factors.map(f=>`<li>${icon(f.s)}<span class="g">${esc(f.g)}</span><span>${esc(f.txt)}</span></li>`).join('')}</ul>
+        </div>
+        <div class="cv-card"><h3>4H K 線（近 20 天）</h3><canvas id="cvChart" height="600" aria-label="${esc(a.sym)} 4H K 線"></canvas></div>
+      </div>
+      <div class="cv-card"><h3>基本資料</h3><div class="cv-kv">
+        ${kv('24h 漲跌',b.chg24==null?null:sg(b.chg24)+(+b.chg24).toFixed(2)+'%',col(b.chg24))}${kv('7 天漲跌',b.chg7==null?null:sg(b.chg7)+b.chg7.toFixed(1)+'%',col(b.chg7))}${kv('24h 成交額',money(b.vol24)+' U')}${kv('成交額排名',b.rank?'#'+b.rank:null)}
+        ${kv('資金費率',b.funding==null?null:(b.funding*100).toFixed(4)+'%',b.funding>0.0005?'var(--short)':b.funding<-0.0003?'var(--long)':null)}${kv('4H 波動（ATR）',b.atrPct.toFixed(2)+'%')}${kv('30 天最高',fp(b.high30))}${kv('30 天最低',fp(b.low30))}
+        ${kv('上方壓力',fp(I.res),'var(--short)')}${kv('下方支撐',fp(I.sup),'var(--long)')}${kv('離壓力',((I.res/a.price-1)*100).toFixed(2)+'%')}${kv('離支撐',((1-I.sup/a.price)*100).toFixed(2)+'%')}
+      </div></div>
+      <div class="cv-grid">
+        <div class="cv-card"><h3>指標判讀</h3><table class="cv-ind"><tbody>
+          ${row('4H 趨勢',tr(I.trend4),`EMA50 ${fp(I.e50)}／EMA200 ${fp(I.e200)}，${I.trend4>0?'多頭排列':I.trend4<0?'空頭排列':'均線糾結，沒有方向'}`)}
+          ${row('日線方向',tr(I.trendD),I.trendD>0?'收盤在日線 EMA50 上方':I.trendD<0?'收盤在日線 EMA50 下方':'資料不足')}
+          ${row('1H Supertrend',I.stDir>0?'多方':'空方',`線在 ${fp(I.stLine)}，${I.stDir>0?'跌破這條線就翻空':'站上這條線就翻多'}`)}
+          ${row('4H MACD',`${sg(I.macd)}${(+I.macd).toPrecision(3)}`,`柱${I.macd>0?'在零軸上':'在零軸下'}，${I.macdUp?'變長中':'縮短中'}${I.crossAgo!=null?`，${I.crossAgo} 根 4H 前交叉`:''}`)}
+          ${row('RSI(14)',`4H ${I.rsi4.toFixed(0)}／1H ${I.rsi1.toFixed(0)}`,`4H ${rsiTxt(I.rsi4)}、1H ${rsiTxt(I.rsi1)}（70 以上超買、30 以下超賣）`)}
+          ${row('布林位置 %B',(I.pctB*100).toFixed(0)+'%',I.pctB>1?'突破上軌，強勢但容易拉回':I.pctB<0?'跌破下軌，弱勢但容易反彈':I.pctB>0.8?'靠近上軌':I.pctB<0.2?'靠近下軌':'在通道中間')}
+          ${row('成交量',I.volR==null?'—':I.volR.toFixed(1)+' 倍',I.volR>1.5?'最近一根 4H 明顯放量':'沒有特別放量（1.5 倍以上才算）')}
+        </tbody></table></div>
+        <div class="cv-card"><h3>策略狀態</h3><div class="cv-st">
+          <div class="${st.trend.sig?'on':''}"><b>📈 趨勢策略</b><br>${esc(st.trend.txt)}${st.trend.miss&&st.trend.miss.length?`<br><span class="muted">還差：${esc(st.trend.miss.join('、'))}</span>`:''}</div>
+          <div class="${st.signal.state==='trigger'?'on':''}"><b>⚡ 訊號策略</b><br>${esc(st.signal.txt)}</div>
+        </div>
+        ${a.positions.length?`<h3 style="margin-top:14px">目前持倉</h3>${a.positions.map(p=>`<div style="font-size:13px;padding:6px 0;border-bottom:1px solid var(--line)">${p.model==='signal'?'⚡ 訊號':'📈 趨勢'}・<b style="color:${p.dir>0?'var(--long)':'var(--short)'}">${p.dir>0?'多':'空'}</b>・進場 ${fp(p.entry)}・止損 ${fp(p.stop)}${p.be?'（已保本）':''}・${p.model==='signal'?'止盈':'TP1'} ${fp(p.tp)}</div>`).join('')}`:''}
+        ${a.scanned?'':'<p class="cv-note" style="margin-top:12px">這支幣不在策略掃描名單裡（策略只掃成交額前幾十名、流動性夠的幣，回測也是用這些幣），所以就算條件成立也不會推播。上面的狀態只供參考。</p>'}
+        </div>
+      </div>
+      <p class="cv-note">⚠️ 以上是用固定規則整理指標，並不構成任何投資建議。分數只代表目前各指標的方向，不代表接下來一定會漲或跌。</p>`;
+    requestAnimationFrame(()=>drawChart(a));
+  }
+  async function load(){
+    if(!sym){ $('cvBody').innerHTML='<p class="cv-note">在交易室上方的搜尋框輸入幣種。</p>'; return; }
+    $('cvT').textContent=`${sym} 分析`; $('cvBody').innerHTML='<p class="cv-note">分析中…（不在掃描名單的幣要當場抓 K 線，約幾秒）</p>';
+    try{ const r=await fetch('api/coin?sym='+encodeURIComponent(sym),{cache:'no-store'}); const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); if(j.sym===sym) render(j); }
+    catch(e){ $('cvBody').innerHTML=`<p class="cv-note">${esc(e.message)}</p>`; }
+  }
+  addEventListener('resize',()=>{ if(view==='coin'&&document.getElementById('cvChart')) load(); });
+  const api={ set:s=>{ sym=norm(s); }, load, open, get sym(){ return sym; } }; window.__coin=api;
+  if(location.hash.startsWith('#coin/')) go(location.hash.slice(1),false);   // 直接打開 #coin/SOL 網址
+  return api;
 })();
 })();

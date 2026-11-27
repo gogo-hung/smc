@@ -98,6 +98,8 @@ const server = http.createServer(async (req, res) => {
       const [file, type] = STATIC[url.pathname];
       return send(res, 200, fs.readFileSync(file), type);
     }
+    if (url.pathname === '/api/symbols' && req.method === 'GET') { try { return send(res, 200, { list: await require('./coin').symbols(s) }); } catch (e) { return send(res, 502, { error: e.message }); } }
+    if (url.pathname === '/api/coin' && req.method === 'GET') { try { return send(res, 200, await require('./coin').analyze(url.searchParams.get('sym'), s, tracker.state)); } catch (e) { return send(res, e.code || 500, { error: e.message }); } }
     if (url.pathname === '/api/news' && req.method === 'GET') { const news = require('./news'); news.refresh().catch(() => {}); return send(res, 200, { at: news.state.at, items: news.state.items.slice(0, 20), errors: news.state.errors }); }
     if (url.pathname === '/api/ledger' && req.method === 'GET') return send(res, 200, { updatedAt: Date.now(), cost: '來回手續費 0.05%×2＋資金費率每 8 小時 0.01%（netR）', trades: tracker.ledger() });
     if (url.pathname === '/api/health') {
