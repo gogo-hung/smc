@@ -179,6 +179,46 @@ async function onScan(results, market, opt = {}) {
     state.signals = [...done, ...open].sort((a, b) => a.createdAt - b.createdAt);
     await store.save('signals', state.signals);
   }
+  if (process.env.WATCHDOG !== 'off') try { await watchdog(); } catch (e) { console.log('[watchdog]', e.message); }
+}
+
+// ==== 自動監控：狀態燈變化推播＋每週一早上 8 點（台灣）成績報告 ====
+const LAMP_ZH = { green: '🟢 正常', yellow: '🟡 低於預期', red: '🔴 停用警示', grey: '⚪ 樣本不足' };
+async function watchdog(now = Date.now()) {
+  const P = perf();
+  // 1. 燈號變化：變黃／變紅、或從黃紅回到綠時推一則
+  const prev = (await store.load('perfLamp', {})) || {}, next = {};
+  for (const [m, x] of Object.entries(P.models)) {
+    next[m] = x.lamp;
+    const was = prev[m];
+    if (!was || was === x.lamp) continue;
+    if (x.lamp === 'red' || x.lamp === 'yellow' || ((was === 'red' || was === 'yellow') && x.lamp === 'green'))
+      await emit('result', `${LAMP_ZH[x.lamp]}｜${x.bench.name}狀態改變`, [
+        `${LAMP_ZH[was]} → ${LAMP_ZH[x.lamp]}`, x.lampTxt,
+        `已結算 ${x.n} 筆・扣成本累計 ${x.net > 0 ? '+' : ''}${x.net}R・每筆 ${x.exp == null ? '—' : (x.exp > 0 ? '+' : '') + x.exp + 'R'}（回測 +${x.bench.exp}R）`,
+        `最大回撤 ${x.maxDD}R（停用線 ${x.bench.stop}R）`,
+      ], { noLink: false });
+  }
+  if (JSON.stringify(prev) !== JSON.stringify(next)) await store.save('perfLamp', next);
+  // 2. 每週報告：台灣時間週一 08:00 之後的第一次掃描
+  const tw = new Date(now + 8 * 3600e3), dow = tw.getUTCDay(), hr = tw.getUTCHours();
+  const monday = new Date(Date.UTC(tw.getUTCFullYear(), tw.getUTCMonth(), tw.getUTCDate() - ((dow + 6) % 7))).toISOString().slice(0, 10);
+  if (!(dow === 1 && hr >= 8) && dow !== 2) return P;   // 週一 8 點後（週二補發，避免週一整天睡著漏掉）
+  if ((await store.load('weeklyReport', '')) === monday) return P;
+  await store.save('weeklyReport', monday);
+  const wk = now - 7 * 24 * 3600e3;
+  const lines = [];
+  for (const m of ['trend', 'signal']) {
+    const x = P.models[m], list = state.signals.filter(s => s.model === m && ['win', 'loss', 'be'].includes(s.status) && s.closedAt >= wk);
+    const net = list.reduce((a, s) => a + s.R - costR(s), 0), w = list.filter(s => s.R - costR(s) > 0).length;
+    lines.push(`${m === 'signal' ? '⚡' : '📈'} ${x.bench.name}：上週 ${list.length} 筆、${net >= 0 ? '+' : ''}${net.toFixed(2)}R${list.length ? `、勝率 ${Math.round(w / list.length * 100)}%` : ''}｜累計 ${x.net > 0 ? '+' : ''}${x.net}R（${x.n} 筆）、目前回撤 ${x.curDD}R、持倉 ${x.open} 筆｜${LAMP_ZH[x.lamp]}`);
+  }
+  const all = state.signals.filter(s => (s.model === 'trend' || s.model === 'signal') && ['win', 'loss', 'be'].includes(s.status) && s.closedAt >= wk);
+  const best = all.slice().sort((a, b) => b.R - a.R)[0];
+  if (best && best.R > 0) lines.push(`本週最佳：${best.sym} ${side(best.dir)} +${best.R}R`);
+  lines.push('數字已扣來回手續費和資金費率；至少 30 筆才看得出策略跟回測差多少。', DISCLAIMER);
+  await emit('result', `📊 每週成績報告｜過去 7 天`, lines, { noLink: false });
+  return P;
 }
 
 
@@ -331,6 +371,14 @@ function perf() {
   return out;
 }
 
+// 公開帳本：只有已結束的單（不含持倉中，不洩漏還能進場的訊號），給每天自動備份到 GitHub 用
+function ledger() {
+  return state.signals.filter(s => (s.model === 'trend' || s.model === 'signal') && ['win', 'loss', 'be'].includes(s.status) && s.closedAt)
+    .sort((a, b) => a.closedAt - b.closedAt)
+    .map(s => ({ k: s.k, model: s.model, sym: s.sym, dir: s.dir, entry: s.entry, stop0: s.stop0 ?? null, tp: s.tp ?? s.tp1 ?? null, exit: s.exit ?? null, R: s.R, netR: +(s.R - costR(s)).toFixed(3), status: s.status,
+      signalAt: new Date(s.createdAt).toISOString(), filledAt: new Date(s.filledAt || s.createdAt).toISOString(), closedAt: new Date(s.closedAt).toISOString() }));
+}
+
 function stats(all = false) {
   const done = state.signals.filter(s => ['win', 'loss', 'be', 'tp1'].includes(s.status));
   const byModel = (() => { const m = {}; for (const s of done) { const g = s.model === 'trend' ? '趨勢策略' : s.model === 'signal' ? '訊號策略' : 'SMC'; (m[g] ||= []).push(s); } return Object.entries(m).map(([g, a]) => ({ g, n: a.length, winRate: a.filter(s => s.R > 0).length / a.length, R: +a.reduce((x, s) => x + s.R, 0).toFixed(2) })); })();
@@ -354,4 +402,4 @@ function stats(all = false) {
   };
 }
 
-module.exports = { state, init, onScan, emit, stats, openSymbols, setSettings, DEFAULT_SETTINGS };
+module.exports = { state, init, onScan, emit, stats, openSymbols, setSettings, DEFAULT_SETTINGS, perf, watchdog, ledger };

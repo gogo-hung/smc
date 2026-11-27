@@ -39,6 +39,8 @@ SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建�
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
 - `public/index.html`、`public/app.js`：前端（左側選單，每個按鈕是一個分頁（`go()`，網址 `#room`、`#stats`、`#analyst`…，上一頁可回）；總覽＝資金流地球（可拖曳旋轉、滾輪縮放）＋網站底色切換（8 種，`data-theme` 存 localStorage `smc-theme`）；交易室（`#room`）＝左主欄（招呼＋5 個 KPI＋6 個情緒小卡＋💰我的倉位設定（本金、每筆風險 %，存 localStorage `sz-cap`/`sz-pct`；卡片顯示建議倉位、保證金＝1R 的 2 倍、槓桿＞50 倍建議跳過）＋整體風險列（全部打到止損幾 R／U、已鎖住利潤、多空筆數、同方向 5 筆提醒 8 筆警示）＋持倉卡（含「還能不能追」：離進場價幾 R，≤0.3R 可進、0.3～0.5R 小倉、＞0.5R 或接近止損不建議）（標示 📈趨勢／⚡訊號，止損→TP 軌道）＋結單區（止盈／保本／止損結束的單放 24 小時後自動移除，資料來自 `/api/market` 的 `closed`；成績單紀錄不刪）＋📈趨勢策略看板＋⚡訊號策略看板（方塊卡片，只顯示剛觸發的訊號；等待中的幣在背景監控，標題旁顯示背景監控數，訊號成立才跳出並跳通知））＋右欄（分析師＋今天的重要數據＋最新推播＋情緒卡）；整頁滑鼠光暈）
 - `.github/workflows/keepalive.yml`：每 10 分鐘叫醒 Render；掃描超過 40 分鐘沒更新會失敗並寄信
+- `.github/workflows/ledger.yml`：每天台灣 23:47 抓 `/api/ledger`（公開，只有已結束的單）備份到 `ledger` 分支（trades.json／trades.csv／README 摘要），commit 紀錄當實盤證據
+- 自動監控（`tracker.js` 的 `watchdog()`，每次掃描後跑，`WATCHDOG=off` 關掉）：成績單狀態燈變黃／紅（或恢復綠）推 Discord；台灣時間週一 08:00 後推「📊 每週成績報告」（週二補發，`store` 的 `weeklyReport` 記錄已推哪週）
 
 ## 推播格式
 趨勢策略（`tracker.js` 的 `onTrend`）：
@@ -68,7 +70,7 @@ TP2: 移動止損出場（…）
 
 ## 開發
 - `npm start` 本機跑（需要 `.env`：`DISCORD_WEBHOOK_URL`、`ADMIN_TOKEN`、`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`，對照 Render 的 Environment）
-- `npm test`：`test/mock-test.js`（假 BingX 跑完整流程，`MEMBER_GATE=off`）＋ `test/trend-test.js`（趨勢策略建單→保本→移動止損→出場）＋ `test/signal-test.js`（訊號策略建單→同時 5 筆上限→保本→止盈／止損）＋ `test/member-test.js`（管理者新增→登入→門禁→停用／重設密碼）。改完一定要跑。
+- `npm test`：`test/mock-test.js`（假 BingX 跑完整流程，`MEMBER_GATE=off`）＋ `test/trend-test.js`（趨勢策略建單→保本→移動止損→出場）＋ `test/signal-test.js`（訊號策略建單→同時 5 筆上限→保本→止盈／止損→實盤表現／帳本／週報／燈號推播）＋ `test/member-test.js`（管理者新增→登入→門禁→停用／重設密碼）。改完一定要跑。
 - 改策略規則前先在 `research` 分支回測，兩年（2025、2026）都要賺、回撤要用「同時持倉」的方式看，才上線。
 
 ## 研究結論（避免重做）

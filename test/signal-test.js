@@ -1,6 +1,7 @@
 // 訊號策略（策略②，短線）離線測試：1H Supertrend 翻到 4H 趨勢方向 → 建單、推送；保本、止盈、止損；同時最多 5 筆
 const fs = require('fs'), path = require('path'), assert = require('assert');
 process.env.DISCORD_WEBHOOK_URL = 'https://discord.test/webhook';
+process.env.WATCHDOG = 'off';
 const dataDir = path.join(__dirname, '..', 'data');
 const pushed = [], bodies = [];
 global.fetch = async (url, opt) => { const e = JSON.parse(opt.body).embeds[0]; pushed.push(e.title); bodies.push(e); return { ok: true, status: 200, text: async () => '' }; };
@@ -66,6 +67,19 @@ const to4h = h1 => { const m = new Map(); for (const b of h1) { const k = Math.f
   Date.now = realNow;
 
   const st = tracker.stats(); assert(st.byModel.some(g => g.g === '訊號策略'), 'stats 要有「訊號策略」分組');
+  // 4. 實盤表現、公開帳本、每週報告、狀態燈推播
+  const pf = tracker.perf(); assert.strictEqual(pf.models.signal.n, 1, '實盤表現算到 1 筆'); assert(pf.models.signal.net < 3 && pf.models.signal.net > 2.5, `扣成本後略少於 +3R（${pf.models.signal.net}）`);
+  assert.strictEqual(pf.models.signal.lamp, 'grey', '不到 30 筆是灰燈');
+  const lg = tracker.ledger(); assert(lg.length === 1 && lg[0].netR < 3 && lg[0].closedAt, '帳本只有已結束的單');
+  const mon = Date.UTC(2026, 10, 30, 1, 30);   // 台灣 11/30（週一）09:30
+  const before = pushed.length;
+  await tracker.watchdog(mon); assert(pushed.slice(before).some(t => t.includes('每週成績報告')), '週一要推每週報告');
+  const n2 = pushed.length; await tracker.watchdog(mon + 3600e3); assert.strictEqual(pushed.length, n2, '同一週只推一次');
+  // 狀態燈：造 30 筆虧損讓回撤超過停用線 → 推紅燈
+  for (let i = 0; i < 50; i++) tracker.state.signals.push({ k: 'x' + i, sym: 'Z', model: 'signal', dir: 1, entry: 100, risk: 1, stop0: 99, R: -1, status: 'loss', createdAt: mon - 1e8 + i * 1e5, filledAt: mon - 1e8 + i * 1e5, closedAt: mon - 1e8 + i * 1e5 + 3600e3 });
+  const n3 = pushed.length; await tracker.watchdog(mon + 7200e3);
+  assert(pushed.slice(n3).some(t => t.includes('停用警示') && t.includes('訊號策略')), '回撤超過停用線要推紅燈');
+  console.log('實盤表現／帳本／週報／燈號推播 OK');
   for (const e of bodies.filter(e => e.title.includes('訊號策略')).slice(0, 3)) console.log(`---- [#${e.color.toString(16)}]\n**${e.title}**\n${e.description}`);
   console.log('訊號策略測試通過');
 })().catch(e => { console.error(e); process.exit(1); });

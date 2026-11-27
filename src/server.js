@@ -16,7 +16,7 @@ const members = require('./members');
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 // 會員門禁：預設開啟；MEMBER_GATE=off 關掉（測試用）
 const GATE = process.env.MEMBER_GATE !== 'off';
-const OPEN_API = new Set(['/api/health', '/api/ping', '/api/cron']);   // 叫醒用，不用登入
+const OPEN_API = new Set(['/api/health', '/api/ping', '/api/cron', '/api/ledger']);   // 叫醒用＋公開帳本（只有已結束的單），不用登入
 const PUBLIC_DIR = path.join(cfg.ROOT, 'public');
 const STATIC = {
   '/': [path.join(PUBLIC_DIR, 'index.html'), 'text/html; charset=utf-8'],
@@ -98,6 +98,7 @@ const server = http.createServer(async (req, res) => {
       const [file, type] = STATIC[url.pathname];
       return send(res, 200, fs.readFileSync(file), type);
     }
+    if (url.pathname === '/api/ledger' && req.method === 'GET') return send(res, 200, { updatedAt: Date.now(), cost: '來回手續費 0.05%×2＋資金費率每 8 小時 0.01%（netR）', trades: tracker.ledger() });
     if (url.pathname === '/api/health') {
       return send(res, 200, { ok: true, lastScan: s.lastScan, scanning: s.scanning, lastError: s.lastError, symbols: Object.keys(s.market).length, errors: s.errors.slice(0, 10), upSince: keepAlive.started, lastPing: keepAlive.lastPing, pings: keepAlive.pings });
     }

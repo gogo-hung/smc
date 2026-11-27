@@ -1,0 +1,55 @@
+name: ledger
+# 每天把已結束的單（/api/ledger，公開、不含持倉中）備份到 ledger 分支；git 紀錄有時間戳，事後改不了 → 當實盤成績的證據
+on:
+  schedule:
+    - cron: '47 15 * * *'   # 台灣時間每天 23:47
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ledger
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 切到 ledger 分支（沒有就建一個空的）
+        run: |
+          if git ls-remote --exit-code --heads origin ledger >/dev/null; then git checkout ledger; else git checkout --orphan ledger && git rm -rfq . && rm -rf ./*; fi
+      - name: 抓帳本（Render 可能在睡，重試幾次）
+        run: |
+          for i in 1 2 3 4 5 6; do
+            curl -sf -m 90 https://smc-scanner-krbg.onrender.com/api/ledger -o new.json && python3 -c "import json;d=json.load(open('new.json'));assert isinstance(d['trades'],list)" && break
+            echo "第 $i 次失敗，60 秒後重試"; sleep 60
+          done
+          test -s new.json
+      - name: 寫成 JSON／CSV／摘要
+        run: |
+          python3 - <<'EOF'
+          import json, csv, datetime
+          d = json.load(open('new.json'))
+          t = d['trades']
+          json.dump(t, open('trades.json', 'w'), ensure_ascii=False, indent=1)
+          keys = ['closedAt', 'model', 'sym', 'dir', 'entry', 'stop0', 'tp', 'exit', 'status', 'R', 'netR', 'signalAt', 'filledAt', 'k']
+          with open('trades.csv', 'w', newline='') as f:
+              w = csv.DictWriter(f, fieldnames=keys, extrasaction='ignore'); w.writeheader(); [w.writerow(x) for x in t]
+          name = {'trend': '📈 趨勢策略', 'signal': '⚡ 訊號策略'}
+          lines = ['# 聚寶盆實盤帳本', '', '每天台灣時間 23:47 自動從網站備份已結束的單（不含持倉中）。這個分支的 commit 紀錄就是時間證據，事後改不了。', '',
+                   f"成本：{d.get('cost', '')}", '', '| 策略 | 筆數 | 勝率（扣成本） | 未扣成本 R | 扣成本 R |', '|---|---|---|---|---|']
+          for m in ['trend', 'signal']:
+              a = [x for x in t if x['model'] == m]
+              if not a: lines.append(f'| {name[m]} | 0 | — | — | — |'); continue
+              wr = sum(1 for x in a if x['netR'] > 0) / len(a)
+              lines.append(f"| {name[m]} | {len(a)} | {wr:.0%} | {sum(x['R'] for x in a):+.2f} | {sum(x['netR'] for x in a):+.2f} |")
+          lines += ['', f"最後更新：{datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC", '', '檔案：`trades.json`、`trades.csv`']
+          open('README.md', 'w').write('\n'.join(lines) + '\n')
+          EOF
+          rm -f new.json
+      - name: commit
+        run: |
+          git config user.name ledger-bot && git config user.email ledger-bot@users.noreply.github.com
+          git add README.md trades.json trades.csv
+          git diff --cached --quiet && echo "沒有新的結單" || (git commit -qm "ledger $(date -u +%F)" && git push -q origin ledger)

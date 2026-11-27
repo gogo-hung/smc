@@ -1,6 +1,7 @@
 // 策略①（趨勢單）離線測試：造一段 4H 上升趨勢＋回檔＋爆量金叉，確認會建單、推送、保本、移動止損、出場
 const fs = require('fs'), path = require('path'), assert = require('assert');
 process.env.DISCORD_WEBHOOK_URL = 'https://discord.test/webhook';
+process.env.WATCHDOG = 'off';
 const dataDir = path.join(__dirname, '..', 'data');
 const pushed = [];
 const bodies = [];
