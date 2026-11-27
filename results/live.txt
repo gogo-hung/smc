@@ -1,4 +1,4 @@
 == api/health
-{"ok":true,"lastScan":1795761020674,"scanning":false,"lastError":null,"symbols":61,"errors":[],"upSince":1795760839788,"lastPing":1795761441646,"pings":2}
-== api/sentiment
-{"error":"請先登入會員"}
+{"ok":true,"lastScan":1795789035744,"scanning":false,"lastError":null,"symbols":62,"errors":[],"upSince":1795789023463,"lastPing":null,"pings":0}
+== app.js coinQ: 6
+== /api/symbols status: 401
