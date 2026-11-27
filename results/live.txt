@@ -1,4 +1,4 @@
 == api/health
-{"ok":true,"lastScan":1795789035744,"scanning":false,"lastError":null,"symbols":62,"errors":[],"upSince":1795789023463,"lastPing":null,"pings":0}
+{"ok":true,"lastScan":1795790751124,"scanning":false,"lastError":null,"symbols":548,"errors":[],"upSince":1795790602635,"lastPing":null,"pings":0}
 == app.js coinQ: 6
 == /api/symbols status: 401
