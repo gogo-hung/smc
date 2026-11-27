@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path');
 const { S, load } = require('./intraday2');
 const { EXCHANGE } = require('./hist');
 const { makeSim, pick } = require('./margin');
-const OUT = path.join(__dirname, '..', 'research-cache', `robust2-${EXCHANGE}.md`);
+const TAG = process.env.TAG || '', OUT = path.join(__dirname, '..', 'research-cache', `robust2-${EXCHANGE}${TAG}.md`);
 const H = 3600e3, RISK = 50;
 const FUND = 0.0001; // 每 8 小時
 
@@ -16,18 +16,21 @@ function stats(q, t0, funding) {
   return { n: q.length, tot: e, dd, half, hold, avg: e / q.length };
 }
 const f = x => (x >= 0 ? '+' : '') + x.toFixed(0) + 'R';
-const HALVES = ['2025上', '2025下', '2026上', '2026下'];
+let HALVES = ['2025上', '2025下', '2026上', '2026下'];
 
 (async () => {
   const data = await load();
   const syms = Object.keys(data).filter(s => data[s].htf && data[s].htf.length > 400 && data[s].ltf && data[s].ltf.length > 1000);
-  const t0 = Date.UTC(2025, 0, 1);
+  const t0 = process.env.T0 ? Date.parse(process.env.T0) : Date.UTC(2025, 0, 1), t1 = process.env.TO ? Date.parse(process.env.TO) : Infinity;
+  if (process.env.T0) { HALVES = []; for (let y = new Date(t0).getUTCFullYear(); y < new Date(Math.min(t1, Date.now())).getUTCFullYear() + (new Date(Math.min(t1, Date.now())).getUTCMonth() ? 1 : 0); y++) HALVES.push(y + '上', y + '下'); }
+  const first = Object.entries(data).map(([k, d]) => [k, d.ltf[0] && new Date(d.ltf[0].t).toISOString().slice(0, 10)]).sort((a, b) => String(a[1]).localeCompare(String(b[1])));
   global.__FEE = 0.05 / 100;
   const run = (key, opt, extraSyms) => { global.__SIM = makeSim({ ...opt, cross: true }); let all = []; for (const s of (extraSyms || syms)) { global.__SYM = s; try { all = all.concat(S[key](data[s])); } catch (e) {} } global.__SIM = null; return all; };
   const ST = 'C｜對照：1H Supertrend(14,3) 翻轉（4H 順勢）｜反向才出', DC = 'J1｜Donchian 20 突破（海龜，4H 順勢，10 根反向出）';
-  let md = `# 短線策略② 穩定度測試（${EXCHANGE}，${syms.length} 幣，2025-01-01 起，同時最多 5 筆，手續費 0.05% 市價，單位 R＝每筆定損）\n\n`;
-  md += `「半年」欄＝那半年賺幾 R；2026下 只到資料最後一天。資金費率用每 8 小時 0.01%、一律當成要付（偏保守）。\n\n`;
+  let md = `# 短線策略② 穩定度測試（${EXCHANGE}，${syms.length} 幣，${new Date(t0).toISOString().slice(0, 10)} 起，同時最多 5 筆，手續費 0.05% 市價，單位 R＝每筆定損）\n\n`;
+  md += `「半年」欄＝那半年賺幾 R；最後一個半年只到資料最後一天。資金費率用每 8 小時 0.01%、一律當成要付（偏保守）。\n\n`;
 
+  md += `各幣 1H 資料從哪天開始：${first.map(([k, d]) => `${k} ${d}`).join('、')}\n\n`;
   // 1+4. 主要候選：每半年 + 資金費率
   md += `## 1. 每半年都賺嗎（含／不含資金費率）\n\n| 策略 | 資金費率 | 筆數 | 平均抱幾小時 | 平均每筆 | ${HALVES.join(' | ')} | 合計 | 最大回撤 |\n|---|---|---|---|---|${HALVES.map(() => '---').join('|')}|---|---|\n`;
   const MAIN = [

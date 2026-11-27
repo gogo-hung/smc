@@ -5,7 +5,9 @@ const fs = require('fs'), path = require('path');
 const DAYS = +process.env.DAYS || 180, TOP = +process.env.TOP || 60;
 const M15 = process.env.M15 === '1', M5 = process.env.M5 === '1', SYMS = (process.env.SYMS || '').split(',').filter(Boolean);
 const SOURCE = process.env.SOURCE || 'ccxt', EXCHANGE = process.env.EXCHANGE || 'bingx';
-const CACHE = path.join(__dirname, '..', 'research-cache', SOURCE === 'ccxt' ? `hist-ccxt-${EXCHANGE}-${DAYS}${M15 ? '-m15' : ''}${M5 ? '-m5' : ''}${SYMS.length ? `-syms${SYMS.length}` : TOP !== 60 ? `-top${TOP}` : ''}.json` : `hist-${DAYS}.json`);
+// FROM/TO（例如 2019-01-01、2022-01-01）：抓指定區間，不用「最近 DAYS 天」
+const FROM = process.env.FROM ? Date.parse(process.env.FROM) : null, TO = process.env.TO ? Date.parse(process.env.TO) : null;
+const CACHE = path.join(__dirname, '..', 'research-cache', SOURCE === 'ccxt' ? `hist-ccxt-${EXCHANGE}-${FROM ? process.env.FROM + '_' + process.env.TO : DAYS}${M15 ? '-m15' : ''}${M5 ? '-m5' : ''}${SYMS.length ? `-syms${SYMS.length}` : TOP !== 60 ? `-top${TOP}` : ''}.json` : `hist-${DAYS}.json`);
 const TF = { '5m': 300e3, '15m': 900e3, '1h': 3600e3, '4h': 4 * 3600e3 };
 
 async function viaCcxt() {
@@ -20,7 +22,8 @@ async function viaCcxt() {
   const list = [...new Map([btc, ...ranked].filter(Boolean).map(m => [m.base, m])).values()];
   if (SYMS.length) { list.length = 0; for (const b of SYMS) { const m = swaps.find(x => x.base === b); if (m) list.push(m); else console.log(`找不到 ${b}`); } }
   console.log(`ccxt ${EXCHANGE}：${swaps.length} 個 USDT 永續，取成交額前 ${list.length} 個`);
-  const now = Date.now(), data = {};
+  const now = TO || Date.now(), data = {};
+  const base = FROM ? (now - FROM) / 864e5 : DAYS;
   const range = async (sym, tf, since) => {
     const out = new Map(); let s = since;
     while (s < now) {
@@ -37,10 +40,10 @@ async function viaCcxt() {
   let i = 0;
   const work = async () => { while (i < list.length) { const m = list[i++];
     try {
-      const ltf = await range(m.symbol, '1h', now - DAYS * 864e5 - 300 * 3600e3);
-      const htf = await range(m.symbol, '4h', now - DAYS * 864e5 - 500 * 4 * 3600e3);
-      const m15 = M15 ? (await range(m.symbol, '15m', now - DAYS * 864e5 - 300 * 900e3)).map(b => [b.t, b.o, b.h, b.l, b.c, b.v]) : undefined;
-      const m5 = M5 ? (await range(m.symbol, '5m', now - DAYS * 864e5 - 300 * 300e3)).map(b => [b.t, b.o, b.h, b.l, b.c, b.v]) : undefined;
+      const ltf = await range(m.symbol, '1h', now - base * 864e5 - 300 * 3600e3);
+      const htf = await range(m.symbol, '4h', now - base * 864e5 - 500 * 4 * 3600e3);
+      const m15 = M15 ? (await range(m.symbol, '15m', now - base * 864e5 - 300 * 900e3)).map(b => [b.t, b.o, b.h, b.l, b.c, b.v]) : undefined;
+      const m5 = M5 ? (await range(m.symbol, '5m', now - base * 864e5 - 300 * 300e3)).map(b => [b.t, b.o, b.h, b.l, b.c, b.v]) : undefined;
       data[m.base] = { ltf, htf, m15, m5 }; process.stdout.write('.');
     } catch (e) { console.log(`\n${m.symbol} 失敗：${e.message}`); } } };
   await Promise.all([work(), work(), work()]);

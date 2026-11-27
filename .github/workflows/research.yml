@@ -28,7 +28,7 @@ jobs:
             hist-665-
       - run: npm i --no-save ccxt@4.5.84
       - run: node tools/robust2.js
-        env: { REQUEST_GAP_MS: "60", DAYS: "665", SOURCE: "ccxt", EXCHANGE: "okx", M15: "1", NODE_OPTIONS: "--max-old-space-size=12288" }
+        env: { REQUEST_GAP_MS: "60", SOURCE: "ccxt", EXCHANGE: "okx", FROM: "2019-01-01", TO: "2022-01-01", T0: "2019-01-01", TAG: "-2019-2021", SYMS: "BTC,ETH,XRP,LTC,BCH,EOS,LINK,DOT,ADA,TRX,ETC,XLM,DOGE,SOL,UNI,AAVE,SUSHI,FIL,ATOM,AVAX,XTZ,NEO,DASH,ZEC,COMP,YFI,MKR,THETA,ALGO,SNX,CRV,1INCH,GRT,SAND,MANA,AXS,IOTA,ONT,QTUM,ZRX,BAT,KNC,OMG,WAVES,ZIL,IOST,NEAR,EGLD,CHZ,ENJ", NODE_OPTIONS: "--max-old-space-size=12288" }
       - if: always()
         run: |
           mkdir -p results && cp research-cache/*.md results/ && cp research-cache/trades-*.json results/ 2>/dev/null || true
