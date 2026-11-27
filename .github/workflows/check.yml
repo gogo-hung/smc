@@ -13,7 +13,9 @@ jobs:
       - run: |
           sleep 420
           mkdir -p results
-          for p in api/health api/sentiment; do echo "== $p"; curl -s -m 90 "https://smc-scanner-krbg.onrender.com/$p" | head -c 6000; echo; done > results/live.txt
+          for p in api/health; do echo "== $p"; curl -s -m 90 "https://smc-scanner-krbg.onrender.com/$p" | head -c 6000; echo; done > results/live.txt
           curl -s -m 90 https://smc-scanner-krbg.onrender.com/api/market | grep -o "\"trend\":\[[^]]\{0,600\}" | head -c 800 >> results/live.txt
+          echo "== app.js coinQ: $(curl -s -m 90 https://smc-scanner-krbg.onrender.com/app.js | grep -c coinQ)" >> results/live.txt
+          echo "== /api/symbols status: $(curl -s -o /dev/null -w %{http_code} -m 90 https://smc-scanner-krbg.onrender.com/api/symbols)" >> results/live.txt
           git config user.name research-bot && git config user.email research-bot@users.noreply.github.com
           git add results && git commit -m "live check" && git pull --rebase && git push
