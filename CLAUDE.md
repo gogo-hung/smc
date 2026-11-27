@@ -37,7 +37,7 @@ SMC（`src/smc.js`）還在跑，但已改成輔助：`smcPush: 'off'`，不建�
 - `src/members.js`：會員（回測頁和 `/api/history` 只有管理員能用；不開放註冊；超級管理者在 `/admin` 新增會員＝BingX UID＋初始密碼，可停用／重設密碼）；session 存 cookie `jbp`（30 天）。`MEMBER_GATE` 預設開：沒登入的人首頁導到 `/login`、`/api/*` 回 401（`/api/ping`、`/api/health`、`/api/cron` 例外）。超級管理者帳號 `admin`，密碼只存雜湊（`SUPER_HASH`，可用環境變數 `SUPER_ADMIN_HASH` 換）；密碼填 `ADMIN_TOKEN` 也能登入
 - `public/login.html`（登入頁，區塊輸送帶動畫）、`public/admin.html`（會員管理）
 - `src/store.js`：有 Upstash Redis 就永久保存，沒有就存 `data/`
-- `public/index.html`、`public/app.js`：前端（左側選單，每個按鈕是一個分頁（`go()`，網址 `#room`、`#stats`、`#analyst`…，上一頁可回）；總覽＝資金流地球（可拖曳旋轉、滾輪縮放）＋網站底色切換（8 種，`data-theme` 存 localStorage `smc-theme`）；交易室（`#room`）＝左主欄（招呼＋5 個 KPI＋6 個情緒小卡＋持倉卡（標示 📈趨勢／⚡訊號，止損→TP 軌道）＋📈趨勢策略看板＋⚡訊號策略看板（剛翻向／等翻向／順勢中））＋右欄（分析師＋今天的重要數據＋最新推播＋情緒卡）；整頁滑鼠光暈）
+- `public/index.html`、`public/app.js`：前端（左側選單，每個按鈕是一個分頁（`go()`，網址 `#room`、`#stats`、`#analyst`…，上一頁可回）；總覽＝資金流地球（可拖曳旋轉、滾輪縮放）＋網站底色切換（8 種，`data-theme` 存 localStorage `smc-theme`）；交易室（`#room`）＝左主欄（招呼＋5 個 KPI＋6 個情緒小卡＋持倉卡（標示 📈趨勢／⚡訊號，止損→TP 軌道）＋📈趨勢策略看板＋⚡訊號策略看板（跟趨勢策略一樣的方塊卡片：剛翻向／等翻向／順勢中））＋右欄（分析師＋今天的重要數據＋最新推播＋情緒卡）；整頁滑鼠光暈）
 - `.github/workflows/keepalive.yml`：每 10 分鐘叫醒 Render；掃描超過 40 分鐘沒更新會失敗並寄信
 
 ## 推播格式

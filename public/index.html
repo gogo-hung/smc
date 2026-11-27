@@ -319,9 +319,6 @@ td.num,th.num{text-align:right}
 .search{background:var(--raise);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px;width:200px;max-width:100%;margin-left:auto}
 .board > h2{flex-wrap:wrap}
 .sig-rule{margin:0;padding:10px 16px 4px;font-size:12.5px;color:var(--muted)}
-.sigb .tbl-wrap{padding:0 8px 8px}
-.sig-tbl td .st{font-size:12px;font-weight:700}
-.sig-tbl .st.trigger{color:var(--accent)}.sig-tbl .st.watch{color:var(--watch)}.sig-tbl .st.running{color:var(--long)}.sig-tbl .st.pos{color:var(--fg)}
 .pcard .tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .pcard .tag.sig{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
 .empty .btn{margin-top:10px}
@@ -742,10 +739,7 @@ h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:0 0 6px;font-we
           </span>
         </h2>
         <p class="sig-rule" id="sigRule">止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆・不限持倉時間</p>
-        <div class="tbl-wrap"><table class="sig-tbl">
-          <thead><tr><th>幣種</th><th>方向</th><th>狀態</th><th class="num">現價</th><th class="num">Supertrend 線</th><th class="num">離線</th><th>上次訊號</th></tr></thead>
-          <tbody id="sigRows"></tbody>
-        </table></div>
+        <div class="cards" id="sigRows" role="listbox" aria-label="訊號策略幣種"></div>
         <div class="empty" id="sigEmpty" hidden><span id="sigEmptyTxt">目前沒有符合的幣。</span></div>
       </section>
     </div>

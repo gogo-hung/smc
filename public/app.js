@@ -804,15 +804,36 @@ function renderSig(){
   const view=all.filter(a=>sigF==='trigger'? (a.state==='trigger'||posSyms.has(a.sym)) : a.state===sigF).sort((a,b)=>(posSyms.has(b.sym)-posSyms.has(a.sym))||order[a.state]-order[b.state]||(a.state==='watch'?(a.dist??9)-(b.dist??9):(b.lastFlip||0)-(a.lastFlip||0))||a.sym.localeCompare(b.sym)).slice(0,40);
   document.querySelectorAll('[data-sf]').forEach(b=>{ const n=b.dataset.sf==='trigger'? all.filter(a=>a.state==='trigger'||posSyms.has(a.sym)).length : all.filter(a=>a.state===b.dataset.sf).length; b.textContent=`${{trigger:'剛翻向／持倉',watch:'等翻向',running:'順勢中'}[b.dataset.sf]} ${n}`; });
   $('sigRule').textContent=`止盈 3R・賺到 1.8R 止損移到開倉價・同時最多 5 筆（目前 ${pos.length}/5）・不限持倉時間`;
-  $('sigRows').innerHTML=view.map(a=>{ const p=pos.find(x=>x.sym===a.sym), d=p?p.dir:a.trend;
-    const st=p?['pos','持倉中']:{trigger:['trigger','剛翻向 ⚡'],watch:['watch','等翻向'],running:['running','順勢中'],idle:['idle','4H 無趨勢']}[a.state];
-    return `<tr data-sym="${esc(a.sym)}"><td class="sym"><b>${esc(a.sym)}</b></td><td>${d?`<span class="dir ${d>0?'L':'S'}">${d>0?'多':'空'}</span>`:'—'}</td><td><span class="st ${st[0]}">${st[1]}</span></td>
-      <td class="num mono">${fp(a.close)}</td><td class="num mono">${fp(a.line)}</td><td class="num mono">${a.dist!=null?a.dist.toFixed(2)+' ATR':'—'}</td><td>${a.lastFlip?ago(a.lastFlip):'—'}</td></tr>`; }).join('');
+  const Rtxt=v=>`<b style="color:${v>=0?'var(--long)':'var(--short)'}">${v>=0?'+':''}${v.toFixed(2)}R</b>`;
+  $('sigRows').innerHTML=view.map(a=>{ const p=pos.find(x=>x.sym===a.sym), d=p?p.dir:a.trend, ser=DataSource.series[a.sym]||[], last=ser.length?ser[ser.length-1].c:a.close;
+    const kind=p?'pos':a.state, cls={pos:'trigger',trigger:'trigger',watch:'watch',running:'',idle:'idle'}[kind];
+    const stTxt={pos:'持倉中',trigger:'剛翻向',watch:'等翻向',running:'順勢中',idle:'無趨勢'}[kind];
+    const dir=d?`<span class="dir ${d>0?'L':'S'}">${d>0?'多':'空'}</span>`:'<span class="muted" style="font-size:12px">盤整</span>';
+    const chg=ser.length>24?(last/ser[ser.length-25].c-1)*100:null;
+    const st={trend:!!a.trend, flip:!!a.trend&&a.stDir===a.trend};
+    const stages=`<i class="${st.trend?'on':''}" title="4H 趨勢（EMA50 / EMA200）"></i><i class="${st.flip?'on':''}" title="1H Supertrend 翻到順勢方向"></i>`;
+    const age=p?`<div class="age ${Date.now()-p.filledAt<3600e3?'fresh':''}" title="進場：${fullTime(p.filledAt)}"><span class="tf">H1</span>進場 <b>${ago(p.filledAt)}</b></div>`
+      : a.lastFlip?`<div class="age ${kind==='trigger'?'fresh':''}" title="${fullTime(a.lastFlip)}"><span class="tf">H1</span>${kind==='trigger'?'收盤翻向':'上次訊號'} <b>${ago(a.lastFlip)}</b></div>`:'';
+    let bottom;
+    if(p){ const risk=Math.abs(p.entry-p.stop0)||1, r=p.dir*(last-p.entry)/risk;
+      bottom=`<div class="kv"><div><span>進場</span><b>${fp(p.entry)}</b></div><div><span>目前</span>${Rtxt(r)}</div><div><span>${p.be?'保本':'止損'}</span><b>${fp(p.stop)}</b></div><div><span>止盈</span><b>${fp(p.tp)}</b></div></div>`; }
+    else if(kind==='trigger'&&a.risk){ const e=a.close, dd=a.sig||a.trend;
+      bottom=`<div class="kv"><div><span>進場</span><b>${fp(e)}</b></div><div><span>止盈</span><b>${fp(e+dd*3*a.risk)}</b></div><div><span>止損</span><b>${fp(e-dd*a.risk)}</b></div><div><span>保本</span><b>${fp(e+dd*1.8*a.risk)}</b></div></div>`; }
+    else bottom=`<div class="miss">${kind==='watch'?`還差：1H Supertrend 翻${a.trend>0?'多':'空'}（差 ${(a.dist||0).toFixed(2)} ATR）`:kind==='running'?'已經順勢，等下一次回檔後再翻向':'4H 沒有明確趨勢（EMA50 / 200 不同向）'}</div>`;
+    return `<div class="card ${cls}" data-s="${esc(a.sym)}" role="option" tabindex="0" aria-selected="${a.sym===selected}">
+      <div class="hd"><b>${esc(a.sym)}</b>${dir}<span class="status ${cls}">${stTxt}</span></div>
+      ${age}
+      <div class="px"><span class="p">${fp(last)}</span><span class="d">${chg==null?'':`24h ${chg>0?'+':''}${chg.toFixed(1)}%`}</span></div>
+      ${spark({ltf:ser,dir:d,entry:p?p.entry:null})}
+      <div class="prog"><span class="stages">${stages}</span><span>${Object.values(st).filter(Boolean).length}/2</span></div>
+      ${bottom}
+    </div>`; }).join('');
   $('sigEmpty').hidden=!!view.length;
   $('sigEmptyTxt').textContent={trigger:'目前沒有剛翻向的幣，也沒有持倉。1H 收盤 Supertrend 翻到 4H 趨勢方向時會出現在這裡，並推到 Discord。',watch:'目前沒有在等翻向的幣。',running:'目前沒有順勢中的幣。'}[sigF];
 }
 document.querySelectorAll('[data-sf]').forEach(b=>b.onclick=()=>{ sigF=b.dataset.sf; document.querySelectorAll('[data-sf]').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderSig(); });
-$('sigRows').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-sym]'); if(!tr) return; selected=tr.dataset.sym; openDetail(); });
+$('sigRows').addEventListener('click',e=>{ const c=e.target.closest('.card[data-s]'); if(!c) return; selected=c.dataset.s; openDetail(); });
+$('sigRows').addEventListener('keydown',e=>{ if(e.key!=='Enter') return; const c=e.target.closest('.card[data-s]'); if(!c) return; selected=c.dataset.s; openDetail(); });
 
 function renderPositions(){
   const ps=DataSource.mode==='live'?(DataSource.positions||[]):[];
