@@ -289,6 +289,42 @@ async function onSignal(market) {
 // 還在追蹤中的幣（就算掉出成交量排名也要繼續抓）
 const openSymbols = () => [...new Set(state.signals.filter(s => s.status === 'pending' || s.status === 'filled').map(s => s.sym))];
 
+// ==== 實盤成績單：扣成本後的 R（來回手續費 0.05%×2＋資金費率每 8 小時 0.01%，跟回測同一套算法） ====
+const COST = { fee: 0.0005, fund: 0.0001 };
+// 回測基準與停用線（停用線＝回測最大回撤的 1.2 倍）
+const BENCH = {
+  trend: { name: '趨勢策略', exp: 0.078, dd: -32.8, stop: -39, src: 'OKX 56 幣、2025/1～2026/10、不限筆數' },
+  signal: { name: '訊號策略', exp: 0.098, dd: -38, stop: -46, src: 'OKX 59 幣、2025/1～2026/11、同時 5 筆、已扣手續費＋資金費率' },
+};
+function costR(s) {
+  const risk = s.risk || Math.abs(s.entry - (s.stop0 ?? s.stop)); if (!(risk > 0)) return 0;
+  const holdH = Math.max(0, ((s.closedAt || Date.now()) - (s.filledAt || s.createdAt)) / 3600e3);
+  return (2 * COST.fee * s.entry + COST.fund * (holdH / 8) * s.entry) / risk;
+}
+function perf() {
+  const done = state.signals.filter(s => (s.model === 'trend' || s.model === 'signal') && ['win', 'loss', 'be'].includes(s.status) && s.closedAt).sort((a, b) => a.closedAt - b.closedAt);
+  const one = list => {
+    let cum = 0, peak = 0, maxDD = 0, streak = 0, maxStreak = 0, win = 0, loss = 0, hold = 0, gross = 0, cost = 0; const curve = [];
+    for (const s of list) { const c = costR(s), net = s.R - c; gross += s.R; cost += c; cum += net; peak = Math.max(peak, cum); maxDD = Math.min(maxDD, cum - peak);
+      streak = net < 0 ? streak + 1 : 0; maxStreak = Math.max(maxStreak, streak); if (net > 0) win += net; else loss += net;
+      hold += ((s.closedAt - (s.filledAt || s.createdAt)) / 3600e3); curve.push([s.closedAt, +cum.toFixed(3)]); }
+    const n = list.length;
+    return { n, net: +cum.toFixed(2), gross: +gross.toFixed(2), cost: +cost.toFixed(2), exp: n ? +(cum / n).toFixed(3) : null, winRate: n ? list.filter(s => s.R - costR(s) > 0).length / n : null,
+      pf: loss < 0 ? +(win / -loss).toFixed(2) : (win > 0 ? null : null), maxDD: +maxDD.toFixed(2), curDD: +(cum - peak).toFixed(2), maxStreak, avgHold: n ? +(hold / n).toFixed(1) : null, since: n ? list[0].filledAt || list[0].createdAt : null,
+      curve: curve.length > 400 ? curve.filter((_, i) => i % Math.ceil(curve.length / 400) === 0 || i === curve.length - 1) : curve };
+  };
+  const out = { cost: COST, models: {} };
+  for (const m of ['trend', 'signal']) {
+    const x = one(done.filter(s => s.model === m)), b = BENCH[m];
+    x.bench = b; x.open = state.signals.filter(s => s.model === m && s.status === 'filled').length;
+    x.lamp = x.maxDD <= b.stop ? 'red' : x.n < 30 ? 'grey' : x.exp < 0 ? 'yellow' : 'green';
+    x.lampTxt = { red: `回撤 ${x.maxDD}R 已超過停用線 ${b.stop}R，建議暫停這個策略並檢查`, grey: `樣本不足（${x.n}/30 筆），還不能下結論`, yellow: `扣成本後每筆期望值為負（回測是 +${b.exp}R），持續觀察`, green: '表現在回測預期範圍內' }[x.lamp];
+    out.models[m] = x;
+  }
+  out.all = one(done);
+  return out;
+}
+
 function stats(all = false) {
   const done = state.signals.filter(s => ['win', 'loss', 'be', 'tp1'].includes(s.status));
   const byModel = (() => { const m = {}; for (const s of done) { const g = s.model === 'trend' ? '趨勢策略' : s.model === 'signal' ? '訊號策略' : 'SMC'; (m[g] ||= []).push(s); } return Object.entries(m).map(([g, a]) => ({ g, n: a.length, winRate: a.filter(s => s.R > 0).length / a.length, R: +a.reduce((x, s) => x + s.R, 0).toFixed(2) })); })();
@@ -307,6 +343,7 @@ function stats(all = false) {
     pending: count('pending'), filled: count('filled'), be: count('be'), missed: count('missed'), expired: count('expired'),
     byModel, openTrend: state.signals.filter(s => s.model === 'trend' && s.status === 'filled').length, openSignal: state.signals.filter(s => s.model === 'signal' && s.status === 'filled').length, skipped: count('skipped'),
     byDir: group(s => (s.dir > 0 ? '做多' : '做空')), byZone: group(s => (s.zone === 'fvg' ? 'FVG 進場' : 'OB 進場')), byGrade: group(s => s.grade ? `${s.grade}（${{ S: '70+', A: '55–69', B: '40–54', C: '<40' }[s.grade]} 分）` : '舊訊號（無分數）'), bySym: group(s => s.sym).slice(0, 10),
+    perf: perf(),
     recent: (all ? state.signals : state.signals.slice(-60)).slice().reverse(),
   };
 }

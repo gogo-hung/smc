@@ -324,6 +324,25 @@ td.num,th.num{text-align:right}
 @media (prefers-reduced-motion:reduce){.bg-note::before{animation:none}}
 .board .empty{padding:16px;font-size:13px}
 .sig-rule{margin:0;padding:10px 16px 4px;font-size:12.5px;color:var(--muted)}
+.perf{display:grid;gap:12px;margin-bottom:18px}
+.perf .eq{width:100%;height:180px;display:block;background:var(--raise);border-radius:10px}
+.eq-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;font-family:var(--f-mono)}
+.eq-leg i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.perf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px}
+.perf-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--surface)}
+.perf-card .ph{display:flex;justify-content:space-between;align-items:center}
+.perf-card .ph b{font-size:15px}
+.lamp{font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.lamp::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor}
+.lamp.green{color:var(--long);background:color-mix(in srgb,var(--long) 14%,transparent)}.lamp.red{color:var(--short);background:color-mix(in srgb,var(--short) 14%,transparent)}.lamp.yellow{color:var(--watch);background:color-mix(in srgb,var(--watch) 14%,transparent)}.lamp.grey{color:var(--muted);background:var(--raise)}
+.lamp-txt{margin:8px 0 10px;font-size:12.5px;color:var(--muted)}
+.pts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.pt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.pt span{font-size:11.5px;color:var(--muted)}
+.pt b{font-family:var(--f-mono);font-size:17px}
+.pt b.pos{color:var(--long)}.pt b.neg{color:var(--short)}
+.pt i{font-style:normal;font-size:10.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+@media (max-width:520px){.pts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .done-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 .dcard{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;font:inherit;color:inherit;border-left-width:4px}
 .dcard.win{border-left-color:var(--long)}.dcard.loss{border-left-color:var(--short)}.dcard.be{border-left-color:var(--muted)}

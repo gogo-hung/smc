@@ -572,6 +572,29 @@ window.addEventListener('resize',()=>{ if(!$('btPane').hidden && BT.last) drawEq
 // ================= 成績單 =================
 const ST_ZH={skipped:'持倉已滿沒做',pending:'等待進場',filled:'已進場',win:'獲利出場',loss:'打到止損',be:'保本出場',tp1:'平一半後保本',missed:'沒回進場就走了',expired:'24h 未成交'};
 const pct=v=>v==null?'—':`${(v*100).toFixed(0)}%`;
+// 實盤表現：扣成本 R、資金曲線、跟回測對照、停用警示
+function perfHtml(P){
+  if(!P||!P.models) return '';
+  const sg=v=>v==null?'—':`${v>0?'+':''}${v}`;
+  const card=(k)=>{ const x=P.models[k], b=x.bench;
+    const t=(l,v,sub='',c='')=>`<div class="pt"><span>${l}</span><b class="${c}">${v}</b>${sub?`<i>${sub}</i>`:''}</div>`;
+    return `<div class="perf-card"><div class="ph"><b>${k==='signal'?'⚡':'📈'} ${b.name}</b><span class="lamp ${x.lamp}">${{red:'停用警示',grey:'樣本不足',yellow:'低於預期',green:'正常'}[x.lamp]}</span></div>
+      <p class="lamp-txt">${esc(x.lampTxt)}</p>
+      <div class="pts">${t('已結算',x.n,`持倉中 ${x.open} 筆`)}${t('扣成本累計',sg(x.net)+'R',`未扣 ${sg(x.gross)}R・成本 −${x.cost}R`,x.net>0?'pos':x.net<0?'neg':'')}
+      ${t('每筆期望值',x.exp==null?'—':sg(x.exp)+'R',`回測 +${b.exp}R`,x.exp>0?'pos':x.exp<0?'neg':'')}${t('獲利因子',x.pf==null?'—':x.pf,'總賺 ÷ 總賠，>1 才賺')}
+      ${t('最大回撤',x.maxDD+'R',`回測 ${b.dd}R・停用線 ${b.stop}R`,x.maxDD<=b.stop?'neg':'')}${t('目前回撤',x.curDD+'R')}
+      ${t('勝率（扣成本）',pct(x.winRate))}${t('最長連虧',x.maxStreak+' 筆')}${t('平均持倉',x.avgHold==null?'—':x.avgHold+' 小時')}</div>
+      <p class="hint" style="margin:6px 0 0">回測基準：${esc(b.src)}</p></div>`; };
+  // 資金曲線（R）
+  const lines=[['all','合計','var(--fg)'],['trend','📈趨勢','#4f8bd6'],['signal','⚡訊號','var(--accent)']].map(([k,n,c])=>({n,c,pts:k==='all'?P.all.curve:P.models[k].curve})).filter(l=>l.pts.length);
+  let svg='<p class="hint">還沒有已結算的單，第一筆結單後這裡會畫出資金曲線。</p>';
+  if(lines.length){ const all=lines.flatMap(l=>l.pts), t0=Math.min(...all.map(p=>p[0])), t1=Math.max(...all.map(p=>p[0]),t0+1), lo=Math.min(0,...all.map(p=>p[1])), hi=Math.max(0,...all.map(p=>p[1])), k=(hi-lo)||1;
+    const X=t=>((t-t0)/(t1-t0)*100).toFixed(2), Y=v=>(56-(v-lo)/k*52).toFixed(2);
+    svg=`<svg class="eq" viewBox="0 0 100 60" preserveAspectRatio="none" role="img" aria-label="扣成本後的資金曲線"><line x1="0" x2="100" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke"/>${lines.map(l=>`<polyline fill="none" stroke="${l.c}" stroke-width="${l.n==='合計'?2:1.4}" vector-effect="non-scaling-stroke" points="${[[t0,0],...l.pts].map(p=>`${X(p[0])},${Y(p[1])}`).join(' ')}"/>`).join('')}</svg>
+      <div class="eq-leg">${lines.map(l=>`<span><i style="background:${l.c}"></i>${l.n} ${l.pts.length?(l.pts[l.pts.length-1][1]>0?'+':'')+l.pts[l.pts.length-1][1].toFixed(2)+'R':''}</span>`).join('')}<span class="muted">${new Date(t0).toLocaleDateString('zh-TW')} → ${new Date(t1).toLocaleDateString('zh-TW')}</span></div>`; }
+  return `<section class="perf"><h3>實盤表現（扣手續費＋資金費率）</h3>${svg}<div class="perf-grid">${card('trend')}${card('signal')}</div>
+    <p class="hint">成本算法跟回測一樣：每筆扣來回手續費 ${(P.cost.fee*100).toFixed(2)}%×2（市價單）＋持倉期間資金費率每 8 小時 ${(P.cost.fund*100).toFixed(2)}%，換算成 R。滑價沒算，實際可能再差一點。至少 30 筆才看得出跟回測差多少，100 筆以上比較可靠。</p></section>`;
+}
 async function loadStats(){
   const box=$('statsBody');
   if(DataSource.mode!=='live'){ box.innerHTML='<div class="cal-empty">成績單需要後端記錄每個訊號，在你的 Render 網站上會顯示。</div>'; return; }
@@ -583,7 +606,7 @@ async function loadStats(){
     return `<tr><td class="num">${new Date(x.createdAt).toLocaleString('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</td><td><b>${esc(x.sym)}</b> <span class="muted" style="font-size:11px">${x.model==='signal'?'⚡訊號':x.model==='trend'?'📈趨勢':''}</span></td><td><span class="dir ${x.dir>0?'L':'S'}">${x.dir>0?'多':'空'}</span></td>
       <td class="num">${fp(x.entry)}</td><td class="num">${fp(x.stop)}</td><td class="num">${x.model==='trend'?'移動止損':fp(x.target)}</td><td class="num">${x.rr!=null?x.rr.toFixed(2):'—'}</td><td>${res}</td></tr>`; }).join('');
   setTimeout(()=>{ const b=$('exportSig'); if(b) b.onclick=exportSignals; });
-  box.innerHTML=`<div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
+  box.innerHTML=`${perfHtml(s.perf)}<h3 style="margin-top:8px">全部訊號（未扣成本）</h3><div class="tiles">${tile('已結算',s.resolved)}${tile('勝率',pct(s.winRate))}${tile('平均 R',s.avgR==null?'—':(s.avgR>0?'+':'')+s.avgR, s.avgR>0?'pos':s.avgR<0?'neg':'')}${tile('累計 R',(s.totalR>0?'+':'')+s.totalR, s.totalR>0?'pos':s.totalR<0?'neg':'')}${tile('等待進場',s.pending)}${tile('已進場',s.filled)}${tile('錯過 / 過期',s.missed+s.expired)}</div>
     <div class="split">${grp('依策略',s.byModel||[])}${grp('依品質分數',s.byGrade||[])}${grp('依進場區',s.byZone||[])}${grp('依方向',s.byDir)}${grp('依幣種（前 10）',s.bySym)}</div>
     <div><h3>最近的訊號</h3>${s.recent.length?`<div class="tbl-wrap"><table class="mtable"><thead><tr><th>時間</th><th>幣種</th><th>方向</th><th class="num">進場</th><th class="num">止損</th><th class="num">目標</th><th class="num">RR</th><th>結果</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="hint">還沒有訊號。之後每個觸發都會記在這裡。</p>'}</div>
     <div><button class="btn" type="button" id="exportSig">匯出全部訊號紀錄（CSV）</button></div>
